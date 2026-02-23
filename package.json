@@ -11,7 +11,8 @@
     "format": "biome format --write .",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "test": "vitest"
+    "test": "vitest",
+    "db:generate": "drizzle-kit generate"
   },
   "packageManager": "pnpm@10.13.1",
   "pnpm": {
@@ -24,6 +25,7 @@
     "@tailwindcss/postcss": "4.2.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "drizzle-orm": "0.45.1",
     "hono": "4.12.1",
     "lucide-react": "0.575.0",
     "next": "16.1.6",
@@ -46,6 +48,7 @@
     "@types/react-dom": "19.2.3",
     "@vitest/browser-playwright": "^4.0.18",
     "@vitest/coverage-v8": "^4.0.18",
+    "drizzle-kit": "0.31.9",
     "lefthook": "2.1.1",
     "playwright": "^1.58.2",
     "storybook": "^10.2.10",
