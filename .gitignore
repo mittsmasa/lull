@@ -26,5 +26,32 @@ yarn-error.log*
 next-env.d.ts
 *.tsbuildinfo
 
+# storybook
+storybook-static/
+*storybook.log
+
 # plan
 .plan/
+
+# claude code
+.claude/
+
+# ide
+.idea
+.vscode
+
+# claude code sandbox artifacts
+.bash_profile
+.bashrc
+.gitconfig
+.gitmodules
+.profile
+.ripgreprc
+.zprofile
+.zshrc
+.mcp.json
+/HEAD
+/config
+/hooks
+/objects
+/refs

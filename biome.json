@@ -16,7 +16,8 @@
       "**/*.jsx",
       "**/*.json",
       "!.claude",
-      "!.mcp.json"
+      "!.mcp.json",
+      "!storybook-static"
     ]
   },
 
