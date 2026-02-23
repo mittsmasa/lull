@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 type ExampleButtonProps = {
   label: string;
   variant?: "primary" | "secondary";
@@ -13,15 +15,12 @@ export function ExampleButton({
     <button
       type="button"
       onClick={onClick}
-      style={{
-        padding: "8px 16px",
-        borderRadius: "4px",
-        border: "none",
-        cursor: "pointer",
-        fontWeight: "bold",
-        backgroundColor: variant === "primary" ? "#0070f3" : "#eaeaea",
-        color: variant === "primary" ? "#fff" : "#000",
-      }}
+      className={cn(
+        "cursor-pointer rounded-sm border-none px-4 py-2 font-bold",
+        variant === "primary"
+          ? "bg-primary text-primary-foreground"
+          : "bg-secondary text-secondary-foreground",
+      )}
     >
       {label}
     </button>
