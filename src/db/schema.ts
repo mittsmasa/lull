@@ -13,25 +13,74 @@ import {
 // ============================================================
 
 /**
- * users — 管理者・出演者のアカウント
+ * users — 管理者・出演者のアカウント（Better Auth 互換）
  */
 export const users = sqliteTable(
   "users",
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
-    email: text("email"),
-    avatarUrl: text("avatar_url"),
-    authProvider: text("auth_provider").notNull(),
-    authProviderId: text("auth_provider_id").notNull(),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    email: text("email").notNull().unique(),
+    emailVerified: integer("email_verified", { mode: "boolean" }).notNull(),
+    image: text("image"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
-  (t) => [
-    unique("users_auth_provider_unique").on(t.authProvider, t.authProviderId),
-    index("users_email_idx").on(t.email),
-  ],
+  (t) => [index("users_email_idx").on(t.email)],
 );
+
+/**
+ * sessions — Better Auth セッション管理
+ */
+export const sessions = sqliteTable("sessions", {
+  id: text("id").primaryKey(),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  token: text("token").notNull().unique(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+});
+
+/**
+ * accounts — Better Auth OAuth アカウント
+ */
+export const accounts = sqliteTable("accounts", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  idToken: text("id_token"),
+  accessTokenExpiresAt: integer("access_token_expires_at", {
+    mode: "timestamp",
+  }),
+  refreshTokenExpiresAt: integer("refresh_token_expires_at", {
+    mode: "timestamp",
+  }),
+  scope: text("scope"),
+  password: text("password"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+/**
+ * verifications — Better Auth 検証トークン
+ */
+export const verifications = sqliteTable("verifications", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }),
+  updatedAt: integer("updated_at", { mode: "timestamp" }),
+});
 
 /**
  * events — 発表会
@@ -164,6 +213,22 @@ export const checkIns = sqliteTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   eventMembers: many(eventMembers),
+  sessions: many(sessions),
+  accounts: many(accounts),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const accountsRelations = relations(accounts, ({ one }) => ({
+  user: one(users, {
+    fields: [accounts.userId],
+    references: [users.id],
+  }),
 }));
 
 export const eventsRelations = relations(events, ({ many, one }) => ({

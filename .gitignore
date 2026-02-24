@@ -44,6 +44,7 @@ storybook-static/
 *.db
 *.db-journal
 *.db-wal
+*.db-shm
 
 # claude code sandbox artifacts
 .bash_profile
