@@ -13,17 +13,22 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test": "vitest",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "packageManager": "pnpm@10.13.1",
   "pnpm": {
     "onlyBuiltDependencies": [
+      "better-sqlite3",
       "lefthook"
     ]
   },
   "dependencies": {
     "@hono/zod-validator": "0.7.6",
     "@tailwindcss/postcss": "4.2.0",
+    "better-sqlite3": "12.6.2",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.1",
@@ -44,6 +49,7 @@
     "@storybook/addon-docs": "^10.2.10",
     "@storybook/addon-vitest": "^10.2.10",
     "@storybook/nextjs-vite": "^10.2.10",
+    "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.3.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",

@@ -40,6 +40,11 @@ storybook-static/
 .idea
 .vscode
 
+# local sqlite
+*.db
+*.db-journal
+*.db-wal
+
 # claude code sandbox artifacts
 .bash_profile
 .bashrc
