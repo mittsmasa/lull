@@ -68,17 +68,19 @@
 | フィールド | 必須 | 制約 |
 |-----------|:----:|------|
 | イベント名 | ○ | 1〜100 文字 |
-| 開催日（date） | ○ | YYYY-MM-DD 形式。当日以降であること |
-| 開演時刻（startTime） | ○ | HH:mm 形式 |
-| 開場時刻（openTime） | — | HH:mm 形式（任意）。指定する場合は開演時刻（startTime）以前であること（同日内の時刻比較。日をまたぐケースは想定しない） |
+| 開催日 | ○ | YYYY-MM-DD 形式。当日以降であること |
+| 開演時刻 | ○ | HH:mm 形式 |
+| 開場時刻 | — | HH:mm 形式（任意）。指定する場合は開演時刻以前であること（同日内の時刻比較。日をまたぐケースは想定しない） |
 | 会場 | ○ | 1〜200 文字 |
-| 座席数（totalSeats） | ○ | 1〜9999 の整数 |
+| 座席数（totalSeats） | ○ | 0〜9999 の整数。0 は無制限（座席枠チェックをスキップ） |
+
+> **DB 保存形式**: フォーム入力の開催日 + 開演時刻は `startDatetime`（`"YYYY-MM-DDTHH:mm"` 形式）として、開催日 + 開場時刻は `openDatetime`（同形式、nullable）として DB に保存する。DB には `date` / `startTime` / `openTime` の個別カラムは持たない
 
 #### イベント編集ルール（ステータス別）
 
 - **`draft` / `published` で編集可能**: イベント名、会場
-- **条件付き編集可能**: 座席数（totalSeats）— `draft` / `published` で変更可能。accepted 済みゲストが存在する場合（published → draft 差し戻し後を含む）、変更後の値が「現在の座席消費数（accepted 状態のゲスト数 + 同伴者数。無効化済みの accepted を含む）」以上であること。下回る場合はエラーとする
-- **条件付き編集可能**: 開催日・開演時刻・開場時刻 — `draft` / `published` では変更可能、`ongoing` / `finished` では変更不可。編集時も開催日は「当日以降」の制約、開場時刻は「開演時刻以前」の制約を適用する
+- **条件付き編集可能**: 座席数（totalSeats）— `draft` / `published` で変更可能。0（無制限）への変更も可能。0 以外に変更する場合、accepted 済みゲストが存在するときは、変更後の値が「現在の座席消費数（accepted 状態のゲスト数 + 同伴者数。無効化済みの accepted を含む）」以上であること。下回る場合はエラーとする
+- **条件付き編集可能**: 開催日時（startDatetime / openDatetime）— `draft` / `published` では変更可能、`ongoing` / `finished` では変更不可。編集時も開催日は「当日以降」の制約、開場時刻は「開演時刻以前」の制約を適用する
 - **`ongoing` / `finished` ではイベントプロパティの編集を不可とする**（ステータス遷移、招待管理の操作、チェックイン操作は引き続き可能）
 
 #### イベントステータス遷移ルール
@@ -248,6 +250,7 @@ pending ──→ accepted
   ```
   残り枠 = totalSeats − (accepted ゲスト数 + accepted ゲストの同伴者数)
   ```
+  ※ `totalSeats` が 0（無制限）の場合、残り枠チェックはスキップする（常に出席回答を受け付ける）
   ※ `accepted` ゲスト数には無効化済み（`invalidatedAt` あり）の `accepted` も含む。無効化済みでも座席を消費し続ける（セクション 3.5「招待無効化後の出席ステータス」参照）
 - 残り枠が 0 の場合でも、新規招待リンクの発行は可能とする（pending は枠を消費しないため）
 - 既に発行済みの招待リンク（pending 状態）は枠を消費しない（回答時に枠チェック）
@@ -413,9 +416,9 @@ pending ──→ accepted
 
 ### 5.2 ダッシュボードの表示ルール
 
-- 未終了イベント（`draft` / `published` / `ongoing`）は開催日の昇順で表示（直近のイベントが上。過去日の未終了イベントも先頭に表示される）
-- `finished` イベントは一覧の末尾にまとめて表示（開催日の降順＝最近終了したイベントが上）
-- 各イベントカードにはイベント名、開催日時、会場、ステータスバッジを表示
+- 未終了イベント（`draft` / `published` / `ongoing`）は `startDatetime` の昇順で表示（直近のイベントが上。過去日の未終了イベントも先頭に表示される）
+- `finished` イベントは一覧の末尾にまとめて表示（`startDatetime` の降順＝最近終了したイベントが上）
+- 各イベントカードにはイベント名、開催日時（`startDatetime`）、会場、ステータスバッジを表示
 - イベント作成ボタンを画面上部に配置
 
 ### 5.3 画面遷移図
@@ -450,12 +453,79 @@ pending ──→ accepted
 
 ## 6. 技術スタック
 
-- **フロントエンド**: Next.js 16 + React 19 + Tailwind CSS 4
-- **API**: Hono (Next.js Route Handlers 上)
+- **フロントエンド**: Next.js 16 + React 19 + Tailwind CSS 4 + shadcn/ui（new-york スタイル）
+- **API**: Hono（認証ルート `/api/auth/*` と `/api/health` のみ）。データ変更操作は Server Actions で実装する
 - **認証**: Better Auth (Google OAuth)
 - **DB**: SQLite + Drizzle ORM
 - **テスト**: Vitest + Storybook
-- **リンター**: Biome
+- **リンター / フォーマッター**: Biome
+- **パッケージマネージャ**: pnpm（`npx` は使用禁止。`pnpm dlx` を使う）
+
+### 6.1 デザインシステム
+
+[v0-design-aesthetic-guidance](https://github.com/mittsmasa/v0-design-aesthetic-guidance) に準拠する。「余白が、語る。情報を詰め込むのではなく、大切なことだけを、丁寧に届ける」が基本理念。
+
+- **フォント**: `font-sans`（Noto Serif JP）を本文・UI 要素、`font-serif`（Shippori Mincho）を見出し・ロゴに使用
+- **カラー**: 生成り（kinari）ベースの暖色系。primary はテラコッタ、accent はキャメル、foreground は墨色
+- **余白**: 「呼吸する余白」— 密度より間を重視。セクション間は十分な gap を確保
+- **角丸**: `rounded-sm` を基本（過度な丸みはカジュアルになりすぎるため避ける）
+- **タイポグラフィ**: 見出しに `font-serif font-light tracking-wide`、本文に `leading-relaxed`、キャプションに `text-xs tracking-[0.2em] uppercase`
+- **カード**: 情報を詰め込まず、呼吸のある構成。タイトルに `font-serif font-light tracking-wide`
+- **モーション**: 0.2〜0.4秒 ease-out、hover scale は 1.02 以下。派手なアニメーションは非推奨
+- **フォーム**: Label + Input を `flex flex-col gap-2` で縦並び。合成フォームは `rounded-sm border bg-card p-8` + `gap-6`
+
+### 6.2 アーキテクチャ・実装規約
+
+全機能で共通して適用するパターン。
+
+#### データ変更: Server Actions
+
+- データの作成・更新・削除は Server Actions（`"use server"`）で実装する
+- Hono API エンドポイントは認証（`/api/auth/*`）とヘルスチェック（`/api/health`）のみ
+- `src/server/index.ts` には新しいルートを追加しない
+
+#### 認証ヘルパー: `src/lib/session.ts`
+
+- `import "server-only"` でクライアントバンドルへの混入を防止
+- `getSession()`: セッションを取得（未認証なら `null`）
+- `requireSession()`: セッションを取得（未認証ならトップページにリダイレクト）
+- Server Component や Server Action の冒頭で呼び出す
+
+#### データアクセス層: `src/lib/queries/`
+
+- DB クエリは `src/lib/queries/` 配下に server-only 関数として切り出す（ページコンポーネント内で直接 `db.query.*` を呼ばない）
+- cross-table ソートが必要な場合は `db.select().from().innerJoin().orderBy()` パターンを使用する（Drizzle リレーショナルクエリは join 先の `orderBy` をサポートしないため）
+- 返り値には明示的な型を定義し、ページコンポーネントとの契約を明確化する
+
+#### スキーマ規約
+
+- 全テーブルの `id` に `$defaultFn(() => crypto.randomUUID())` で UUID 自動生成
+- `createdAt` に `$defaultFn(() => Date.now())`、`updatedAt` に `$defaultFn(() => Date.now()).$onUpdateFn(() => Date.now())`
+- enum 値は `as const` 配列 + 型エクスポートで定義（例: `EVENT_STATUSES` / `EventStatus`）。Drizzle の `text("col", { enum: ... })` と組み合わせて型安全にする
+- `$defaultFn` / `$onUpdateFn` はアプリケーション層（Drizzle ORM）で動作。SQL の DEFAULT 句は生成されない
+- `$onUpdateFn` は Drizzle の `.update()` 使用時のみ自動実行される
+
+#### フォーム送信: React 19 `useActionState`
+
+- フォーム送信は `useActionState(serverAction, initialState)` で状態管理する
+- Server Action の第 1 引数は `prevState`（`useActionState` 用）、第 2 引数は `FormData`
+- 成功時は Server Action 内で `redirect()` する。失敗時は `{ error: string }` を返す
+
+#### キャッシュ無効化: `revalidatePath()`
+
+- Server Action でデータ変更後、`revalidatePath()` で関連ページのキャッシュを無効化する
+- `redirect()` は内部で例外を throw するため、必ず `revalidatePath()` を `redirect()` より先に呼ぶ
+- 変更の影響を受ける全ページパスを `revalidatePath()` する（例: 一覧ページ + 詳細ページ）
+
+#### ページコンポーネント
+
+- 動的ルートの props 型は Next.js グローバル型 `PageProps<"/path/[param]">` を使用する（import 不要。Next.js が自動生成）
+- ページは Server Component で実装し、インタラクティブな部分のみ Client Component に分離する
+
+#### Storybook
+
+- props ベースで動作する純粋な表示コンポーネントは Storybook ストーリーを作成する
+- Server Action に依存するコンポーネントは Storybook 対象外（必要に応じて後続で追加）
 
 ## 7. 通知・コミュニケーション
 
@@ -475,7 +545,7 @@ pending ──→ accepted
 ### 既存テーブルの変更
 
 - **`events.venue` を NOT NULL に変更** — イベント作成時に必須
-- **`events.startTime` を NOT NULL に変更** — イベント作成時に必須
+- **`events.date` / `events.startTime` / `events.openTime` を削除し、`events.startDatetime` (text, NOT NULL) / `events.openDatetime` (text, nullable) に統合** — `"YYYY-MM-DDTHH:mm"` 形式（JST 固定）。フォーム入力の開催日 + 時刻を結合して保存する
 - **`event_members.allotment` を削除** — 招待枠は出演者ごとではなくイベント共有プール（`events.totalSeats`）で管理する
 - **`event_members.displayName` を NOT NULL に変更** — イベント作成時は `users.name` を初期値として設定。出演者招待時は主催者が入力した表示名を設定する
 - **`invitations.companionCount` を削除** — 同伴者は人数ではなく名前で管理する
@@ -483,10 +553,11 @@ pending ──→ accepted
 - **`invitations.guestEmail` を nullable のまま維持** — 同上。ゲストが回答時に入力する（回答時は必須）
 - **`invitations.memberId` を nullable に変更し、onDelete を `set null` に変更** — 出演者削除時に招待を維持するため
 - **`invitations.status` の値セットを確認** — `pending` / `accepted` / `declined`（default: `pending`）。既存スキーマに定義がない場合は追加する
-- **各テーブルの有効値セット（アプリケーションレベルで制約）**:
+- **各テーブルの有効値セット（Drizzle の text enum オプションで TS 型制約 + アプリケーションレベルで制約）**:
   - `events.status`: `draft` / `published` / `ongoing` / `finished`（default: `draft`）
-  - `event_members.role`: `organizer` / `performer`
+  - `event_members.role`: `organizer` / `performer`（default: `performer`）
   - `programs.type`: `performance` / `intermission` / `greeting` / `other`
+- **`events.totalSeats` のバリデーション範囲を 0〜9999 に変更** — 0 は無制限を表す。座席枠チェック時に `totalSeats === 0` の場合はチェックをスキップする
 - **`invitations.eventId` は既存カラムのため追加不要** — 現行スキーマに既に存在する（text, FK → events.id, NOT NULL, onDelete: cascade）。`memberId` が nullable になっても `eventId` でイベントを特定可能
 - **`invitations.respondedAt` を維持** — ゲストが出欠回答を送信・変更するたびに更新する（最終回答日時として使用。既存カラム）
 - **`invitations` に `inviterDisplayName` (text, NOT NULL) を追加** — 招待発行時の出演者表示名をスナップショットとして保存（出演者削除後も表示するため）
@@ -551,8 +622,9 @@ pending ──→ accepted
 
 ### イベント管理
 
-- **`events.date` / `openTime` / `startTime` の定義**: `date` はイベント開催日（YYYY-MM-DD 形式）、`openTime` は開場時刻、`startTime` は開演時刻（いずれも HH:mm 形式）。`openTime` は任意、`startTime` は必須とする
-- **タイムゾーン**: 日本国内利用を前提とし、JST 固定とする。DB に保存される日付・時刻の値（YYYY-MM-DD、HH:mm）はすべて JST として解釈する
+- **`events.startDatetime` / `events.openDatetime` の定義**: `startDatetime` は開催日+開演時刻（`"YYYY-MM-DDTHH:mm"` 形式、NOT NULL）、`openDatetime` は開催日+開場時刻（同形式、nullable）。フォーム入力では開催日（date）と時刻（time）を別々に受け取り、アプリケーション層で結合して保存する
+- **タイムゾーン**: 日本国内利用を前提とし、JST 固定とする。DB に保存される日時の値（`"YYYY-MM-DDTHH:mm"`）はすべて JST として解釈する
+- **`events.totalSeats` の 0 値**: 0 は無制限を表す。座席枠チェック（出席回答時・座席数変更時）で `totalSeats === 0` の場合はチェックをスキップする
 - **イベント作成/参加の上限**: 初期バージョンでは上限を設けない
 
 ### 招待管理
