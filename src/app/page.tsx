@@ -1,22 +1,23 @@
-"use client";
+import { redirect } from "next/navigation";
+import { SignInButton } from "@/app/_components/sign-in-button";
+import { getSession } from "@/lib/session";
 
-import { authClient } from "@/lib/auth-client";
+export default async function Page() {
+  const session = await getSession();
 
-export default function Page() {
-  const handleSignIn = () => {
-    authClient.signIn.social({ provider: "google" });
-  };
+  if (session) {
+    redirect("/dashboard");
+  }
 
   return (
-    <div className="flex flex-col items-center gap-4 p-8">
-      <h1 className="text-primary text-4xl font-serif">Lull</h1>
-      <button
-        type="button"
-        onClick={handleSignIn}
-        className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-      >
-        Google でサインイン
-      </button>
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8">
+      <h1 className="font-serif text-5xl font-light tracking-wide text-primary">
+        Lull
+      </h1>
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        ピアノ発表会を、もっと美しく
+      </p>
+      <SignInButton />
     </div>
   );
 }
