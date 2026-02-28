@@ -106,7 +106,7 @@ export function EventDetail({ event, currentUserRole }: EventDetailProps) {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8">
       {/* ヘッダー */}
       <div className="flex items-start justify-between">
         <div>
@@ -132,7 +132,7 @@ export function EventDetail({ event, currentUserRole }: EventDetailProps) {
 
       {/* イベント情報 — 閲覧モード */}
       {!isEditing && (
-        <Card className="rounded-sm">
+        <Card>
           <CardContent className="space-y-4 pt-6">
             <div>
               <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground">
@@ -172,89 +172,106 @@ export function EventDetail({ event, currentUserRole }: EventDetailProps) {
 
       {/* イベント情報 — 編集モード */}
       {isEditing && (
-        <form
-          action={editAction}
-          className="rounded-sm border bg-card p-8 space-y-6"
-        >
-          {editState?.error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {editState.error}
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="name">イベント名</Label>
-            <Input
-              type="text"
-              id="name"
-              name="name"
-              required
-              maxLength={100}
-              defaultValue={event.name}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="date">開催日</Label>
+        <div className="rounded-sm border border-border/50 bg-card p-8">
+          <h2 className="mb-6 font-serif text-lg font-light text-foreground">
+            イベント情報を編集
+          </h2>
+
+          <form action={editAction} className="flex flex-col gap-6">
+            {editState?.error && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {editState.error}
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="name">イベント名</Label>
               <Input
-                type="date"
-                id="date"
-                name="date"
+                type="text"
+                id="name"
+                name="name"
                 required
-                defaultValue={event.startDatetime.split("T")[0]}
+                maxLength={100}
+                defaultValue={event.name}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="startTime">開演時刻</Label>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="date">開催日</Label>
+                <Input
+                  type="date"
+                  id="date"
+                  name="date"
+                  required
+                  defaultValue={event.startDatetime.split("T")[0]}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="startTime">開演時刻</Label>
+                <Input
+                  type="time"
+                  id="startTime"
+                  name="startTime"
+                  required
+                  defaultValue={event.startDatetime.split("T")[1]}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="openTime">開場時刻（任意）</Label>
               <Input
                 type="time"
-                id="startTime"
-                name="startTime"
-                required
-                defaultValue={event.startDatetime.split("T")[1]}
+                id="openTime"
+                name="openTime"
+                defaultValue={event.openDatetime?.split("T")[1] ?? ""}
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="openTime">開場時刻（任意）</Label>
-            <Input
-              type="time"
-              id="openTime"
-              name="openTime"
-              defaultValue={event.openDatetime?.split("T")[1] ?? ""}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="venue">会場</Label>
-            <Input
-              type="text"
-              id="venue"
-              name="venue"
-              required
-              maxLength={200}
-              defaultValue={event.venue}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="totalSeats">座席数（0 = 無制限）</Label>
-            <Input
-              type="number"
-              id="totalSeats"
-              name="totalSeats"
-              required
-              min={0}
-              max={9999}
-              defaultValue={event.totalSeats}
-            />
-          </div>
-          <Button type="submit" disabled={isEditPending} className="w-full">
-            {isEditPending ? "更新中..." : "イベントを更新"}
-          </Button>
-        </form>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="venue">会場</Label>
+              <Input
+                type="text"
+                id="venue"
+                name="venue"
+                required
+                maxLength={200}
+                defaultValue={event.venue}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="totalSeats">座席数（0 = 無制限）</Label>
+              <Input
+                type="number"
+                id="totalSeats"
+                name="totalSeats"
+                required
+                min={0}
+                max={9999}
+                defaultValue={event.totalSeats}
+              />
+            </div>
+            <div className="flex gap-4">
+              <Button
+                type="submit"
+                disabled={isEditPending}
+                className="tracking-wider"
+              >
+                {isEditPending ? "更新中..." : "イベントを更新"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="tracking-wider"
+                onClick={() => setIsEditing(false)}
+              >
+                キャンセル
+              </Button>
+            </div>
+          </form>
+        </div>
       )}
 
       {/* ステータス変更（主催者のみ） */}
       {isOrganizer && nextStatuses[event.status].length > 0 && (
-        <Card className="rounded-sm">
+        <Card>
           <CardHeader>
             <CardTitle className="font-light tracking-wide text-lg">
               ステータス変更
@@ -267,6 +284,7 @@ export function EventDetail({ event, currentUserRole }: EventDetailProps) {
                 variant="outline"
                 disabled={isPending}
                 onClick={() => handleStatusChange(next)}
+                className="tracking-wider"
               >
                 {transitionLabels[next]}
               </Button>
@@ -276,23 +294,23 @@ export function EventDetail({ event, currentUserRole }: EventDetailProps) {
       )}
 
       {/* 管理メニュー（後続で実装するページへのリンク） */}
-      <Card className="rounded-sm">
+      <Card>
         <CardHeader>
           <CardTitle className="font-light tracking-wide text-lg">
             管理
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild className="tracking-wider">
             <Link href={`/events/${event.id}/programs`}>プログラム管理</Link>
           </Button>
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild className="tracking-wider">
             <Link href={`/events/${event.id}/members`}>メンバー管理</Link>
           </Button>
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild className="tracking-wider">
             <Link href={`/events/${event.id}/invitations`}>招待管理</Link>
           </Button>
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild className="tracking-wider">
             <Link href={`/events/${event.id}/check-in`}>チェックイン</Link>
           </Button>
         </CardContent>

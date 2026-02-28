@@ -8,5 +8,9 @@ export function SignInButton() {
     authClient.signIn.social({ provider: "google" });
   };
 
-  return <Button onClick={handleSignIn}>Google でサインイン</Button>;
+  return (
+    <Button onClick={handleSignIn} className="tracking-wider">
+      Google でサインイン
+    </Button>
+  );
 }

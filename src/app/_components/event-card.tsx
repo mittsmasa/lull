@@ -40,7 +40,7 @@ type EventCardProps = {
 export function EventCard({ event }: EventCardProps) {
   return (
     <Link href={`/events/${event.id}`}>
-      <Card className="rounded-sm transition-all duration-300 ease-out hover:scale-[1.01] hover:bg-accent/50">
+      <Card className="transition-all duration-300 ease-out hover:scale-[1.01] hover:bg-accent/50">
         <CardHeader className="flex flex-row items-start justify-between">
           <div>
             <CardTitle className="font-light tracking-wide">

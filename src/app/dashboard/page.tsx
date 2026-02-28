@@ -12,7 +12,7 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-4xl px-6 py-12">
       <div className="mb-10 flex items-center justify-between">
         <h1 className="text-2xl font-light tracking-wide">マイイベント</h1>
-        <Button asChild>
+        <Button asChild className="tracking-wider">
           <Link href="/events/new">イベントを作成</Link>
         </Button>
       </div>
@@ -22,7 +22,7 @@ export default async function DashboardPage() {
           イベントがありません。新しいイベントを作成しましょう。
         </p>
       ) : (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           {events.map((event) => (
             <EventCard key={event.id} event={event} />
           ))}
