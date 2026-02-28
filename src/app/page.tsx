@@ -15,7 +15,7 @@ export default async function Page() {
         Lull
       </h1>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        ピアノ発表会を、もっと美しく
+        ひとつの舞台を、もっとあたたかく
       </p>
       <SignInButton />
     </div>
