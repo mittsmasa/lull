@@ -15,6 +15,16 @@ describe("formatDatetime", () => {
   it("UTC (Z) 表記を処理する", () => {
     expect(formatDatetime("2026-03-15T05:00:00Z")).toBe("2026/03/15 05:00");
   });
+
+  it("ミリ秒付き ISO 8601 を処理する", () => {
+    expect(formatDatetime("2026-03-15T14:00:00.000+09:00")).toBe(
+      "2026/03/15 14:00",
+    );
+  });
+
+  it("ミリ秒付き UTC (Z) を処理する", () => {
+    expect(formatDatetime("2026-03-15T05:00:00.000Z")).toBe("2026/03/15 05:00");
+  });
 });
 
 describe("formatDate", () => {

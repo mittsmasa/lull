@@ -6,8 +6,8 @@
 export function formatDatetime(datetime: string): string {
   // タイムゾーン情報を除去（+HH:MM, Z 等）
   const withoutTz = datetime.replace(/([+-]\d{2}:\d{2}|Z)$/, "");
-  // 秒を除去（HH:mm:ss → HH:mm）
-  const withoutSeconds = withoutTz.replace(/(\d{2}:\d{2}):\d{2}/, "$1");
+  // ミリ秒・秒を除去（HH:mm:ss.sss → HH:mm）
+  const withoutSeconds = withoutTz.replace(/(\d{2}:\d{2}):\d{2}(\.\d+)?/, "$1");
   // "YYYY-MM-DDTHH:mm" → "YYYY/MM/DD HH:mm"
   return withoutSeconds.replace(
     /^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})$/,

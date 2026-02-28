@@ -24,32 +24,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EventStatus, MemberRole } from "@/db/schema";
+import {
+  statusLabels,
+  statusVariants,
+  transitionLabels,
+} from "@/lib/event-status";
 import { formatDatetime } from "@/lib/format";
-
-const statusLabels: Record<EventStatus, string> = {
-  draft: "下書き",
-  published: "公開中",
-  ongoing: "開催中",
-  finished: "終了",
-};
-
-const statusVariants: Record<
-  EventStatus,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  draft: "outline",
-  published: "default",
-  ongoing: "secondary",
-  finished: "outline",
-};
-
-/** ステータス遷移ボタンのラベル */
-const transitionLabels: Record<EventStatus, string> = {
-  draft: "下書きに戻す",
-  published: "公開する",
-  ongoing: "開催を開始",
-  finished: "終了する",
-};
 
 type EventDetailProps = {
   event: {
