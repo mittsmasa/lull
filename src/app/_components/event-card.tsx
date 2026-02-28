@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { EventStatus } from "@/db/schema";
+import type { EventStatus, MemberRole } from "@/db/schema";
 import { formatDatetime } from "@/lib/format";
 
 const statusLabels: Record<EventStatus, string> = {
@@ -33,7 +33,7 @@ type EventCardProps = {
     startDatetime: string;
     venue: string;
     status: EventStatus;
-    role: string;
+    role: MemberRole;
   };
 };
 

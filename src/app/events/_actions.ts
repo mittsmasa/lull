@@ -203,7 +203,7 @@ export async function updateEvent(
   const { date, startTime, openTime, ...rest } = parsed.data;
 
   // datetime 結合（変更があるフィールドのみ）
-  const updateData: Record<string, unknown> = {};
+  const updateData: Partial<typeof events.$inferInsert> = {};
 
   if (rest.name !== undefined) updateData.name = rest.name;
   if (rest.venue !== undefined) updateData.venue = rest.venue;
@@ -227,8 +227,7 @@ export async function updateEvent(
   }
 
   // 開催日バリデーション（JST 基準）
-  const finalStartDatetime =
-    (updateData.startDatetime as string) ?? event.startDatetime;
+  const finalStartDatetime = updateData.startDatetime ?? event.startDatetime;
   const finalDate = finalStartDatetime.split("T")[0];
   // UTC ミリ秒に +9h して toISOString() で JST 日付文字列を取得
   const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -240,7 +239,7 @@ export async function updateEvent(
   // openDatetime バリデーション（startDatetime 以前）
   const finalOpenDatetime =
     updateData.openDatetime !== undefined
-      ? (updateData.openDatetime as string | null)
+      ? updateData.openDatetime
       : event.openDatetime;
   if (finalOpenDatetime && finalOpenDatetime > finalStartDatetime) {
     return { error: "開場時刻は開演時刻以前にしてください" };

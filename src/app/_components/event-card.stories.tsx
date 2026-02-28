@@ -14,7 +14,7 @@ const baseEvent = {
   startDatetime: "2026-04-15T14:00",
   venue: "○○市民ホール",
   status: "draft" as const,
-  role: "organizer",
+  role: "organizer" as const,
 };
 
 export const Default: Story = {

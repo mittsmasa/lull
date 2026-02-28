@@ -101,7 +101,10 @@ export function EventDetail({ event, currentUserRole }: EventDetailProps) {
 
   const handleDelete = () => {
     startTransition(async () => {
-      await deleteEvent(event.id);
+      const result = await deleteEvent(event.id);
+      if (result?.error) {
+        setError(result.error);
+      }
     });
   };
 

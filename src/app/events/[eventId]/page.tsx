@@ -3,12 +3,10 @@ import { EventDetail } from "@/app/_components/event-detail";
 import { getEventDetail, getEventMembership } from "@/lib/queries/events";
 import { requireSession } from "@/lib/session";
 
-export default async function EventDetailPage({
-  params,
-}: {
-  params: Promise<{ eventId: string }>;
-}) {
-  const { eventId } = await params;
+export default async function EventDetailPage(
+  props: PageProps<"/events/[eventId]">,
+) {
+  const { eventId } = await props.params;
   const session = await requireSession();
 
   const member = await getEventMembership(eventId, session.user.id);
