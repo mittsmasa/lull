@@ -43,14 +43,6 @@ const statusVariants: Record<
   finished: "outline",
 };
 
-/** 現在のステータスから遷移可能なステータス一覧 */
-const nextStatuses: Record<EventStatus, EventStatus[]> = {
-  draft: ["published"],
-  published: ["draft", "ongoing"],
-  ongoing: ["finished"],
-  finished: [],
-};
-
 /** ステータス遷移ボタンのラベル */
 const transitionLabels: Record<EventStatus, string> = {
   draft: "下書きに戻す",
@@ -76,9 +68,14 @@ type EventDetailProps = {
     }>;
   };
   currentUserRole: MemberRole;
+  availableTransitions: EventStatus[];
 };
 
-export function EventDetail({ event, currentUserRole }: EventDetailProps) {
+export function EventDetail({
+  event,
+  currentUserRole,
+  availableTransitions,
+}: EventDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -273,7 +270,7 @@ export function EventDetail({ event, currentUserRole }: EventDetailProps) {
       )}
 
       {/* ステータス変更（主催者のみ） */}
-      {isOrganizer && nextStatuses[event.status].length > 0 && (
+      {isOrganizer && availableTransitions.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="font-light tracking-wide text-lg">
@@ -281,7 +278,7 @@ export function EventDetail({ event, currentUserRole }: EventDetailProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex gap-3">
-            {nextStatuses[event.status].map((next) => (
+            {availableTransitions.map((next) => (
               <Button
                 key={next}
                 variant="outline"

@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import * as z from "zod";
 import { db } from "@/db";
-import { type EventStatus, eventMembers, events } from "@/db/schema";
+import {
+  type EventStatus,
+  eventMembers,
+  events,
+  VALID_TRANSITIONS,
+} from "@/db/schema";
 import { requireSession } from "@/lib/session";
 
 // ============================================================
@@ -46,14 +51,6 @@ const updateEventSchema = z.object({
 // ============================================================
 // ステータス遷移マップ（型安全）
 // ============================================================
-
-/** 有効なステータス遷移マップ */
-const VALID_TRANSITIONS: Record<EventStatus, readonly EventStatus[]> = {
-  draft: ["published"],
-  published: ["draft", "ongoing"],
-  ongoing: ["finished"],
-  finished: [],
-} as const;
 
 function canTransition(from: EventStatus, to: EventStatus): boolean {
   return VALID_TRANSITIONS[from].includes(to);

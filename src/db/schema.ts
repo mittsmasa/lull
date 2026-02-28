@@ -21,6 +21,14 @@ export const EVENT_STATUSES = [
 ] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
+/** 有効なステータス遷移マップ */
+export const VALID_TRANSITIONS: Record<EventStatus, readonly EventStatus[]> = {
+  draft: ["published"],
+  published: ["draft", "ongoing"],
+  ongoing: ["finished"],
+  finished: [],
+} as const;
+
 export const MEMBER_ROLES = ["organizer", "performer"] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
 
