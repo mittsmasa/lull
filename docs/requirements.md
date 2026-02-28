@@ -505,6 +505,12 @@ pending ──→ accepted
 - `$defaultFn` / `$onUpdateFn` はアプリケーション層（Drizzle ORM）で動作。SQL の DEFAULT 句は生成されない
 - `$onUpdateFn` は Drizzle の `.update()` 使用時のみ自動実行される
 
+#### SQLite (better-sqlite3) + Drizzle ORM の注意事項
+
+- **`db.transaction()` に async 関数を渡してはいけない**: better-sqlite3 は同期ドライバのため、`db.transaction(async (tx) => { ... })` は `Transaction function cannot return a promise` エラーになる
+- **Server Actions でのトランザクション回避策**: Server Actions は async 関数のため、`db.transaction()` の同期コールバックとの相性が悪い。複数の INSERT が必要な場合は、トランザクションを使わず順次 `await` で実行する（SQLite は単一ライター・単一ファイルのため、実質的に安全）
+- **本番（Cloudflare D1）では非同期トランザクションが使えるため、D1 移行時にトランザクションの導入を検討する**
+
 #### フォーム送信: React 19 `useActionState`
 
 - フォーム送信は `useActionState(serverAction, initialState)` で状態管理する

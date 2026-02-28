@@ -9,6 +9,30 @@ import {
 } from "drizzle-orm/sqlite-core";
 
 // ============================================================
+// 型定数
+// ============================================================
+
+// enum 値を定数として定義（スキーマとアプリ全体で共有）
+export const EVENT_STATUSES = [
+  "draft",
+  "published",
+  "ongoing",
+  "finished",
+] as const;
+export type EventStatus = (typeof EVENT_STATUSES)[number];
+
+/** 有効なステータス遷移マップ */
+export const VALID_TRANSITIONS: Record<EventStatus, readonly EventStatus[]> = {
+  draft: ["published"],
+  published: ["draft", "ongoing"],
+  ongoing: ["finished"],
+  finished: [],
+} as const;
+
+export const MEMBER_ROLES = ["organizer", "performer"] as const;
+export type MemberRole = (typeof MEMBER_ROLES)[number];
+
+// ============================================================
 // テーブル定義
 // ============================================================
 
@@ -86,18 +110,23 @@ export const verifications = sqliteTable("verifications", {
  * events — 発表会
  */
 export const events = sqliteTable("events", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
-  description: text("description"),
-  venue: text("venue"),
-  date: text("date").notNull(),
-  openTime: text("open_time"),
-  startTime: text("start_time"),
-  status: text("status").notNull().default("draft"),
+  venue: text("venue").notNull(),
+  startDatetime: text("start_datetime").notNull(),
+  openDatetime: text("open_datetime"),
+  status: text("status", { enum: EVENT_STATUSES }).notNull().default("draft"),
   totalSeats: integer("total_seats").notNull(),
   currentProgramId: text("current_program_id"),
-  createdAt: integer("created_at").notNull(),
-  updatedAt: integer("updated_at").notNull(),
+  createdAt: integer("created_at")
+    .notNull()
+    .$defaultFn(() => Date.now()),
+  updatedAt: integer("updated_at")
+    .notNull()
+    .$defaultFn(() => Date.now())
+    .$onUpdateFn(() => Date.now()),
 });
 
 /**
@@ -106,18 +135,24 @@ export const events = sqliteTable("events", {
 export const eventMembers = sqliteTable(
   "event_members",
   {
-    id: text("id").primaryKey(),
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     eventId: text("event_id")
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    role: text("role").notNull(),
-    allotment: integer("allotment").notNull(),
-    displayName: text("display_name"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    role: text("role", { enum: MEMBER_ROLES }).notNull().default("performer"),
+    displayName: text("display_name").notNull(),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(() => Date.now()),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
   (t) => [
     unique("event_members_event_user_unique").on(t.eventId, t.userId),
