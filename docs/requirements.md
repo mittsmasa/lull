@@ -473,6 +473,7 @@ pending ──→ accepted
 - **カード**: 情報を詰め込まず、呼吸のある構成。タイトルに `font-serif font-light tracking-wide`
 - **モーション**: 0.2〜0.4秒 ease-out、hover scale は 1.02 以下。派手なアニメーションは非推奨
 - **フォーム**: Label + Input を `flex flex-col gap-2` で縦並び。合成フォームは `rounded-sm border bg-card p-8` + `gap-6`
+- **アイコン**: Phosphor Icons（`@phosphor-icons/react`）を使用。ウェイトは `light` を基本とし、アクティブ状態や強調には `regular` を使用する。アイコンは最小限に留め、「アイコンがなくても伝わる」ことを優先する。サイズは `size-4`〜`size-5`（16〜20px）、色は `text-muted-foreground` を基本とする
 
 ### 6.2 アーキテクチャ・実装規約
 

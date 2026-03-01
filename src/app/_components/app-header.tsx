@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Menu } from "lucide-react";
+import { ArrowLeft, List } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useHeaderConfig } from "@/app/_components/header-config";
@@ -25,7 +25,7 @@ export function AppHeader() {
               aria-label="戻る"
               className="text-muted-foreground transition-transform duration-200 hover:-translate-x-0.5"
             >
-              <ArrowLeft className="size-5" />
+              <ArrowLeft weight="light" className="size-5" />
             </Button>
           )}
         </div>
@@ -46,7 +46,7 @@ export function AppHeader() {
             aria-label="メニュー"
             className="text-muted-foreground"
           >
-            <Menu className="size-5" />
+            <List weight="light" className="size-5" />
           </Button>
         </div>
       </div>

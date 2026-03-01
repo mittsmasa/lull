@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, LogOut, Plus } from "lucide-react";
+import { House, Plus, SignOut } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -12,7 +12,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 
 const navItems = [
-  { href: "/dashboard", label: "ホーム", icon: Home },
+  { href: "/dashboard", label: "ホーム", icon: House },
   { href: "/events/new", label: "イベントを作成", icon: Plus },
   // { href: "/settings", label: "設定", icon: Settings },
 ] as const;
@@ -54,20 +54,20 @@ export function NavigationSheet({ open, onOpenChange }: NavigationSheetProps) {
                     : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
                 }`}
               >
-                <Icon className="size-4" />
+                <Icon weight="light" className="size-4" />
                 {label}
               </Link>
             );
           })}
         </nav>
 
-        <div className="mt-auto border-t pt-4">
+        <div className="mt-auto border-t py-4">
           <button
             type="button"
             onClick={handleSignOut}
             className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors duration-200 hover:bg-accent/30 hover:text-foreground"
           >
-            <LogOut className="size-4" />
+            <SignOut weight="light" className="size-4" />
             ログアウト
           </button>
         </div>
