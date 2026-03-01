@@ -2,7 +2,7 @@
 
 import { Home, LogOut, Plus } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -24,9 +24,11 @@ type NavigationSheetProps = {
 
 export function NavigationSheet({ open, onOpenChange }: NavigationSheetProps) {
   const pathname = usePathname();
+  const router = useRouter();
 
-  const handleSignOut = () => {
-    authClient.signOut();
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    router.push("/");
   };
 
   return (
