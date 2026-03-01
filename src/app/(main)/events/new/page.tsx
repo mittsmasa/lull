@@ -1,4 +1,5 @@
 import { CreateEventForm } from "@/app/_components/create-event-form";
+import { HeaderConfig } from "@/app/_components/header-config";
 import { requireSession } from "@/lib/session";
 
 export default async function NewEventPage() {
@@ -6,6 +7,7 @@ export default async function NewEventPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
+      <HeaderConfig showBackButton />
       <h1 className="mb-10 text-2xl font-light tracking-wide">
         イベントを作成
       </h1>

@@ -6,7 +6,7 @@ import {
   deleteEvent,
   updateEvent,
   updateEventStatus,
-} from "@/app/events/_actions";
+} from "@/app/(main)/events/_actions";
 import {
   AlertDialog,
   AlertDialogAction,

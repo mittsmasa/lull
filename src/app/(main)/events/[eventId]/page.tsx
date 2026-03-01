@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { EventDetail } from "@/app/_components/event-detail";
+import { HeaderConfig } from "@/app/_components/header-config";
 import { VALID_TRANSITIONS } from "@/db/schema";
 import { getEventDetail, getEventMembership } from "@/lib/queries/events";
 import { requireSession } from "@/lib/session";
@@ -24,6 +25,7 @@ export default async function EventDetailPage(
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
+      <HeaderConfig showBackButton />
       <EventDetail
         event={event}
         currentUserRole={member.role}
