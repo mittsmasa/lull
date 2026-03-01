@@ -61,7 +61,7 @@ export function NavigationSheet({ open, onOpenChange }: NavigationSheetProps) {
           })}
         </nav>
 
-        <div className="mt-auto border-t pt-4">
+        <div className="mt-auto border-t py-4">
           <button
             type="button"
             onClick={handleSignOut}
