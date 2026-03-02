@@ -26,7 +26,10 @@ export default async function MembersPage(
   }
 
   const members = await getEventMembers(eventId);
-  const invitations = await getPerformerInvitations(eventId);
+  const invitations =
+    membership.role === "organizer"
+      ? await getPerformerInvitations(eventId)
+      : [];
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">

@@ -27,8 +27,12 @@ export function InvitePerformerForm({ eventId }: { eventId: string }) {
       } else if (result && "token" in result) {
         setError(null);
         const url = `${window.location.origin}/join/${result.token}`;
-        await navigator.clipboard.writeText(url);
-        setCopied(true);
+        try {
+          await navigator.clipboard.writeText(url);
+          setCopied(true);
+        } catch {
+          setError(`クリップボードへのコピーに失敗しました。URL: ${url}`);
+        }
         formRef.current?.reset();
       }
     });

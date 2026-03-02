@@ -9,17 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import type { EventStatus } from "@/db/schema";
+import type { EventStatus, PerformerInvitationStatus } from "@/db/schema";
 import type { PerformerInvitationItem } from "@/lib/queries/members";
 
-const invitationStatusLabels: Record<string, string> = {
+const invitationStatusLabels: Record<PerformerInvitationStatus, string> = {
   pending: "未承認",
   accepted: "承認済み",
   invalidated: "無効",
 };
 
 const invitationStatusVariants: Record<
-  string,
+  PerformerInvitationStatus,
   "default" | "secondary" | "destructive" | "outline"
 > = {
   pending: "outline",

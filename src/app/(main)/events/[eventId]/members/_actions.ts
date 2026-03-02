@@ -90,19 +90,30 @@ export async function createPerformerInvitation(
     };
   }
 
-  // トークン生成
-  const token = crypto.randomBytes(16).toString("base64url");
+  // トークン生成（衝突時は最大3回リトライ）
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const token = crypto.randomBytes(16).toString("base64url");
+    try {
+      await db.insert(performerInvitations).values({
+        eventId,
+        token,
+        displayName: parsed.data,
+      });
+      revalidatePath(`/events/${eventId}/members`);
+      return { token };
+    } catch (e) {
+      const isUniqueViolation =
+        e instanceof Error && e.message.includes("UNIQUE constraint");
+      if (!isUniqueViolation || attempt === 2) {
+        return {
+          error: "招待リンクの発行に失敗しました",
+          fields: { displayName },
+        };
+      }
+    }
+  }
 
-  // INSERT
-  await db.insert(performerInvitations).values({
-    eventId,
-    token,
-    displayName: parsed.data,
-  });
-
-  revalidatePath(`/events/${eventId}/members`);
-
-  return { token };
+  return { error: "招待リンクの発行に失敗しました", fields: { displayName } };
 }
 
 /**
