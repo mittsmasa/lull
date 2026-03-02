@@ -1,0 +1,1 @@
+DROP INDEX `performer_invitations_token_idx`;
