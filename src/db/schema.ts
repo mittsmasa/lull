@@ -32,6 +32,14 @@ export const VALID_TRANSITIONS: Record<EventStatus, readonly EventStatus[]> = {
 export const MEMBER_ROLES = ["organizer", "performer"] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
 
+export const PERFORMER_INVITATION_STATUSES = [
+  "pending",
+  "accepted",
+  "invalidated",
+] as const;
+export type PerformerInvitationStatus =
+  (typeof PERFORMER_INVITATION_STATUSES)[number];
+
 // ============================================================
 // テーブル定義
 // ============================================================
@@ -242,6 +250,38 @@ export const checkIns = sqliteTable(
   ],
 );
 
+/**
+ * performer_invitations — 出演者招待
+ */
+export const performerInvitations = sqliteTable(
+  "performer_invitations",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    eventId: text("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    displayName: text("display_name").notNull(),
+    status: text("status", { enum: PERFORMER_INVITATION_STATUSES })
+      .notNull()
+      .default("pending"),
+    acceptedByUserId: text("accepted_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    acceptedAt: integer("accepted_at"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(() => Date.now()),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
+  },
+  (t) => [index("performer_invitations_event_id_idx").on(t.eventId)],
+);
+
 // ============================================================
 // リレーション定義
 // ============================================================
@@ -250,6 +290,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   eventMembers: many(eventMembers),
   sessions: many(sessions),
   accounts: many(accounts),
+  performerInvitations: many(performerInvitations),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -270,6 +311,7 @@ export const eventsRelations = relations(events, ({ many, one }) => ({
   eventMembers: many(eventMembers),
   invitations: many(invitations),
   programs: many(programs),
+  performerInvitations: many(performerInvitations),
   currentProgram: one(programs, {
     fields: [events.currentProgramId],
     references: [programs.id],
@@ -328,3 +370,17 @@ export const checkInsRelations = relations(checkIns, ({ one }) => ({
     references: [eventMembers.id],
   }),
 }));
+
+export const performerInvitationsRelations = relations(
+  performerInvitations,
+  ({ one }) => ({
+    event: one(events, {
+      fields: [performerInvitations.eventId],
+      references: [events.id],
+    }),
+    acceptedByUser: one(users, {
+      fields: [performerInvitations.acceptedByUserId],
+      references: [users.id],
+    }),
+  }),
+);
