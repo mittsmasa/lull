@@ -48,10 +48,14 @@ export function PerformerInvitationList({
 
   const handleCopy = useCallback(
     async (invitationId: string, token: string) => {
-      const url = `${window.location.origin}/join/${token}`;
-      await navigator.clipboard.writeText(url);
-      setCopiedId(invitationId);
-      setTimeout(() => setCopiedId(null), 2000);
+      try {
+        const url = `${window.location.origin}/join/${token}`;
+        await navigator.clipboard.writeText(url);
+        setCopiedId(invitationId);
+        setTimeout(() => setCopiedId(null), 2000);
+      } catch {
+        setError("クリップボードへのコピーに失敗しました");
+      }
     },
     [],
   );

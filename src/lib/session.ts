@@ -31,11 +31,14 @@ export async function requireSession(returnTo?: string): Promise<Session> {
 /**
  * returnTo パラメータのバリデーション（オープンリダイレクト防止）
  */
-export function validateReturnTo(returnTo: string | undefined): string {
-  if (!returnTo) return "/dashboard";
+export function validateReturnTo(
+  returnTo: string | string[] | undefined,
+): string {
+  const value = Array.isArray(returnTo) ? returnTo[0] : returnTo;
+  if (!value) return "/dashboard";
   // 相対パスのみ許可（オープンリダイレクト防止）
-  if (returnTo.startsWith("/") && !returnTo.startsWith("//")) {
-    return returnTo;
+  if (value.startsWith("/") && !value.startsWith("//")) {
+    return value;
   }
   return "/dashboard";
 }

@@ -2,9 +2,7 @@ import { redirect } from "next/navigation";
 import { SignInButton } from "@/app/_components/sign-in-button";
 import { getSession, validateReturnTo } from "@/lib/session";
 
-export default async function Page(props: {
-  searchParams: Promise<{ returnTo?: string }>;
-}) {
+export default async function Page(props: PageProps<"/">) {
   const session = await getSession();
   const { returnTo } = await props.searchParams;
   const callbackURL = validateReturnTo(returnTo);

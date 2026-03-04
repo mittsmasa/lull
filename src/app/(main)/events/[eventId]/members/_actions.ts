@@ -17,7 +17,7 @@ import { requireSession } from "@/lib/session";
 // Zod バリデーションスキーマ
 // ============================================================
 
-const displayNameSchema = z.string().min(1).max(50);
+const displayNameSchema = z.string().trim().min(1).max(50);
 
 // ============================================================
 // 型定義

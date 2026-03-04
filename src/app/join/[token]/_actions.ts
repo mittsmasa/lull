@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { eventMembers, performerInvitations } from "@/db/schema";
 import { requireSession } from "@/lib/session";
 
-const displayNameSchema = z.string().min(1).max(50);
+const displayNameSchema = z.string().trim().min(1).max(50);
 
 export async function acceptPerformerInvitation(
   token: string,
