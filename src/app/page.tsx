@@ -1,12 +1,16 @@
 import { redirect } from "next/navigation";
 import { SignInButton } from "@/app/_components/sign-in-button";
-import { getSession } from "@/lib/session";
+import { getSession, validateReturnTo } from "@/lib/session";
 
-export default async function Page() {
+export default async function Page(props: {
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
   const session = await getSession();
+  const { returnTo } = await props.searchParams;
+  const callbackURL = validateReturnTo(returnTo);
 
   if (session) {
-    redirect("/dashboard");
+    redirect(callbackURL);
   }
 
   return (
@@ -17,7 +21,7 @@ export default async function Page() {
       <p className="text-sm leading-relaxed text-muted-foreground">
         ひとつの舞台を、もっとあたたかく
       </p>
-      <SignInButton />
+      <SignInButton callbackURL={callbackURL} />
     </div>
   );
 }

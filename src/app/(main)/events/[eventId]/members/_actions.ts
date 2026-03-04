@@ -234,6 +234,16 @@ export async function removeMember(
     };
   }
 
+  // メンバーに対応する出演者招待（accepted）も削除
+  await db
+    .delete(performerInvitations)
+    .where(
+      and(
+        eq(performerInvitations.eventId, eventId),
+        eq(performerInvitations.acceptedByUserId, target.userId),
+      ),
+    );
+
   // DELETE
   await db
     .delete(eventMembers)
