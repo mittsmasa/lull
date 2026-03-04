@@ -40,6 +40,23 @@ export type EventForMemberManagement = {
   status: EventStatus;
 };
 
+/** /join/[token] ページで使用する招待情報 */
+export type PerformerInvitationForJoin = {
+  id: string;
+  token: string;
+  displayName: string;
+  status: PerformerInvitationStatus;
+  acceptedByUserId: string | null;
+  event: {
+    id: string;
+    name: string;
+    venue: string;
+    startDatetime: string;
+    openDatetime: string | null;
+    status: EventStatus;
+  };
+};
+
 // ----- クエリ関数 -----
 
 /**
@@ -100,4 +117,38 @@ export async function getPerformerInvitations(
     acceptedByUserId: inv.acceptedByUserId,
     createdAt: inv.createdAt,
   }));
+}
+
+/**
+ * トークンから出演者招待情報を取得（/join/[token] ページ用）
+ */
+export async function getPerformerInvitationByToken(
+  token: string,
+): Promise<PerformerInvitationForJoin | undefined> {
+  const invitation = await db.query.performerInvitations.findFirst({
+    where: eq(performerInvitations.token, token),
+    with: {
+      event: {
+        columns: {
+          id: true,
+          name: true,
+          venue: true,
+          startDatetime: true,
+          openDatetime: true,
+          status: true,
+        },
+      },
+    },
+  });
+
+  if (!invitation) return undefined;
+
+  return {
+    id: invitation.id,
+    token: invitation.token,
+    displayName: invitation.displayName,
+    status: invitation.status,
+    acceptedByUserId: invitation.acceptedByUserId,
+    event: invitation.event,
+  };
 }

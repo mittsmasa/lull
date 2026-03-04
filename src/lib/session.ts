@@ -17,10 +17,28 @@ export async function getSession(): Promise<Session | null> {
 /**
  * セッションを取得（未認証ならトップページにリダイレクト）
  */
-export async function requireSession(): Promise<Session> {
+export async function requireSession(returnTo?: string): Promise<Session> {
   const session = await getSession();
   if (!session) {
-    redirect("/");
+    const target = returnTo
+      ? `/?returnTo=${encodeURIComponent(returnTo)}`
+      : "/";
+    redirect(target);
   }
   return session;
+}
+
+/**
+ * returnTo パラメータのバリデーション（オープンリダイレクト防止）
+ */
+export function validateReturnTo(
+  returnTo: string | string[] | undefined,
+): string {
+  const value = Array.isArray(returnTo) ? returnTo[0] : returnTo;
+  if (!value) return "/dashboard";
+  // 相対パスのみ許可（オープンリダイレクト防止）
+  if (value.startsWith("/") && !value.startsWith("//")) {
+    return value;
+  }
+  return "/dashboard";
 }

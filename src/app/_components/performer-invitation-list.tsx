@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import {
   deletePerformerInvitation,
   invalidatePerformerInvitation,
@@ -38,12 +38,27 @@ export function PerformerInvitationList({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const canInvalidate =
     eventStatus === "draft" ||
     eventStatus === "published" ||
     eventStatus === "ongoing";
+
+  const handleCopy = useCallback(
+    async (invitationId: string, token: string) => {
+      try {
+        const url = `${window.location.origin}/join/${token}`;
+        await navigator.clipboard.writeText(url);
+        setCopiedId(invitationId);
+        setTimeout(() => setCopiedId(null), 2000);
+      } catch {
+        setError("クリップボードへのコピーに失敗しました");
+      }
+    },
+    [],
+  );
 
   const handleInvalidate = (invitationId: string) => {
     setPendingId(invitationId);
@@ -95,6 +110,15 @@ export function PerformerInvitationList({
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
+                {inv.status === "pending" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopy(inv.id, inv.token)}
+                  >
+                    {copiedId === inv.id ? "コピーしました" : "リンクをコピー"}
+                  </Button>
+                )}
                 {canInvalidate && inv.status === "pending" && (
                   <Button
                     variant="outline"

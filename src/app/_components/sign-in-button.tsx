@@ -3,9 +3,16 @@
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
-export function SignInButton() {
+type SignInButtonProps = {
+  callbackURL?: string;
+};
+
+export function SignInButton({ callbackURL }: SignInButtonProps) {
   const handleSignIn = () => {
-    authClient.signIn.social({ provider: "google" });
+    authClient.signIn.social({
+      provider: "google",
+      callbackURL: callbackURL ?? "/dashboard",
+    });
   };
 
   return (

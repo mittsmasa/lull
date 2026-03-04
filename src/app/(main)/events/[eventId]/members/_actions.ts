@@ -17,7 +17,7 @@ import { requireSession } from "@/lib/session";
 // Zod バリデーションスキーマ
 // ============================================================
 
-const displayNameSchema = z.string().min(1).max(50);
+const displayNameSchema = z.string().trim().min(1).max(50);
 
 // ============================================================
 // 型定義
@@ -233,6 +233,16 @@ export async function removeMember(
         "このメンバーはプログラムに紐づいているため削除できません。先にプログラムからメンバーの割り当てを解除してください。",
     };
   }
+
+  // メンバーに対応する出演者招待（accepted）も削除
+  await db
+    .delete(performerInvitations)
+    .where(
+      and(
+        eq(performerInvitations.eventId, eventId),
+        eq(performerInvitations.acceptedByUserId, target.userId),
+      ),
+    );
 
   // DELETE
   await db
