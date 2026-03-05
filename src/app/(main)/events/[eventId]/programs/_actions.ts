@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { db } from "@/db";
@@ -115,6 +115,24 @@ async function checkProgramPermission(
   return { memberId: member.id };
 }
 
+async function validatePerformerIds(
+  eventId: string,
+  performerIds: string[],
+): Promise<string | null> {
+  if (performerIds.length === 0) return null;
+
+  const members = await db.query.eventMembers.findMany({
+    where: eq(eventMembers.eventId, eventId),
+    columns: { id: true },
+  });
+  const validIds = new Set(members.map((m) => m.id));
+  const invalid = performerIds.filter((id) => !validIds.has(id));
+  if (invalid.length > 0) {
+    return "無効な出演者が含まれています";
+  }
+  return null;
+}
+
 // ============================================================
 // Server Actions
 // ============================================================
@@ -146,10 +164,22 @@ export async function createProgram(
 
   const { performerIds, pieces, ...programData } = parsed.data;
 
+  const performerError = await validatePerformerIds(eventId, performerIds);
+  if (performerError) {
+    return { error: performerError };
+  }
+
   db.transaction((tx) => {
+    const maxOrder = tx
+      .select({ value: max(programs.sortOrder) })
+      .from(programs)
+      .where(eq(programs.eventId, eventId))
+      .get();
+    const nextSortOrder = (maxOrder?.value ?? 0) + 1;
+
     const result = tx
       .insert(programs)
-      .values({ eventId, sortOrder: 0, ...programData })
+      .values({ eventId, sortOrder: nextSortOrder, ...programData })
       .returning({ id: programs.id })
       .get();
 
@@ -214,6 +244,11 @@ export async function updateProgram(
   }
 
   const { performerIds, pieces, ...programData } = parsed.data;
+
+  const performerError = await validatePerformerIds(eventId, performerIds);
+  if (performerError) {
+    return { error: performerError };
+  }
 
   db.transaction((tx) => {
     tx.update(programs)

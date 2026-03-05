@@ -153,7 +153,13 @@ export function ProgramForm({
           <Select
             name="type"
             value={selectedType}
-            onValueChange={(v) => setSelectedType(v as ProgramType)}
+            onValueChange={(v) => {
+              const newType = v as ProgramType;
+              setSelectedType(newType);
+              if (newType !== "performance") {
+                setPieces((prev) => [prev[0]]);
+              }
+            }}
           >
             <SelectTrigger id="type">
               <SelectValue />
