@@ -32,6 +32,21 @@ export const VALID_TRANSITIONS: Record<EventStatus, readonly EventStatus[]> = {
 export const MEMBER_ROLES = ["organizer", "performer"] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
 
+export const PROGRAM_TYPES = [
+  "performance",
+  "intermission",
+  "greeting",
+  "other",
+] as const;
+export type ProgramType = (typeof PROGRAM_TYPES)[number];
+
+export const PROGRAM_TYPE_LABELS: Record<ProgramType, string> = {
+  performance: "演奏",
+  intermission: "休憩",
+  greeting: "あいさつ",
+  other: "その他",
+};
+
 export const PERFORMER_INVITATION_STATUSES = [
   "pending",
   "accepted",
@@ -204,28 +219,26 @@ export const invitations = sqliteTable(
 export const programs = sqliteTable(
   "programs",
   {
-    id: text("id").primaryKey(),
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     eventId: text("event_id")
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
-    order: integer("order").notNull(),
-    type: text("type").notNull(),
-    title: text("title").notNull(),
-    composer: text("composer"),
-    memberId: text("member_id").references(() => eventMembers.id, {
-      onDelete: "set null",
-    }),
+    sortOrder: integer("sort_order").notNull(),
+    type: text("type", { enum: PROGRAM_TYPES }).notNull(),
     scheduledTime: text("scheduled_time"),
     estimatedDuration: integer("estimated_duration"),
     note: text("note"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(() => Date.now()),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
-  (t) => [
-    unique("programs_event_order_unique").on(t.eventId, t.order),
-    index("programs_event_id_idx").on(t.eventId),
-    index("programs_member_id_idx").on(t.memberId),
-  ],
+  (t) => [index("programs_event_id_idx").on(t.eventId)],
 );
 
 /**
@@ -282,6 +295,54 @@ export const performerInvitations = sqliteTable(
   (t) => [index("performer_invitations_event_id_idx").on(t.eventId)],
 );
 
+/**
+ * program_performers — プログラムと出演者の中間テーブル
+ */
+export const programPerformers = sqliteTable(
+  "program_performers",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    programId: text("program_id")
+      .notNull()
+      .references(() => programs.id, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => eventMembers.id, { onDelete: "restrict" }),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (t) => [
+    unique("program_performers_unique").on(t.programId, t.memberId),
+    index("program_performers_program_id_idx").on(t.programId),
+    index("program_performers_member_id_idx").on(t.memberId),
+  ],
+);
+
+/**
+ * program_pieces — プログラムの曲目
+ */
+export const programPieces = sqliteTable(
+  "program_pieces",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    programId: text("program_id")
+      .notNull()
+      .references(() => programs.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull(),
+    title: text("title").notNull(),
+    composer: text("composer"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(() => Date.now()),
+  },
+  (t) => [index("program_pieces_program_id_idx").on(t.programId)],
+);
+
 // ============================================================
 // リレーション定義
 // ============================================================
@@ -331,7 +392,7 @@ export const eventMembersRelations = relations(
       references: [users.id],
     }),
     invitations: many(invitations),
-    programs: many(programs),
+    programPerformers: many(programPerformers),
     checkIns: many(checkIns),
   }),
 );
@@ -348,15 +409,34 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
   checkIn: one(checkIns),
 }));
 
-export const programsRelations = relations(programs, ({ one }) => ({
+export const programsRelations = relations(programs, ({ one, many }) => ({
   event: one(events, {
     fields: [programs.eventId],
     references: [events.id],
     relationName: "programs",
   }),
-  member: one(eventMembers, {
-    fields: [programs.memberId],
-    references: [eventMembers.id],
+  performers: many(programPerformers),
+  pieces: many(programPieces),
+}));
+
+export const programPerformersRelations = relations(
+  programPerformers,
+  ({ one }) => ({
+    program: one(programs, {
+      fields: [programPerformers.programId],
+      references: [programs.id],
+    }),
+    member: one(eventMembers, {
+      fields: [programPerformers.memberId],
+      references: [eventMembers.id],
+    }),
+  }),
+);
+
+export const programPiecesRelations = relations(programPieces, ({ one }) => ({
+  program: one(programs, {
+    fields: [programPieces.programId],
+    references: [programs.id],
   }),
 }));
 

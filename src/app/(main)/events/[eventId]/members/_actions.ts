@@ -9,7 +9,7 @@ import {
   eventMembers,
   events,
   performerInvitations,
-  programs,
+  programPerformers,
 } from "@/db/schema";
 import { requireSession } from "@/lib/session";
 
@@ -223,11 +223,11 @@ export async function removeMember(
   }
 
   // プログラムに紐づいている出演者は削除不可
-  const linkedProgram = await db.query.programs.findFirst({
-    where: and(eq(programs.eventId, eventId), eq(programs.memberId, memberId)),
+  const linkedPerformer = await db.query.programPerformers.findFirst({
+    where: eq(programPerformers.memberId, memberId),
   });
 
-  if (linkedProgram) {
+  if (linkedPerformer) {
     return {
       error:
         "このメンバーはプログラムに紐づいているため削除できません。先にプログラムからメンバーの割り当てを解除してください。",
