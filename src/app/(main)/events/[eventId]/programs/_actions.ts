@@ -294,7 +294,7 @@ export async function updateProgram(
 export async function deleteProgram(
   eventId: string,
   programId: string,
-): Promise<{ error: string } | undefined> {
+): Promise<{ error: string } | null> {
   const session = await requireSession();
   const permCheck = await checkProgramPermission(eventId, session.user.id);
   if ("error" in permCheck) {
@@ -306,6 +306,7 @@ export async function deleteProgram(
     .where(and(eq(programs.id, programId), eq(programs.eventId, eventId)));
 
   revalidatePath(`/events/${eventId}/programs`);
+  return null;
 }
 
 /**
@@ -314,7 +315,7 @@ export async function deleteProgram(
 export async function reorderPrograms(
   eventId: string,
   programIds: string[],
-): Promise<{ error: string } | undefined> {
+): Promise<{ error: string } | null> {
   const session = await requireSession();
   const permCheck = await checkProgramPermission(eventId, session.user.id);
   if ("error" in permCheck) {
@@ -333,4 +334,5 @@ export async function reorderPrograms(
   });
 
   revalidatePath(`/events/${eventId}/programs`);
+  return null;
 }

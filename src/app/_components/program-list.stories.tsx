@@ -6,8 +6,8 @@ import { ProgramList } from "./program-list";
 const meta = {
   component: ProgramList,
   args: {
-    onReorder: fn(async () => undefined),
-    onDelete: fn(async () => undefined),
+    onReorder: fn(async () => null),
+    onDelete: fn(async () => null),
     onEdit: fn(),
   },
 } satisfies Meta<typeof ProgramList>;

@@ -25,8 +25,10 @@ export default async function ProgramsPage(
     notFound();
   }
 
-  const programs = await getProgramsByEventId(eventId);
-  const members = await getEventMembersForSelect(eventId);
+  const [programs, members] = await Promise.all([
+    getProgramsByEventId(eventId),
+    getEventMembersForSelect(eventId),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">

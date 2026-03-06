@@ -27,11 +27,11 @@ type ProgramListProps = {
   onReorder: (
     eventId: string,
     programIds: string[],
-  ) => Promise<{ error: string } | undefined>;
+  ) => Promise<{ error: string } | null>;
   onDelete: (
     eventId: string,
     programId: string,
-  ) => Promise<{ error: string } | undefined>;
+  ) => Promise<{ error: string } | null>;
   onEdit: (program: ProgramWithPerformers) => void;
 };
 

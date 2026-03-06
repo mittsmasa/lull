@@ -81,7 +81,7 @@ export async function getProgramsByEventId(
   return rows.map((r) => ({
     id: r.id,
     sortOrder: r.sortOrder,
-    type: r.type as ProgramType,
+    type: r.type,
     scheduledTime: r.scheduledTime,
     estimatedDuration: r.estimatedDuration,
     note: r.note,
