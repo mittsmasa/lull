@@ -197,18 +197,21 @@ export async function proxyChangeStatus(
     }
     // 座席チェック + 更新を同期トランザクション内で行い TOCTOU を防ぐ
     if (event.totalSeats > 0) {
-      const error = db.transaction((tx) => {
-        const consumed = getConsumedSeats(eventId);
-        const remaining = event.totalSeats - consumed;
-        if (remaining < 1) {
-          return "満席のため出席に変更できません";
-        }
-        tx.update(invitations)
-          .set({ status: "accepted", respondedAt: Date.now() })
-          .where(eq(invitations.id, invitationId))
-          .run();
-        return undefined;
-      });
+      const error = db.transaction(
+        (tx) => {
+          const consumed = getConsumedSeats(eventId);
+          const remaining = event.totalSeats - consumed;
+          if (remaining < 1) {
+            return "満席のため出席に変更できません";
+          }
+          tx.update(invitations)
+            .set({ status: "accepted", respondedAt: Date.now() })
+            .where(eq(invitations.id, invitationId))
+            .run();
+          return undefined;
+        },
+        { behavior: "immediate" },
+      );
       if (error) return { error };
     } else {
       await db
