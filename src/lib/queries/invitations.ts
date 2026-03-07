@@ -32,6 +32,7 @@ export type InvitationItem = {
   respondedAt: number | null;
   memberId: string | null;
   companionCount: number;
+  companionNames: string[];
   createdAt: number;
 };
 
@@ -84,7 +85,7 @@ export async function getInvitationsByEventId(
   const rows = await db.query.invitations.findMany({
     where: eq(invitations.eventId, eventId),
     with: {
-      companions: { columns: { id: true } },
+      companions: { columns: { id: true, name: true } },
       member: { columns: { displayName: true } },
     },
   });
@@ -92,8 +93,9 @@ export async function getInvitationsByEventId(
   return rows.map((r) => ({
     id: r.id,
     token: r.token,
-    // メンバーが存在すれば現在の表示名、削除済みならスナップショット
-    inviterDisplayName: r.member?.displayName ?? r.inviterDisplayName,
+    // メンバーが存在すれば現在の表示名、削除済みならスナップショット名にサフィックスを付与
+    inviterDisplayName:
+      r.member?.displayName ?? `${r.inviterDisplayName}（削除済み）`,
     guestName: r.guestName,
     guestEmail: r.guestEmail,
     status: r.status,
@@ -101,6 +103,7 @@ export async function getInvitationsByEventId(
     respondedAt: r.respondedAt,
     memberId: r.memberId,
     companionCount: r.companions.length,
+    companionNames: r.companions.map((c) => c.name),
     createdAt: r.createdAt,
   }));
 }
@@ -136,7 +139,8 @@ export async function getInvitationByToken(
     id: invitation.id,
     token: invitation.token,
     inviterDisplayName:
-      invitation.member?.displayName ?? invitation.inviterDisplayName,
+      invitation.member?.displayName ??
+      `${invitation.inviterDisplayName}（削除済み）`,
     guestName: invitation.guestName,
     guestEmail: invitation.guestEmail,
     status: invitation.status,
