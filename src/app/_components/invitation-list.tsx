@@ -228,8 +228,9 @@ function InvitationRow({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <ul className="mt-1 flex flex-col gap-0.5 pl-4 text-sm text-muted-foreground">
-              {invitation.companionNames.map((name) => (
-                <li key={name}>{name}</li>
+              {invitation.companionNames.map((name, idx) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: 同伴者名は同名の可能性があるため name 単体では一意にならない
+                <li key={`${name}-${idx}`}>{name}</li>
               ))}
             </ul>
           </CollapsibleContent>

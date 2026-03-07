@@ -1,6 +1,7 @@
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
 import { QrCode } from "@/app/_components/qr-code";
 import type { EventStatus } from "@/db/schema";
+import { formatDatetime, formatTime } from "@/lib/format";
 import { getInvitationByToken } from "@/lib/queries/invitations";
 
 // ============================================================
@@ -30,36 +31,14 @@ function EventInfoHeader({
   };
   inviterName: string;
 }) {
-  const startDate = new Date(event.startDatetime);
-  const formattedDate = startDate.toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-  });
-  const formattedTime = startDate.toLocaleTimeString("ja-JP", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
   return (
     <div className="flex flex-col gap-4 pb-8">
       <h1 className="text-3xl font-light tracking-wide">{event.name}</h1>
       <div className="flex flex-col gap-1 text-muted-foreground">
         <p>{inviterName} さんからの招待</p>
-        <p>
-          {formattedDate} {formattedTime}
-        </p>
+        <p>{formatDatetime(event.startDatetime)}</p>
         <p>{event.venue}</p>
-        {event.openDatetime && (
-          <p>
-            開場:{" "}
-            {new Date(event.openDatetime).toLocaleTimeString("ja-JP", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
-        )}
+        {event.openDatetime && <p>開場: {formatTime(event.openDatetime)}</p>}
       </div>
     </div>
   );
