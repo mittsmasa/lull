@@ -55,6 +55,10 @@ export const PERFORMER_INVITATION_STATUSES = [
 export type PerformerInvitationStatus =
   (typeof PERFORMER_INVITATION_STATUSES)[number];
 
+// NOTE: 出演者招待用の PERFORMER_INVITATION_STATUSES / PerformerInvitationStatus とは別物
+export const INVITATION_STATUSES = ["pending", "accepted", "declined"] as const;
+export type InvitationStatus = (typeof INVITATION_STATUSES)[number];
+
 // ============================================================
 // テーブル定義
 // ============================================================
@@ -190,21 +194,39 @@ export const eventMembers = sqliteTable(
 export const invitations = sqliteTable(
   "invitations",
   {
-    id: text("id").primaryKey(),
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     eventId: text("event_id")
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
-    memberId: text("member_id")
-      .notNull()
-      .references(() => eventMembers.id, { onDelete: "cascade" }),
+    // nullable + set null: 出演者削除時にゲスト招待を維持するため
+    memberId: text("member_id").references(() => eventMembers.id, {
+      onDelete: "set null",
+    }),
     token: text("token").notNull().unique(),
-    guestName: text("guest_name").notNull(),
+    // スナップショット: memberId が null になるケースがあるため、
+    // 発行時点の表示名を保存
+    inviterDisplayName: text("inviter_display_name").notNull(),
+    // nullable: 発行時に任意入力。ゲストが回答時に入力
+    guestName: text("guest_name"),
     guestEmail: text("guest_email"),
-    companionCount: integer("companion_count").notNull().default(0),
-    status: text("status").notNull().default("pending"),
+    status: text("status", { enum: INVITATION_STATUSES })
+      .notNull()
+      .default("pending"),
+    checkedIn: integer("checked_in", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    checkedInAt: integer("checked_in_at"),
+    invalidatedAt: integer("invalidated_at"),
     respondedAt: integer("responded_at"),
-    createdAt: integer("created_at").notNull(),
-    updatedAt: integer("updated_at").notNull(),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(() => Date.now()),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
   (t) => [
     index("invitations_event_id_idx").on(t.eventId),
@@ -242,25 +264,31 @@ export const programs = sqliteTable(
 );
 
 /**
- * check_ins — 来場チェックイン
+ * companions — 同伴者
  */
-export const checkIns = sqliteTable(
-  "check_ins",
+export const companions = sqliteTable(
+  "companions",
   {
-    id: text("id").primaryKey(),
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     invitationId: text("invitation_id")
       .notNull()
       .references(() => invitations.id, { onDelete: "cascade" }),
-    checkedInAt: integer("checked_in_at").notNull(),
-    checkedInBy: text("checked_in_by")
+    name: text("name").notNull(),
+    checkedIn: integer("checked_in", { mode: "boolean" })
       .notNull()
-      .references(() => eventMembers.id),
-    headCount: integer("head_count").notNull(),
+      .default(false),
+    checkedInAt: integer("checked_in_at"),
+    createdAt: integer("created_at")
+      .notNull()
+      .$defaultFn(() => Date.now()),
+    updatedAt: integer("updated_at")
+      .notNull()
+      .$defaultFn(() => Date.now())
+      .$onUpdateFn(() => Date.now()),
   },
-  (t) => [
-    uniqueIndex("check_ins_invitation_id_idx").on(t.invitationId),
-    index("check_ins_checked_in_by_idx").on(t.checkedInBy),
-  ],
+  (t) => [index("companions_invitation_id_idx").on(t.invitationId)],
 );
 
 /**
@@ -393,11 +421,10 @@ export const eventMembersRelations = relations(
     }),
     invitations: many(invitations),
     programPerformers: many(programPerformers),
-    checkIns: many(checkIns),
   }),
 );
 
-export const invitationsRelations = relations(invitations, ({ one }) => ({
+export const invitationsRelations = relations(invitations, ({ one, many }) => ({
   event: one(events, {
     fields: [invitations.eventId],
     references: [events.id],
@@ -406,7 +433,7 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
     fields: [invitations.memberId],
     references: [eventMembers.id],
   }),
-  checkIn: one(checkIns),
+  companions: many(companions),
 }));
 
 export const programsRelations = relations(programs, ({ one, many }) => ({
@@ -440,14 +467,10 @@ export const programPiecesRelations = relations(programPieces, ({ one }) => ({
   }),
 }));
 
-export const checkInsRelations = relations(checkIns, ({ one }) => ({
+export const companionsRelations = relations(companions, ({ one }) => ({
   invitation: one(invitations, {
-    fields: [checkIns.invitationId],
+    fields: [companions.invitationId],
     references: [invitations.id],
-  }),
-  checkedInByMember: one(eventMembers, {
-    fields: [checkIns.checkedInBy],
-    references: [eventMembers.id],
   }),
 }));
 

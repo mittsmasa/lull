@@ -31,7 +31,7 @@
 - 有効期限（ゲスト招待・出演者招待共通）: イベント終了（`finished`）まで。`finished` 後のアクセスは「この招待リンクは期限切れです」を表示する。出演者招待の場合、`accepted` 済みのトークンは既にメンバー登録済みのため有効期限の影響を受けない（`pending` のまま `finished` を迎えたトークンは期限切れとなる）
 - 主催者はリンクを無効化（招待の取り消し）できる。ゲスト招待リンクについては、招待を発行した出演者も無効化可能（権限マトリクス参照）
 - **出演者招待トークンの無効化**: 無効化されたトークンではページにアクセスできない（エラー画面を表示）
-- **ゲスト招待トークンの無効化**: 回答前（`pending`）の無効化はアクセス不可。回答済み（`accepted` / `declined`）の無効化は回答変更を不可にするが、`accepted` のゲストは引き続きページで QR コードを閲覧可能（来場は有効のまま）
+- **ゲスト招待トークンの無効化**: 無効化するとリンクからのアクセスは不可となる。`accepted` の招待を無効化した場合、ステータスは `declined` に変更され、同伴者データも削除される（座席が解放される）
 
 ### 出演者招待リンクのフロー
 
@@ -147,16 +147,17 @@ draft ──→ published ──→ ongoing ──→ finished
 
 ### 3.4 プログラム管理
 
-- [ ] プログラム（演目）の追加・編集・削除
-- [ ] プログラムの並び替え（ドラッグ＆ドロップ）
-- [ ] プログラム種別（固定 enum: `performance`（演奏）/ `intermission`（休憩）/ `greeting`（あいさつ）/ `other`（その他））
-- [ ] 演目への出演者の紐付け
-- [ ] 予定時刻・所要時間の設定
+- [x] プログラム（演目）の追加・編集・削除
+- [x] プログラムの並び替え（ドラッグ＆ドロップ）
+- [x] プログラム種別（固定 enum: `performance`（演奏）/ `intermission`（休憩）/ `greeting`（あいさつ）/ `other`（その他））
+- [x] 演目への出演者の紐付け
+- [x] 予定時刻・所要時間の設定
 
 #### プログラム管理の補足
 
 - **出演者の紐付け**: `performance` では 1 名以上の出演者が必須。`intermission` / `greeting` / `other` では出演者の紐付けは任意（0 名でも可）
 - **複数出演者の紐付け**: 1 つの演目に複数の出演者を紐付けられる（連弾・アンサンブル等）。中間テーブル `program_performers` で管理する
+- **曲目管理**: 1 つのプログラムに複数の曲目を登録できる。曲目は `program_pieces` テーブルで管理する（1:N）。`performance` 型では複数曲の入力が可能、その他の種別（`intermission` / `greeting` / `other`）は 1 曲のみ。各曲にはタイトル（必須）と作曲者（任意）を設定する。曲目の並び順は `sortOrder` で管理する。プログラム編集時、曲目は全削除→全挿入パターンで更新する
 - **編集権限の範囲**: 出演者はイベント内の全プログラムを追加・編集・削除できる（自分が紐付いた演目に限定しない）
 - **並び順**: プログラムは `sortOrder`（整数）で管理する。削除時は自動的に詰め直す（例: 1, 2, 3 の 2 を削除 → 1, 2 に振り直し）
 - **予定時刻・所要時間**: いずれも任意項目。所要時間の単位は分（整数）
@@ -167,34 +168,40 @@ draft ──→ published ──→ ongoing ──→ finished
 
 | フィールド | 必須 | 制約 |
 |-----------|:----:|------|
-| タイトル | ○ | 1〜200 文字 |
 | 種別（type） | ○ | `performance` / `intermission` / `greeting` / `other` のいずれか |
 | 出演者 | △ | `performance` の場合は 1 名以上必須 |
-| 作曲者 | — | 0〜200 文字（任意） |
+| 曲目 | ○ | 1 曲以上必須。`performance` では複数曲入力可能、その他の種別は 1 曲のみ |
 | 予定時刻 | — | HH:mm 形式（任意） |
 | 所要時間 | — | 1〜999 の整数（分単位、任意） |
 | 備考 | — | 0〜500 文字（任意） |
 
+##### 曲目（`program_pieces`）のバリデーション
+
+| フィールド | 必須 | 制約 |
+|-----------|:----:|------|
+| タイトル | ○ | 1〜200 文字 |
+| 作曲者 | — | 0〜200 文字（任意） |
+
 ### 3.5 招待管理
 
-- [ ] ゲスト招待リンクの発行（一意のトークン付きURL → クリップボードコピー or SNS送信。座席枠はゲストの出席回答時に消費される）
-- [ ] ゲスト側：招待リンクから出欠回答
-  - [ ] 名前・メールアドレスは必須
-  - [ ] 同伴者がいる場合は同伴者の名前を個別に入力
-- [ ] 招待ステータス管理（下記状態遷移図参照）
-- [ ] 招待状況ダッシュボード。出演者は自分が発行した招待だけでなく、イベント全体の招待状況を閲覧可能。表示項目:
+- [x] ゲスト招待リンクの発行（一意のトークン付きURL → クリップボードコピー or SNS送信。座席枠はゲストの出席回答時に消費される）
+- [x] ゲスト側：招待リンクから出欠回答
+  - [x] 名前・メールアドレスは必須
+  - [x] 同伴者がいる場合は同伴者の名前を個別に入力
+- [x] 招待ステータス管理（下記状態遷移図参照）
+- [x] 招待状況ダッシュボード。出演者は自分が発行した招待だけでなく、イベント全体の招待状況を閲覧可能。表示項目:
   - 総座席数（totalSeats）
   - 残り枠（totalSeats − 消費済み座席数）
   - 招待済み（発行済みの全招待数。pending + accepted + declined。無効化済みには「無効化済み」ラベルを付与）
   - 回答待ち（pending 状態の招待数）
   - 出席（accepted 状態の招待数 + 同伴者数）
   - 辞退（declined 状態の招待数）
-- [ ] ゲストの出欠回答の変更
-  - [ ] `accepted → declined`: 可能。座席枠が共有プールに返却される。既存の同伴者データは削除する（座席を解放するため）
-  - [ ] `declined → accepted`: 空き枠がある場合のみ可能。同伴者は 0 名の状態から新たに追加する（`accepted → declined` 時に削除済みのため復元はしない）
-  - [ ] 同伴者の追加・削除: 出欠変更時に可能（空き枠の範囲内）
-- [ ] ゲスト招待リンクの無効化（主催者・招待を発行した出演者が可能）
-- [ ] 主催者によるゲスト出欠ステータスの代理変更（accepted → declined、declined → accepted（空き枠がある場合のみ）、pending の場合は代理変更不可（ゲスト本人の回答を待つ））
+- [x] ゲストの出欠回答の変更
+  - [x] `accepted → declined`: 可能。座席枠が共有プールに返却される。既存の同伴者データは削除する（座席を解放するため）
+  - [x] `declined → accepted`: 空き枠がある場合のみ可能。同伴者は 0 名の状態から新たに追加する（`accepted → declined` 時に削除済みのため復元はしない）
+  - [x] 同伴者の追加・削除: 出欠変更時に可能（空き枠の範囲内）
+- [x] ゲスト招待リンクの無効化（主催者・招待を発行した出演者が可能）
+- [x] 主催者によるゲスト出欠ステータスの代理変更（accepted → declined、declined → accepted（空き枠がある場合のみ）、pending の場合は代理変更不可（ゲスト本人の回答を待つ））
 
 #### ゲスト招待リンク発行・無効化のステータス制約
 
@@ -256,7 +263,7 @@ pending ──→ accepted
   残り枠 = totalSeats − (accepted ゲスト数 + accepted ゲストの同伴者数)
   ```
   ※ `totalSeats` が 0（無制限）の場合、残り枠チェックはスキップする（常に出席回答を受け付ける）
-  ※ `accepted` ゲスト数には無効化済み（`invalidatedAt` あり）の `accepted` も含む。無効化済みでも座席を消費し続ける（セクション 3.5「招待無効化後の出席ステータス」参照）
+  ※ 無効化済みの招待は `declined` に変更されるため、座席計算には含まれない（セクション 3.5「招待無効化後の出席ステータス」参照）
 - 残り枠が 0 の場合でも、新規招待リンクの発行は可能とする（pending は枠を消費しないため）
 - 既に発行済みの招待リンク（pending 状態）は枠を消費しない（回答時に枠チェック）
 - 枠の確認は出席回答（accepted）の確定時のみ行う
@@ -284,10 +291,9 @@ pending ──→ accepted
 
 #### 招待無効化後の出席ステータス
 
-- `accepted` 済みの招待を無効化した場合、ゲストの出席扱いは維持される（座席を消費し続ける）
-- チェックイン時、無効化済みであっても `accepted` のゲストは通常通りチェックイン可能
-- 無効化は「これ以上の回答変更を防ぐ」目的であり、確定済みの出席を取り消すものではない
-- 出席自体を取り消したい場合は、主催者が招待管理画面でステータスを `declined` に手動変更する（※ 主催者による代理操作）。無効化済みの招待であっても、主催者はステータスの代理変更が可能
+- `accepted` 済みの招待を無効化した場合、ステータスは `declined` に変更され、同伴者データも削除される（座席が解放される）
+- `pending` / `declined` の招待を無効化した場合は、`invalidatedAt` のみ記録する
+- 無効化済みの招待に対して、主催者の代理変更は不可（出席自体が取り消し済みのため）
 
 #### 出欠回答の制約（イベントステータス別）
 
@@ -297,9 +303,7 @@ pending ──→ accepted
 
 #### 無効・期限切れリンクへのアクセス
 
-- **無効化されたトークン（pending）**: 「この招待リンクは無効です」エラー画面を表示
-- **無効化されたトークン（accepted）**: 招待回答ページは閲覧可能（QRコード表示あり）。ただし回答変更フォームは非表示とし、「この招待は変更できません」と表示する
-- **無効化されたトークン（declined）**: 「この招待リンクは無効です」エラー画面を表示
+- **無効化されたトークン（pending / declined）**: 「この招待リンクは無効です」エラー画面を表示（`accepted` は無効化時に `declined` に変更されるため、無効化済み + `accepted` の状態は存在しない）
 - **期限切れ（イベントが `finished` になった後）**: 「この招待リンクは期限切れです」エラー画面を表示
 - **イベントが `ongoing` 状態のトークン**:
   - `pending`: 初回回答フォームを表示する（`ongoing` でも初回回答は可能）
@@ -571,33 +575,19 @@ pending ──→ accepted
 
 ## 9. スキーマ変更メモ
 
-現在のスキーマから以下の変更が必要：
+ゲスト招待・チェックイン機能の実装に伴い、以下の変更が必要：
 
 ### 既存テーブルの変更
 
-- **`events.venue` を NOT NULL に変更** — イベント作成時に必須
-- **`events.date` / `events.startTime` / `events.openTime` を削除し、`events.startDatetime` (text, NOT NULL) / `events.openDatetime` (text, nullable) に統合** — `"YYYY-MM-DDTHH:mm"` 形式（JST 固定）。フォーム入力の開催日 + 時刻を結合して保存する
-- **`event_members.allotment` を削除** — 招待枠は出演者ごとではなくイベント共有プール（`events.totalSeats`）で管理する
-- **`event_members.displayName` を NOT NULL に変更** — イベント作成時は `users.name` を初期値として設定。出演者招待時は主催者が入力した表示名を設定する
-- **`invitations.companionCount` を削除** — 同伴者は人数ではなく名前で管理する
+- **`invitations.companionCount` を削除** — 同伴者は人数ではなく名前で管理する（`companions` テーブルに移行）
 - **`invitations.guestName` を nullable に変更** — 招待作成時はゲスト未定。ゲストが回答時に入力する
 - **`invitations.guestEmail` を nullable のまま維持** — 同上。ゲストが回答時に入力する（回答時は必須）
 - **`invitations.memberId` を nullable に変更し、onDelete を `set null` に変更** — 出演者削除時に招待を維持するため
-- **`invitations.status` の値セットを確認** — `pending` / `accepted` / `declined`（default: `pending`）。既存スキーマに定義がない場合は追加する
-- **各テーブルの有効値セット（Drizzle の text enum オプションで TS 型制約 + アプリケーションレベルで制約）**:
-  - `events.status`: `draft` / `published` / `ongoing` / `finished`（default: `draft`）
-  - `event_members.role`: `organizer` / `performer`（default: `performer`）
-  - `programs.type`: `performance` / `intermission` / `greeting` / `other`
-- **`events.totalSeats` のバリデーション範囲を 0〜9999 に変更** — 0 は無制限を表す。座席枠チェック時に `totalSeats === 0` の場合はチェックをスキップする
-- **`invitations.eventId` は既存カラムのため追加不要** — 現行スキーマに既に存在する（text, FK → events.id, NOT NULL, onDelete: cascade）。`memberId` が nullable になっても `eventId` でイベントを特定可能
-- **`invitations.respondedAt` を維持** — ゲストが出欠回答を送信・変更するたびに更新する（最終回答日時として使用。既存カラム）
+- **`invitations.status` に text enum を適用** — `pending` / `accepted` / `declined`（default: `pending`）
 - **`invitations` に `inviterDisplayName` (text, NOT NULL) を追加** — 招待発行時の出演者表示名をスナップショットとして保存（出演者削除後も表示するため）
 - **`invitations` に `checkedIn` (integer, boolean, default: false) を追加** — ゲスト本人のチェックイン状態
 - **`invitations` に `checkedInAt` (integer, timestamp, nullable) を追加** — チェックイン日時
 - **`invitations` に `invalidatedAt` (integer, timestamp, nullable) を追加** — 招待無効化の記録
-- **`events.description` を削除** — 要件に説明文フィールドの仕様がなく、初期バージョンでは不要
-- **`programs.order` を `sortOrder` にリネーム** — 要件内の命名に合わせる（SQL 予約語との衝突回避も兼ねる）
-- **`programs.memberId` を削除** — 中間テーブル `program_performers` に移行
 - **`check_ins` テーブルを削除** — チェックイン状態は `invitations.checkedIn` と `companions.checkedIn` で管理する
 
 ### 新設テーブル
@@ -614,32 +604,15 @@ pending ──→ accepted
 | `createdAt` | integer (timestamp) | 作成日時 |
 | `updatedAt` | integer (timestamp) | 更新日時 |
 
-#### `program_performers` テーブル
+### 実施済みテーブル（参考）
 
-| カラム | 型 | 説明 |
-|--------|------|------|
-| `id` | text (PK) | UUID |
-| `programId` | text (FK → programs.id, onDelete: cascade) | 紐づく演目 |
-| `memberId` | text (FK → event_members.id, onDelete: restrict) | 紐づく出演者（出演者削除前にプログラムから外す必要がある） |
-| `createdAt` | integer (timestamp) | 作成日時 |
+以下のテーブルは既にスキーマに反映済み：
 
-> UNIQUE 制約: (`programId`, `memberId`) の組み合わせ
+- **`program_performers`** — プログラムと出演者の中間テーブル（UNIQUE 制約: `programId` + `memberId`）
+- **`performer_invitations`** — 出演者招待トークン管理（ステータス: `pending` / `accepted` / `invalidated`）
+- **`program_pieces`** — プログラムの曲目管理（1 プログラムに複数曲。各曲に `title`（必須）、`composer`（任意）、`sortOrder` を持つ）
 
-#### `performer_invitations` テーブル
-
-| カラム | 型 | 説明 |
-|--------|------|------|
-| `id` | text (PK) | UUID |
-| `eventId` | text (FK → events.id, onDelete: cascade) | 紐づくイベント |
-| `token` | text (UNIQUE) | 招待トークン（URL-safe ランダム文字列） |
-| `displayName` | text (NOT NULL) | 招待時に設定する表示名（1〜50 文字） |
-| `status` | text | `pending` / `accepted` / `invalidated`（default: `pending`） |
-| `acceptedByUserId` | text (FK → users.id, nullable, onDelete: set null) | 受諾したユーザー |
-| `acceptedAt` | integer (timestamp, nullable) | 受諾日時 |
-| `createdAt` | integer (timestamp) | 作成日時 |
-| `updatedAt` | integer (timestamp) | 更新日時 |
-
-> **ゲスト招待との無効化アプローチの違い**: ゲスト招待（`invitations`）はソフトデリート方式（`invalidatedAt` タイムスタンプ）で無効化を管理する。出演者招待（`performer_invitations`）はステータス値（`invalidated`）で管理する。これは、ゲスト招待では無効化後も `accepted` のステータスを維持する必要がある（QRコード閲覧のため）のに対し、出演者招待では無効化＝使用不可の単純な状態遷移のためである。
+> **ゲスト招待との無効化アプローチの違い**: ゲスト招待（`invitations`）はソフトデリート方式（`invalidatedAt` タイムスタンプ）で無効化を管理する。`accepted` の招待を無効化した場合はステータスを `declined` に変更し同伴者を削除する（座席解放）。出演者招待（`performer_invitations`）はステータス値（`invalidated`）で管理する。
 
 ## 10. 補足仕様・決定事項
 

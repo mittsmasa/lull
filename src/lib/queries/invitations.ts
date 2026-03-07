@@ -1,0 +1,188 @@
+import "server-only";
+
+import { and, count, eq } from "drizzle-orm";
+import { db } from "@/db";
+import {
+  companions,
+  type EventStatus,
+  events,
+  type InvitationStatus,
+  invitations,
+} from "@/db/schema";
+
+// ============================================================
+// 型定義
+// ============================================================
+
+export type EventForInvitationManagement = {
+  id: string;
+  name: string;
+  status: EventStatus;
+  totalSeats: number;
+};
+
+export type InvitationItem = {
+  id: string;
+  token: string;
+  inviterDisplayName: string;
+  guestName: string | null;
+  guestEmail: string | null;
+  status: InvitationStatus;
+  invalidatedAt: number | null;
+  respondedAt: number | null;
+  memberId: string | null;
+  companionCount: number;
+  companionNames: string[];
+  createdAt: number;
+};
+
+export type InvitationForResponse = {
+  id: string;
+  token: string;
+  inviterDisplayName: string;
+  guestName: string | null;
+  guestEmail: string | null;
+  status: InvitationStatus;
+  invalidatedAt: number | null;
+  respondedAt: number | null;
+  memberId: string | null;
+  companions: { id: string; name: string }[];
+  event: {
+    id: string;
+    name: string;
+    venue: string;
+    startDatetime: string;
+    openDatetime: string | null;
+    status: EventStatus;
+    totalSeats: number;
+  };
+};
+
+export type SeatSummary = {
+  totalSeats: number;
+  consumed: number;
+  remaining: number | null;
+};
+
+// ============================================================
+// クエリ関数
+// ============================================================
+
+/** 招待管理画面用のイベント情報取得 */
+export async function getEventForInvitationManagement(
+  eventId: string,
+): Promise<EventForInvitationManagement | undefined> {
+  return db.query.events.findFirst({
+    where: eq(events.id, eventId),
+    columns: { id: true, name: true, status: true, totalSeats: true },
+  });
+}
+
+/** イベントの招待一覧を取得 */
+export async function getInvitationsByEventId(
+  eventId: string,
+): Promise<InvitationItem[]> {
+  const rows = await db.query.invitations.findMany({
+    where: eq(invitations.eventId, eventId),
+    with: {
+      companions: { columns: { id: true, name: true } },
+      member: { columns: { displayName: true } },
+    },
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    token: r.token,
+    // メンバーが存在すれば現在の表示名、削除済みならスナップショット名にサフィックスを付与
+    inviterDisplayName:
+      r.member?.displayName ?? `${r.inviterDisplayName}（削除済み）`,
+    guestName: r.guestName,
+    guestEmail: r.guestEmail,
+    status: r.status,
+    invalidatedAt: r.invalidatedAt,
+    respondedAt: r.respondedAt,
+    memberId: r.memberId,
+    companionCount: r.companions.length,
+    companionNames: r.companions.map((c) => c.name),
+    createdAt: r.createdAt,
+  }));
+}
+
+/** トークンから招待情報を取得（/i/[token] ページ用） */
+export async function getInvitationByToken(
+  token: string,
+): Promise<InvitationForResponse | undefined> {
+  const invitation = await db.query.invitations.findFirst({
+    where: eq(invitations.token, token),
+    with: {
+      event: {
+        columns: {
+          id: true,
+          name: true,
+          venue: true,
+          startDatetime: true,
+          openDatetime: true,
+          status: true,
+          totalSeats: true,
+        },
+      },
+      member: { columns: { displayName: true } },
+      companions: {
+        columns: { id: true, name: true },
+      },
+    },
+  });
+
+  if (!invitation) return undefined;
+
+  return {
+    id: invitation.id,
+    token: invitation.token,
+    inviterDisplayName:
+      invitation.member?.displayName ??
+      `${invitation.inviterDisplayName}（削除済み）`,
+    guestName: invitation.guestName,
+    guestEmail: invitation.guestEmail,
+    status: invitation.status,
+    invalidatedAt: invitation.invalidatedAt,
+    respondedAt: invitation.respondedAt,
+    memberId: invitation.memberId,
+    companions: invitation.companions,
+    event: invitation.event,
+  };
+}
+
+/** 座席消費数を計算（同期関数: トランザクション内で呼ぶため） */
+export function getConsumedSeats(eventId: string): number {
+  const acceptedGuests = db
+    .select({ count: count() })
+    .from(invitations)
+    .where(
+      and(eq(invitations.eventId, eventId), eq(invitations.status, "accepted")),
+    )
+    .get();
+
+  const acceptedCompanions = db
+    .select({ count: count() })
+    .from(companions)
+    .innerJoin(invitations, eq(companions.invitationId, invitations.id))
+    .where(
+      and(eq(invitations.eventId, eventId), eq(invitations.status, "accepted")),
+    )
+    .get();
+
+  return (acceptedGuests?.count ?? 0) + (acceptedCompanions?.count ?? 0);
+}
+
+/** 座席サマリー */
+export function getSeatSummary(
+  eventId: string,
+  totalSeats: number,
+): SeatSummary {
+  const consumed = getConsumedSeats(eventId);
+  return {
+    totalSeats,
+    consumed,
+    remaining: totalSeats === 0 ? null : totalSeats - consumed,
+  };
+}
