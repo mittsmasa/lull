@@ -147,16 +147,17 @@ draft ──→ published ──→ ongoing ──→ finished
 
 ### 3.4 プログラム管理
 
-- [ ] プログラム（演目）の追加・編集・削除
-- [ ] プログラムの並び替え（ドラッグ＆ドロップ）
-- [ ] プログラム種別（固定 enum: `performance`（演奏）/ `intermission`（休憩）/ `greeting`（あいさつ）/ `other`（その他））
-- [ ] 演目への出演者の紐付け
-- [ ] 予定時刻・所要時間の設定
+- [x] プログラム（演目）の追加・編集・削除
+- [x] プログラムの並び替え（ドラッグ＆ドロップ）
+- [x] プログラム種別（固定 enum: `performance`（演奏）/ `intermission`（休憩）/ `greeting`（あいさつ）/ `other`（その他））
+- [x] 演目への出演者の紐付け
+- [x] 予定時刻・所要時間の設定
 
 #### プログラム管理の補足
 
 - **出演者の紐付け**: `performance` では 1 名以上の出演者が必須。`intermission` / `greeting` / `other` では出演者の紐付けは任意（0 名でも可）
 - **複数出演者の紐付け**: 1 つの演目に複数の出演者を紐付けられる（連弾・アンサンブル等）。中間テーブル `program_performers` で管理する
+- **曲目管理**: 1 つのプログラムに複数の曲目を登録できる。曲目は `program_pieces` テーブルで管理する（1:N）。`performance` 型では複数曲の入力が可能、その他の種別（`intermission` / `greeting` / `other`）は 1 曲のみ。各曲にはタイトル（必須）と作曲者（任意）を設定する。曲目の並び順は `sortOrder` で管理する。プログラム編集時、曲目は全削除→全挿入パターンで更新する
 - **編集権限の範囲**: 出演者はイベント内の全プログラムを追加・編集・削除できる（自分が紐付いた演目に限定しない）
 - **並び順**: プログラムは `sortOrder`（整数）で管理する。削除時は自動的に詰め直す（例: 1, 2, 3 の 2 を削除 → 1, 2 に振り直し）
 - **予定時刻・所要時間**: いずれも任意項目。所要時間の単位は分（整数）
@@ -167,13 +168,19 @@ draft ──→ published ──→ ongoing ──→ finished
 
 | フィールド | 必須 | 制約 |
 |-----------|:----:|------|
-| タイトル | ○ | 1〜200 文字 |
 | 種別（type） | ○ | `performance` / `intermission` / `greeting` / `other` のいずれか |
 | 出演者 | △ | `performance` の場合は 1 名以上必須 |
-| 作曲者 | — | 0〜200 文字（任意） |
+| 曲目 | ○ | 1 曲以上必須。`performance` では複数曲入力可能、その他の種別は 1 曲のみ |
 | 予定時刻 | — | HH:mm 形式（任意） |
 | 所要時間 | — | 1〜999 の整数（分単位、任意） |
 | 備考 | — | 0〜500 文字（任意） |
+
+##### 曲目（`program_pieces`）のバリデーション
+
+| フィールド | 必須 | 制約 |
+|-----------|:----:|------|
+| タイトル | ○ | 1〜200 文字 |
+| 作曲者 | — | 0〜200 文字（任意） |
 
 ### 3.5 招待管理
 
@@ -571,33 +578,19 @@ pending ──→ accepted
 
 ## 9. スキーマ変更メモ
 
-現在のスキーマから以下の変更が必要：
+ゲスト招待・チェックイン機能の実装に伴い、以下の変更が必要：
 
 ### 既存テーブルの変更
 
-- **`events.venue` を NOT NULL に変更** — イベント作成時に必須
-- **`events.date` / `events.startTime` / `events.openTime` を削除し、`events.startDatetime` (text, NOT NULL) / `events.openDatetime` (text, nullable) に統合** — `"YYYY-MM-DDTHH:mm"` 形式（JST 固定）。フォーム入力の開催日 + 時刻を結合して保存する
-- **`event_members.allotment` を削除** — 招待枠は出演者ごとではなくイベント共有プール（`events.totalSeats`）で管理する
-- **`event_members.displayName` を NOT NULL に変更** — イベント作成時は `users.name` を初期値として設定。出演者招待時は主催者が入力した表示名を設定する
-- **`invitations.companionCount` を削除** — 同伴者は人数ではなく名前で管理する
+- **`invitations.companionCount` を削除** — 同伴者は人数ではなく名前で管理する（`companions` テーブルに移行）
 - **`invitations.guestName` を nullable に変更** — 招待作成時はゲスト未定。ゲストが回答時に入力する
 - **`invitations.guestEmail` を nullable のまま維持** — 同上。ゲストが回答時に入力する（回答時は必須）
 - **`invitations.memberId` を nullable に変更し、onDelete を `set null` に変更** — 出演者削除時に招待を維持するため
-- **`invitations.status` の値セットを確認** — `pending` / `accepted` / `declined`（default: `pending`）。既存スキーマに定義がない場合は追加する
-- **各テーブルの有効値セット（Drizzle の text enum オプションで TS 型制約 + アプリケーションレベルで制約）**:
-  - `events.status`: `draft` / `published` / `ongoing` / `finished`（default: `draft`）
-  - `event_members.role`: `organizer` / `performer`（default: `performer`）
-  - `programs.type`: `performance` / `intermission` / `greeting` / `other`
-- **`events.totalSeats` のバリデーション範囲を 0〜9999 に変更** — 0 は無制限を表す。座席枠チェック時に `totalSeats === 0` の場合はチェックをスキップする
-- **`invitations.eventId` は既存カラムのため追加不要** — 現行スキーマに既に存在する（text, FK → events.id, NOT NULL, onDelete: cascade）。`memberId` が nullable になっても `eventId` でイベントを特定可能
-- **`invitations.respondedAt` を維持** — ゲストが出欠回答を送信・変更するたびに更新する（最終回答日時として使用。既存カラム）
+- **`invitations.status` に text enum を適用** — `pending` / `accepted` / `declined`（default: `pending`）
 - **`invitations` に `inviterDisplayName` (text, NOT NULL) を追加** — 招待発行時の出演者表示名をスナップショットとして保存（出演者削除後も表示するため）
 - **`invitations` に `checkedIn` (integer, boolean, default: false) を追加** — ゲスト本人のチェックイン状態
 - **`invitations` に `checkedInAt` (integer, timestamp, nullable) を追加** — チェックイン日時
 - **`invitations` に `invalidatedAt` (integer, timestamp, nullable) を追加** — 招待無効化の記録
-- **`events.description` を削除** — 要件に説明文フィールドの仕様がなく、初期バージョンでは不要
-- **`programs.order` を `sortOrder` にリネーム** — 要件内の命名に合わせる（SQL 予約語との衝突回避も兼ねる）
-- **`programs.memberId` を削除** — 中間テーブル `program_performers` に移行
 - **`check_ins` テーブルを削除** — チェックイン状態は `invitations.checkedIn` と `companions.checkedIn` で管理する
 
 ### 新設テーブル
@@ -614,30 +607,13 @@ pending ──→ accepted
 | `createdAt` | integer (timestamp) | 作成日時 |
 | `updatedAt` | integer (timestamp) | 更新日時 |
 
-#### `program_performers` テーブル
+### 実施済みテーブル（参考）
 
-| カラム | 型 | 説明 |
-|--------|------|------|
-| `id` | text (PK) | UUID |
-| `programId` | text (FK → programs.id, onDelete: cascade) | 紐づく演目 |
-| `memberId` | text (FK → event_members.id, onDelete: restrict) | 紐づく出演者（出演者削除前にプログラムから外す必要がある） |
-| `createdAt` | integer (timestamp) | 作成日時 |
+以下のテーブルは既にスキーマに反映済み：
 
-> UNIQUE 制約: (`programId`, `memberId`) の組み合わせ
-
-#### `performer_invitations` テーブル
-
-| カラム | 型 | 説明 |
-|--------|------|------|
-| `id` | text (PK) | UUID |
-| `eventId` | text (FK → events.id, onDelete: cascade) | 紐づくイベント |
-| `token` | text (UNIQUE) | 招待トークン（URL-safe ランダム文字列） |
-| `displayName` | text (NOT NULL) | 招待時に設定する表示名（1〜50 文字） |
-| `status` | text | `pending` / `accepted` / `invalidated`（default: `pending`） |
-| `acceptedByUserId` | text (FK → users.id, nullable, onDelete: set null) | 受諾したユーザー |
-| `acceptedAt` | integer (timestamp, nullable) | 受諾日時 |
-| `createdAt` | integer (timestamp) | 作成日時 |
-| `updatedAt` | integer (timestamp) | 更新日時 |
+- **`program_performers`** — プログラムと出演者の中間テーブル（UNIQUE 制約: `programId` + `memberId`）
+- **`performer_invitations`** — 出演者招待トークン管理（ステータス: `pending` / `accepted` / `invalidated`）
+- **`program_pieces`** — プログラムの曲目管理（1 プログラムに複数曲。各曲に `title`（必須）、`composer`（任意）、`sortOrder` を持つ）
 
 > **ゲスト招待との無効化アプローチの違い**: ゲスト招待（`invitations`）はソフトデリート方式（`invalidatedAt` タイムスタンプ）で無効化を管理する。出演者招待（`performer_invitations`）はステータス値（`invalidated`）で管理する。これは、ゲスト招待では無効化後も `accepted` のステータスを維持する必要がある（QRコード閲覧のため）のに対し、出演者招待では無効化＝使用不可の単純な状態遷移のためである。
 
