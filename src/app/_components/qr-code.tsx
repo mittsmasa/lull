@@ -8,7 +8,12 @@ export function QrCode({ path }: { path: string }) {
 
   useEffect(() => {
     const url = `${window.location.origin}${path}`;
-    QRCode.toDataURL(url, { width: 200, margin: 2 }).then(setDataUrl);
+    QRCode.toDataURL(url, { width: 200, margin: 2 })
+      .then(setDataUrl)
+      .catch((error) => {
+        console.error("Failed to generate QR code:", error);
+        setDataUrl(null);
+      });
   }, [path]);
 
   if (!dataUrl) return null;
