@@ -11,6 +11,7 @@ import {
   events,
   VALID_TRANSITIONS,
 } from "@/db/schema";
+import { getConsumedSeats } from "@/lib/queries/invitations";
 import { requireSession } from "@/lib/session";
 
 // ============================================================
@@ -204,7 +205,17 @@ export async function updateEvent(
 
   if (rest.name !== undefined) updateData.name = rest.name;
   if (rest.venue !== undefined) updateData.venue = rest.venue;
-  if (rest.totalSeats !== undefined) updateData.totalSeats = rest.totalSeats;
+  if (rest.totalSeats !== undefined) {
+    if (rest.totalSeats > 0) {
+      const consumed = getConsumedSeats(eventId);
+      if (rest.totalSeats < consumed) {
+        return {
+          error: `現在の出席数（${consumed}名）より少ない座席数には変更できません`,
+        };
+      }
+    }
+    updateData.totalSeats = rest.totalSeats;
+  }
 
   // date または startTime が変更された場合、startDatetime を再構築
   if (date !== undefined || startTime !== undefined) {
