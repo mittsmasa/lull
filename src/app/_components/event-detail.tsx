@@ -291,7 +291,7 @@ export function EventDetail({
             <Link href={`/events/${event.id}/invitations`}>招待管理</Link>
           </Button>
           <Button variant="outline" asChild className="tracking-wider">
-            <Link href={`/events/${event.id}/check-in`}>チェックイン</Link>
+            <Link href={`/events/${event.id}/checkin`}>チェックイン</Link>
           </Button>
         </CardContent>
       </Card>
