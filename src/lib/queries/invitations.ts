@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   companions,
@@ -62,6 +62,13 @@ export type SeatSummary = {
   totalSeats: number;
   consumed: number;
   remaining: number | null;
+};
+
+export type CheckInSummary = {
+  totalAccepted: number;
+  totalCompanions: number;
+  checkedInGuests: number;
+  checkedInCompanions: number;
 };
 
 // ============================================================
@@ -184,5 +191,38 @@ export function getSeatSummary(
     totalSeats,
     consumed,
     remaining: totalSeats === 0 ? null : totalSeats - consumed,
+  };
+}
+
+/** チェックインサマリー取得 */
+export function getCheckInSummary(eventId: string): CheckInSummary {
+  const guestStats = db
+    .select({
+      total: count(),
+      checkedIn: count(sql`CASE WHEN ${invitations.checkedIn} = 1 THEN 1 END`),
+    })
+    .from(invitations)
+    .where(
+      and(eq(invitations.eventId, eventId), eq(invitations.status, "accepted")),
+    )
+    .get();
+
+  const companionStats = db
+    .select({
+      total: count(),
+      checkedIn: count(sql`CASE WHEN ${companions.checkedIn} = 1 THEN 1 END`),
+    })
+    .from(companions)
+    .innerJoin(invitations, eq(companions.invitationId, invitations.id))
+    .where(
+      and(eq(invitations.eventId, eventId), eq(invitations.status, "accepted")),
+    )
+    .get();
+
+  return {
+    totalAccepted: guestStats?.total ?? 0,
+    totalCompanions: companionStats?.total ?? 0,
+    checkedInGuests: guestStats?.checkedIn ?? 0,
+    checkedInCompanions: companionStats?.checkedIn ?? 0,
   };
 }
