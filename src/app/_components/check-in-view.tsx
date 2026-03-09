@@ -142,43 +142,51 @@ export function CheckInView({
   ) => {
     const key = targetType === "guest" ? "guest" : (targetId ?? "");
     setProcessing(key);
-    const result = await performCheckIn(
-      event.id,
-      invitationId,
-      targetType,
-      targetId,
-    );
-    setProcessing(null);
+    try {
+      const result = await performCheckIn(
+        event.id,
+        invitationId,
+        targetType,
+        targetId,
+      );
 
-    if ("error" in result) {
-      setViewState({ mode: "error", message: result.error });
-      return;
-    }
-
-    const serverTime = result.checkedInAt;
-    setSummary(result.summary);
-    updateListAfterCheckIn(
-      invitationId,
-      targetType,
-      targetId,
-      true,
-      serverTime,
-    );
-
-    // 確認パネル内の招待情報を更新
-    if (viewState.mode === "found") {
-      const updated = { ...viewState.invitation };
-      if (targetType === "guest") {
-        updated.checkedIn = true;
-        updated.checkedInAt = serverTime;
-      } else {
-        updated.companions = updated.companions.map((c) =>
-          c.id === targetId
-            ? { ...c, checkedIn: true, checkedInAt: serverTime }
-            : c,
-        );
+      if ("error" in result) {
+        setViewState({ mode: "error", message: result.error });
+        return;
       }
-      setViewState({ mode: "found", invitation: updated });
+
+      const serverTime = result.checkedInAt;
+      setSummary(result.summary);
+      updateListAfterCheckIn(
+        invitationId,
+        targetType,
+        targetId,
+        true,
+        serverTime,
+      );
+
+      // 確認パネル内の招待情報を更新
+      if (viewState.mode === "found") {
+        const updated = { ...viewState.invitation };
+        if (targetType === "guest") {
+          updated.checkedIn = true;
+          updated.checkedInAt = serverTime;
+        } else {
+          updated.companions = updated.companions.map((c) =>
+            c.id === targetId
+              ? { ...c, checkedIn: true, checkedInAt: serverTime }
+              : c,
+          );
+        }
+        setViewState({ mode: "found", invitation: updated });
+      }
+    } catch {
+      setViewState({
+        mode: "error",
+        message: "チェックイン処理中にエラーが発生しました",
+      });
+    } finally {
+      setProcessing(null);
     }
   };
 
@@ -189,33 +197,43 @@ export function CheckInView({
   ) => {
     const key = targetType === "guest" ? "guest" : (targetId ?? "");
     setProcessing(key);
-    const result = await undoCheckIn(
-      event.id,
-      invitationId,
-      targetType,
-      targetId,
-    );
-    setProcessing(null);
+    try {
+      const result = await undoCheckIn(
+        event.id,
+        invitationId,
+        targetType,
+        targetId,
+      );
 
-    if ("error" in result) {
-      setViewState({ mode: "error", message: result.error });
-      return;
-    }
-
-    setSummary(result.summary);
-    updateListAfterCheckIn(invitationId, targetType, targetId, false);
-
-    if (viewState.mode === "found") {
-      const updated = { ...viewState.invitation };
-      if (targetType === "guest") {
-        updated.checkedIn = false;
-        updated.checkedInAt = null;
-      } else {
-        updated.companions = updated.companions.map((c) =>
-          c.id === targetId ? { ...c, checkedIn: false, checkedInAt: null } : c,
-        );
+      if ("error" in result) {
+        setViewState({ mode: "error", message: result.error });
+        return;
       }
-      setViewState({ mode: "found", invitation: updated });
+
+      setSummary(result.summary);
+      updateListAfterCheckIn(invitationId, targetType, targetId, false);
+
+      if (viewState.mode === "found") {
+        const updated = { ...viewState.invitation };
+        if (targetType === "guest") {
+          updated.checkedIn = false;
+          updated.checkedInAt = null;
+        } else {
+          updated.companions = updated.companions.map((c) =>
+            c.id === targetId
+              ? { ...c, checkedIn: false, checkedInAt: null }
+              : c,
+          );
+        }
+        setViewState({ mode: "found", invitation: updated });
+      }
+    } catch {
+      setViewState({
+        mode: "error",
+        message: "取り消し処理中にエラーが発生しました",
+      });
+    } finally {
+      setProcessing(null);
     }
   };
 

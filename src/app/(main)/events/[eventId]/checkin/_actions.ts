@@ -200,29 +200,35 @@ export async function performCheckIn(
 
   const now = Date.now();
 
+  // 招待の存在・ステータス・有効性を検証（トークンも取得して revalidate に使う）
+  const inv = db
+    .select({
+      checkedIn: invitations.checkedIn,
+      checkedInAt: invitations.checkedInAt,
+      status: invitations.status,
+      invalidatedAt: invitations.invalidatedAt,
+      token: invitations.token,
+    })
+    .from(invitations)
+    .where(
+      and(eq(invitations.id, invitationId), eq(invitations.eventId, eventId)),
+    )
+    .get();
+  if (!inv) return { error: "招待が見つかりません" };
+  if (inv.status !== "accepted") {
+    return { error: "出席が確定していない招待にはチェックインできません" };
+  }
+  if (inv.invalidatedAt) {
+    return { error: "この招待は無効化されています" };
+  }
+
   if (targetType === "guest") {
-    // 招待の存在・ステータス・有効性を検証
-    const inv = db
-      .select({
-        checkedIn: invitations.checkedIn,
-        status: invitations.status,
-        invalidatedAt: invitations.invalidatedAt,
-      })
-      .from(invitations)
-      .where(
-        and(eq(invitations.id, invitationId), eq(invitations.eventId, eventId)),
-      )
-      .get();
-    if (!inv) return { error: "招待が見つかりません" };
-    if (inv.status !== "accepted") {
-      return { error: "出席が確定していない招待にはチェックインできません" };
-    }
-    if (inv.invalidatedAt) {
-      return { error: "この招待は無効化されています" };
-    }
-    // 既にチェックイン済みなら何もせずサマリーだけ返す
+    // 既にチェックイン済みなら DB の時刻をそのまま返す
     if (inv.checkedIn) {
-      return { summary: getCheckInSummary(eventId), checkedInAt: now };
+      return {
+        summary: getCheckInSummary(eventId),
+        checkedInAt: inv.checkedInAt ?? now,
+      };
     }
     await db
       .update(invitations)
@@ -236,8 +242,7 @@ export async function performCheckIn(
     const comp = db
       .select({
         checkedIn: companions.checkedIn,
-        invitationStatus: invitations.status,
-        invalidatedAt: invitations.invalidatedAt,
+        checkedInAt: companions.checkedInAt,
       })
       .from(companions)
       .innerJoin(invitations, eq(companions.invitationId, invitations.id))
@@ -250,15 +255,12 @@ export async function performCheckIn(
       )
       .get();
     if (!comp) return { error: "同伴者が見つかりません" };
-    if (comp.invitationStatus !== "accepted") {
-      return { error: "出席が確定していない招待にはチェックインできません" };
-    }
-    if (comp.invalidatedAt) {
-      return { error: "この招待は無効化されています" };
-    }
-    // 既にチェックイン済みなら何もせずサマリーだけ返す
+    // 既にチェックイン済みなら DB の時刻をそのまま返す
     if (comp.checkedIn) {
-      return { summary: getCheckInSummary(eventId), checkedInAt: now };
+      return {
+        summary: getCheckInSummary(eventId),
+        checkedInAt: comp.checkedInAt ?? now,
+      };
     }
     await db
       .update(companions)
@@ -272,6 +274,7 @@ export async function performCheckIn(
   }
 
   revalidatePath(`/events/${eventId}/checkin`);
+  revalidatePath(`/i/${inv.token}`);
 
   // 最新サマリーを返してクライアント側で state 更新
   return { summary: getCheckInSummary(eventId), checkedInAt: now };
@@ -303,6 +306,16 @@ export async function undoCheckIn(
       error: "チェックインの取り消しは開催中のイベントでのみ可能です",
     };
   }
+
+  // 招待トークンを取得（revalidate 用）
+  const inv = db
+    .select({ token: invitations.token })
+    .from(invitations)
+    .where(
+      and(eq(invitations.id, invitationId), eq(invitations.eventId, eventId)),
+    )
+    .get();
+  if (!inv) return { error: "招待が見つかりません" };
 
   if (targetType === "guest") {
     await db
@@ -339,6 +352,7 @@ export async function undoCheckIn(
   }
 
   revalidatePath(`/events/${eventId}/checkin`);
+  revalidatePath(`/i/${inv.token}`);
 
   return { summary: getCheckInSummary(eventId) };
 }
