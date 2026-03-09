@@ -248,7 +248,7 @@ export default async function InvitationResponsePage(
         inviterName={invitation.inviterDisplayName}
       />
 
-      {invitation.status === "accepted" && event.status !== "ongoing" && (
+      {invitation.status === "accepted" && (
         <div className="mb-8">
           <QrCode path={`/i/${token}`} />
         </div>

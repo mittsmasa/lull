@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, exists, like, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { companions, eventMembers, events, invitations } from "@/db/schema";
@@ -53,12 +53,26 @@ export async function searchInvitationByName(
   const trimmed = query.trim();
   if (!trimmed) return { invitations: [] };
 
-  // guestName LIKE '%query%' + status = accepted で検索
-  // 同伴者名でも検索
+  // DB 側で guestName / 同伴者名の LIKE 検索
+  const pattern = `%${trimmed}%`;
   const rows = await db.query.invitations.findMany({
     where: and(
       eq(invitations.eventId, eventId),
       eq(invitations.status, "accepted"),
+      or(
+        like(invitations.guestName, pattern),
+        exists(
+          db
+            .select({ id: companions.id })
+            .from(companions)
+            .where(
+              and(
+                eq(companions.invitationId, invitations.id),
+                like(companions.name, pattern),
+              ),
+            ),
+        ),
+      ),
     ),
     with: {
       companions: {
@@ -72,14 +86,8 @@ export async function searchInvitationByName(
     },
   });
 
-  // アプリ層でフィルタ（ゲスト名 or 同伴者名に部分一致）
-  const filtered = rows.filter((r) => {
-    if (r.guestName?.includes(trimmed)) return true;
-    return r.companions.some((c) => c.name.includes(trimmed));
-  });
-
   return {
-    invitations: filtered.map((r) => ({
+    invitations: rows.map((r) => ({
       id: r.id,
       guestName: r.guestName,
       guestEmail: r.guestEmail,
@@ -168,7 +176,9 @@ export async function performCheckIn(
   invitationId: string,
   targetType: "guest" | "companion",
   targetId?: string,
-): Promise<{ error: string } | { summary: CheckInSummary }> {
+): Promise<
+  { error: string } | { summary: CheckInSummary; checkedInAt: number }
+> {
   const session = await requireSession();
 
   // 権限チェック（主催者 or 出演者）
@@ -191,16 +201,28 @@ export async function performCheckIn(
   const now = Date.now();
 
   if (targetType === "guest") {
-    // 既にチェックイン済みなら何もせずサマリーだけ返す
+    // 招待の存在・ステータス・有効性を検証
     const inv = db
-      .select({ checkedIn: invitations.checkedIn })
+      .select({
+        checkedIn: invitations.checkedIn,
+        status: invitations.status,
+        invalidatedAt: invitations.invalidatedAt,
+      })
       .from(invitations)
       .where(
         and(eq(invitations.id, invitationId), eq(invitations.eventId, eventId)),
       )
       .get();
-    if (inv?.checkedIn) {
-      return { summary: getCheckInSummary(eventId) };
+    if (!inv) return { error: "招待が見つかりません" };
+    if (inv.status !== "accepted") {
+      return { error: "出席が確定していない招待にはチェックインできません" };
+    }
+    if (inv.invalidatedAt) {
+      return { error: "この招待は無効化されています" };
+    }
+    // 既にチェックイン済みなら何もせずサマリーだけ返す
+    if (inv.checkedIn) {
+      return { summary: getCheckInSummary(eventId), checkedInAt: now };
     }
     await db
       .update(invitations)
@@ -210,19 +232,33 @@ export async function performCheckIn(
       );
   } else {
     if (!targetId) return { error: "同伴者IDが必要です" };
-    // 既にチェックイン済みなら何もせずサマリーだけ返す
+    // companions → invitations を JOIN して eventId スコープを担保
     const comp = db
-      .select({ checkedIn: companions.checkedIn })
+      .select({
+        checkedIn: companions.checkedIn,
+        invitationStatus: invitations.status,
+        invalidatedAt: invitations.invalidatedAt,
+      })
       .from(companions)
+      .innerJoin(invitations, eq(companions.invitationId, invitations.id))
       .where(
         and(
           eq(companions.id, targetId),
           eq(companions.invitationId, invitationId),
+          eq(invitations.eventId, eventId),
         ),
       )
       .get();
-    if (comp?.checkedIn) {
-      return { summary: getCheckInSummary(eventId) };
+    if (!comp) return { error: "同伴者が見つかりません" };
+    if (comp.invitationStatus !== "accepted") {
+      return { error: "出席が確定していない招待にはチェックインできません" };
+    }
+    if (comp.invalidatedAt) {
+      return { error: "この招待は無効化されています" };
+    }
+    // 既にチェックイン済みなら何もせずサマリーだけ返す
+    if (comp.checkedIn) {
+      return { summary: getCheckInSummary(eventId), checkedInAt: now };
     }
     await db
       .update(companions)
@@ -238,7 +274,7 @@ export async function performCheckIn(
   revalidatePath(`/events/${eventId}/checkin`);
 
   // 最新サマリーを返してクライアント側で state 更新
-  return { summary: getCheckInSummary(eventId) };
+  return { summary: getCheckInSummary(eventId), checkedInAt: now };
 }
 
 /** チェックイン取り消し（ゲスト本人 or 同伴者） */
@@ -277,6 +313,20 @@ export async function undoCheckIn(
       );
   } else {
     if (!targetId) return { error: "同伴者IDが必要です" };
+    // companions → invitations を JOIN して eventId スコープを検証
+    const comp = db
+      .select({ id: companions.id })
+      .from(companions)
+      .innerJoin(invitations, eq(companions.invitationId, invitations.id))
+      .where(
+        and(
+          eq(companions.id, targetId),
+          eq(companions.invitationId, invitationId),
+          eq(invitations.eventId, eventId),
+        ),
+      )
+      .get();
+    if (!comp) return { error: "同伴者が見つかりません" };
     await db
       .update(companions)
       .set({ checkedIn: false, checkedInAt: null })

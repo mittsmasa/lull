@@ -112,8 +112,9 @@ export function CheckInView({
     targetType: "guest" | "companion",
     targetId: string | undefined,
     checkedIn: boolean,
+    checkedInAt?: number | null,
   ) => {
-    const now = Date.now();
+    const ts = checkedIn ? (checkedInAt ?? null) : null;
     setCheckInList((prev) =>
       prev.map((item) => {
         if (item.id !== invitationId) return item;
@@ -121,15 +122,13 @@ export function CheckInView({
           return {
             ...item,
             checkedIn,
-            checkedInAt: checkedIn ? now : null,
+            checkedInAt: ts,
           };
         }
         return {
           ...item,
           companions: item.companions.map((c) =>
-            c.id === targetId
-              ? { ...c, checkedIn, checkedInAt: checkedIn ? now : null }
-              : c,
+            c.id === targetId ? { ...c, checkedIn, checkedInAt: ts } : c,
           ),
         };
       }),
@@ -156,19 +155,27 @@ export function CheckInView({
       return;
     }
 
+    const serverTime = result.checkedInAt;
     setSummary(result.summary);
-    updateListAfterCheckIn(invitationId, targetType, targetId, true);
+    updateListAfterCheckIn(
+      invitationId,
+      targetType,
+      targetId,
+      true,
+      serverTime,
+    );
 
     // 確認パネル内の招待情報を更新
     if (viewState.mode === "found") {
-      const now = Date.now();
       const updated = { ...viewState.invitation };
       if (targetType === "guest") {
         updated.checkedIn = true;
-        updated.checkedInAt = now;
+        updated.checkedInAt = serverTime;
       } else {
         updated.companions = updated.companions.map((c) =>
-          c.id === targetId ? { ...c, checkedIn: true, checkedInAt: now } : c,
+          c.id === targetId
+            ? { ...c, checkedIn: true, checkedInAt: serverTime }
+            : c,
         );
       }
       setViewState({ mode: "found", invitation: updated });
