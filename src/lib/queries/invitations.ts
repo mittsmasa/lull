@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   companions,
@@ -46,7 +46,14 @@ export type InvitationForResponse = {
   invalidatedAt: number | null;
   respondedAt: number | null;
   memberId: string | null;
-  companions: { id: string; name: string }[];
+  checkedIn: boolean;
+  checkedInAt: number | null;
+  companions: {
+    id: string;
+    name: string;
+    checkedIn: boolean;
+    checkedInAt: number | null;
+  }[];
   event: {
     id: string;
     name: string;
@@ -62,6 +69,13 @@ export type SeatSummary = {
   totalSeats: number;
   consumed: number;
   remaining: number | null;
+};
+
+export type CheckInSummary = {
+  totalAccepted: number;
+  totalCompanions: number;
+  checkedInGuests: number;
+  checkedInCompanions: number;
 };
 
 // ============================================================
@@ -128,7 +142,7 @@ export async function getInvitationByToken(
       },
       member: { columns: { displayName: true } },
       companions: {
-        columns: { id: true, name: true },
+        columns: { id: true, name: true, checkedIn: true, checkedInAt: true },
       },
     },
   });
@@ -144,6 +158,8 @@ export async function getInvitationByToken(
     guestName: invitation.guestName,
     guestEmail: invitation.guestEmail,
     status: invitation.status,
+    checkedIn: invitation.checkedIn,
+    checkedInAt: invitation.checkedInAt,
     invalidatedAt: invitation.invalidatedAt,
     respondedAt: invitation.respondedAt,
     memberId: invitation.memberId,
@@ -184,5 +200,81 @@ export function getSeatSummary(
     totalSeats,
     consumed,
     remaining: totalSeats === 0 ? null : totalSeats - consumed,
+  };
+}
+
+export type CheckInListItem = {
+  id: string;
+  guestName: string | null;
+  checkedIn: boolean;
+  checkedInAt: number | null;
+  companions: {
+    id: string;
+    name: string;
+    checkedIn: boolean;
+    checkedInAt: number | null;
+  }[];
+};
+
+/** チェックイン来場者一覧取得 */
+export async function getCheckInList(
+  eventId: string,
+): Promise<CheckInListItem[]> {
+  const rows = await db.query.invitations.findMany({
+    where: and(
+      eq(invitations.eventId, eventId),
+      eq(invitations.status, "accepted"),
+    ),
+    columns: {
+      id: true,
+      guestName: true,
+      checkedIn: true,
+      checkedInAt: true,
+    },
+    with: {
+      companions: {
+        columns: {
+          id: true,
+          name: true,
+          checkedIn: true,
+          checkedInAt: true,
+        },
+      },
+    },
+  });
+
+  return rows;
+}
+
+/** チェックインサマリー取得 */
+export function getCheckInSummary(eventId: string): CheckInSummary {
+  const guestStats = db
+    .select({
+      total: count(),
+      checkedIn: count(sql`CASE WHEN ${invitations.checkedIn} = 1 THEN 1 END`),
+    })
+    .from(invitations)
+    .where(
+      and(eq(invitations.eventId, eventId), eq(invitations.status, "accepted")),
+    )
+    .get();
+
+  const companionStats = db
+    .select({
+      total: count(),
+      checkedIn: count(sql`CASE WHEN ${companions.checkedIn} = 1 THEN 1 END`),
+    })
+    .from(companions)
+    .innerJoin(invitations, eq(companions.invitationId, invitations.id))
+    .where(
+      and(eq(invitations.eventId, eventId), eq(invitations.status, "accepted")),
+    )
+    .get();
+
+  return {
+    totalAccepted: guestStats?.total ?? 0,
+    totalCompanions: companionStats?.total ?? 0,
+    checkedInGuests: guestStats?.checkedIn ?? 0,
+    checkedInCompanions: companionStats?.checkedIn ?? 0,
   };
 }
