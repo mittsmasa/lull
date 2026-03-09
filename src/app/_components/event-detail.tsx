@@ -296,31 +296,36 @@ export function EventDetail({
         </CardContent>
       </Card>
 
-      {/* 削除（主催者 + draft のみ） */}
-      {isOrganizer && event.status === "draft" && (
-        <div className="pt-4 border-t">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">イベントを削除</Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>イベントを削除しますか？</AlertDialogTitle>
-                <AlertDialogDescription>
-                  「{event.name}
-                  」を削除すると、関連するメンバー・招待・プログラム情報もすべて削除されます。この操作は元に戻せません。
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} disabled={isPending}>
-                  {isPending ? "削除中..." : "削除する"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      )}
+      {/* 削除（主催者 + draft/finished のみ） */}
+      {isOrganizer &&
+        (event.status === "draft" || event.status === "finished") && (
+          <div className="pt-4 border-t">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">イベントを削除</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>イベントを削除しますか？</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {event.status === "finished"
+                      ? `「${event.name}」のすべてのデータ（招待・チェックイン記録・プログラム情報）が完全に削除されます。この操作は元に戻せません。`
+                      : `「${event.name}」を削除すると、関連するメンバー・招待・プログラム情報もすべて削除されます。この操作は元に戻せません。`}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    disabled={isPending}
+                  >
+                    {isPending ? "削除中..." : "削除する"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
     </div>
   );
 }

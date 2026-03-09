@@ -3,6 +3,7 @@ import { CheckInView } from "@/app/_components/check-in-view";
 import { HeaderConfig } from "@/app/_components/header-config";
 import { getEventMembership } from "@/lib/queries/events";
 import {
+  getCheckInList,
   getCheckInSummary,
   getEventForInvitationManagement,
 } from "@/lib/queries/invitations";
@@ -21,11 +22,12 @@ export default async function CheckInPage(
   if (!event) notFound();
 
   const summary = getCheckInSummary(eventId);
+  const checkInList = await getCheckInList(eventId);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
       <HeaderConfig showBackButton />
-      <CheckInView event={event} summary={summary} />
+      <CheckInView event={event} summary={summary} initialList={checkInList} />
     </div>
   );
 }

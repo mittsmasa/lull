@@ -46,7 +46,14 @@ export type InvitationForResponse = {
   invalidatedAt: number | null;
   respondedAt: number | null;
   memberId: string | null;
-  companions: { id: string; name: string }[];
+  checkedIn: boolean;
+  checkedInAt: number | null;
+  companions: {
+    id: string;
+    name: string;
+    checkedIn: boolean;
+    checkedInAt: number | null;
+  }[];
   event: {
     id: string;
     name: string;
@@ -135,7 +142,7 @@ export async function getInvitationByToken(
       },
       member: { columns: { displayName: true } },
       companions: {
-        columns: { id: true, name: true },
+        columns: { id: true, name: true, checkedIn: true, checkedInAt: true },
       },
     },
   });
@@ -151,6 +158,8 @@ export async function getInvitationByToken(
     guestName: invitation.guestName,
     guestEmail: invitation.guestEmail,
     status: invitation.status,
+    checkedIn: invitation.checkedIn,
+    checkedInAt: invitation.checkedInAt,
     invalidatedAt: invitation.invalidatedAt,
     respondedAt: invitation.respondedAt,
     memberId: invitation.memberId,
@@ -192,6 +201,49 @@ export function getSeatSummary(
     consumed,
     remaining: totalSeats === 0 ? null : totalSeats - consumed,
   };
+}
+
+export type CheckInListItem = {
+  id: string;
+  guestName: string | null;
+  checkedIn: boolean;
+  checkedInAt: number | null;
+  companions: {
+    id: string;
+    name: string;
+    checkedIn: boolean;
+    checkedInAt: number | null;
+  }[];
+};
+
+/** チェックイン来場者一覧取得 */
+export async function getCheckInList(
+  eventId: string,
+): Promise<CheckInListItem[]> {
+  const rows = await db.query.invitations.findMany({
+    where: and(
+      eq(invitations.eventId, eventId),
+      eq(invitations.status, "accepted"),
+    ),
+    columns: {
+      id: true,
+      guestName: true,
+      checkedIn: true,
+      checkedInAt: true,
+    },
+    with: {
+      companions: {
+        columns: {
+          id: true,
+          name: true,
+          checkedIn: true,
+          checkedInAt: true,
+        },
+      },
+    },
+  });
+
+  return rows;
 }
 
 /** チェックインサマリー取得 */

@@ -1,7 +1,10 @@
 "use client";
 
 import {
+  CaretDown,
+  CaretUp,
   CheckCircle,
+  Circle,
   QrCode,
   Spinner,
   User,
@@ -13,12 +16,24 @@ import {
   type LookupInvitation,
   lookupInvitationByToken,
   performCheckIn,
+  searchInvitationByName,
   undoCheckIn,
 } from "@/app/(main)/events/[eventId]/checkin/_actions";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
 import type { EventStatus } from "@/db/schema";
-import type { CheckInSummary } from "@/lib/queries/invitations";
+import { statusLabels, statusVariants } from "@/lib/event-status";
+import type {
+  CheckInListItem,
+  CheckInSummary,
+} from "@/lib/queries/invitations";
 import { QrScanner } from "./qr-scanner";
 
 type CheckInViewProps = {
@@ -29,6 +44,7 @@ type CheckInViewProps = {
     totalSeats: number;
   };
   summary: CheckInSummary;
+  initialList: CheckInListItem[];
 };
 
 type ViewState =
@@ -55,11 +71,17 @@ function formatTimestamp(ts: number): string {
 export function CheckInView({
   event,
   summary: initialSummary,
+  initialList,
 }: CheckInViewProps) {
   const [viewState, setViewState] = useState<ViewState>({ mode: "idle" });
   const [summary, setSummary] = useState<CheckInSummary>(initialSummary);
+  const [checkInList, setCheckInList] =
+    useState<CheckInListItem[]>(initialList);
   const [scanKey, setScanKey] = useState(0);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [listOpen, setListOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
 
   const handleScan = useCallback(
     async (decodedText: string) => {
@@ -84,6 +106,36 @@ export function CheckInView({
     [event.id],
   );
 
+  /** チェックイン後にローカルリストを更新 */
+  const updateListAfterCheckIn = (
+    invitationId: string,
+    targetType: "guest" | "companion",
+    targetId: string | undefined,
+    checkedIn: boolean,
+  ) => {
+    const now = Date.now();
+    setCheckInList((prev) =>
+      prev.map((item) => {
+        if (item.id !== invitationId) return item;
+        if (targetType === "guest") {
+          return {
+            ...item,
+            checkedIn,
+            checkedInAt: checkedIn ? now : null,
+          };
+        }
+        return {
+          ...item,
+          companions: item.companions.map((c) =>
+            c.id === targetId
+              ? { ...c, checkedIn, checkedInAt: checkedIn ? now : null }
+              : c,
+          ),
+        };
+      }),
+    );
+  };
+
   const handleCheckIn = async (
     invitationId: string,
     targetType: "guest" | "companion",
@@ -105,6 +157,7 @@ export function CheckInView({
     }
 
     setSummary(result.summary);
+    updateListAfterCheckIn(invitationId, targetType, targetId, true);
 
     // 確認パネル内の招待情報を更新
     if (viewState.mode === "found") {
@@ -143,6 +196,7 @@ export function CheckInView({
     }
 
     setSummary(result.summary);
+    updateListAfterCheckIn(invitationId, targetType, targetId, false);
 
     if (viewState.mode === "found") {
       const updated = { ...viewState.invitation };
@@ -163,11 +217,50 @@ export function CheckInView({
     setViewState({ mode: "scanning" });
   };
 
+  const [searchResults, setSearchResults] = useState<LookupInvitation[] | null>(
+    null,
+  );
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    const result = await searchInvitationByName(event.id, searchQuery);
+    setSearching(false);
+    if ("error" in result) {
+      setViewState({ mode: "error", message: result.error });
+    } else {
+      setSearchResults(result.invitations);
+    }
+  };
+
+  /** リスト行タップで found モードに遷移 */
+  const selectFromList = (item: CheckInListItem) => {
+    setViewState({
+      mode: "found",
+      invitation: {
+        id: item.id,
+        guestName: item.guestName,
+        guestEmail: null,
+        checkedIn: item.checkedIn,
+        checkedInAt: item.checkedInAt,
+        companions: item.companions,
+      },
+    });
+  };
+
   // ongoing 以外はメッセージのみ表示
   if (event.status !== "ongoing") {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight">{event.name}</h1>
+        <div>
+          <h1 className="text-3xl font-light tracking-wide">チェックイン</h1>
+          <div className="mt-2 flex items-center gap-3">
+            <span className="text-muted-foreground">{event.name}</span>
+            <Badge variant={statusVariants[event.status]}>
+              {statusLabels[event.status]}
+            </Badge>
+          </div>
+        </div>
         <Card>
           <CardContent className="pt-6">
             <p className="text-muted-foreground text-center">
@@ -181,7 +274,111 @@ export function CheckInView({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">{event.name}</h1>
+      <div>
+        <h1 className="text-3xl font-light tracking-wide">チェックイン</h1>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="text-muted-foreground">{event.name}</span>
+          <Badge variant={statusVariants[event.status]}>
+            {statusLabels[event.status]}
+          </Badge>
+        </div>
+      </div>
+
+      {/* QR スキャンボタン（上部に常設） */}
+      {viewState.mode !== "scanning" ? (
+        <Button onClick={startScanning} size="lg" className="w-full gap-2">
+          <QrCode className="size-5" />
+          QR スキャン
+        </Button>
+      ) : (
+        <div className="space-y-4">
+          <QrScanner key={scanKey} onScan={handleScan} />
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              onClick={() => setViewState({ mode: "idle" })}
+            >
+              キャンセル
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 名前検索フォーム（常設） */}
+      {viewState.mode !== "scanning" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">名前で検索</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="ゲスト名を入力"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (!e.target.value.trim()) setSearchResults(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSearch();
+                  }
+                }}
+              />
+              <Button
+                onClick={handleSearch}
+                disabled={searching || !searchQuery.trim()}
+                className="shrink-0"
+              >
+                {searching ? (
+                  <Spinner className="size-4 animate-spin" />
+                ) : (
+                  "検索"
+                )}
+              </Button>
+            </div>
+
+            {searchResults !== null && searchResults.length === 0 && (
+              <p className="text-muted-foreground text-sm text-center py-2">
+                該当するゲストが見つかりません
+              </p>
+            )}
+
+            {searchResults && searchResults.length > 0 && (
+              <div className="space-y-1">
+                {searchResults.map((inv) => (
+                  <button
+                    key={inv.id}
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-3 hover:bg-muted/50 transition-colors border"
+                    onClick={() =>
+                      setViewState({ mode: "found", invitation: inv })
+                    }
+                  >
+                    {inv.checkedIn ? (
+                      <CheckCircle
+                        className="size-4 shrink-0 text-emerald-800/70"
+                        weight="fill"
+                      />
+                    ) : (
+                      <Circle className="size-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="text-sm flex-1 text-left">
+                      {inv.guestName ?? "名前未登録"}
+                    </span>
+                    {inv.companions.length > 0 && (
+                      <span className="text-muted-foreground text-xs">
+                        +{inv.companions.length}名
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* サマリーカード */}
       <Card>
@@ -206,29 +403,82 @@ export function CheckInView({
         </CardContent>
       </Card>
 
-      {/* メインエリア */}
-      {viewState.mode === "idle" && (
-        <div className="flex justify-center">
-          <Button onClick={startScanning} size="lg" className="gap-2">
-            <QrCode className="size-5" />
-            QR スキャン
-          </Button>
-        </div>
-      )}
-
-      {viewState.mode === "scanning" && (
-        <div className="space-y-4">
-          <QrScanner key={scanKey} onScan={handleScan} />
-          <div className="flex justify-center">
-            <Button
-              variant="outline"
-              onClick={() => setViewState({ mode: "idle" })}
+      {/* 来場者一覧（Collapsible） */}
+      <Collapsible open={listOpen} onOpenChange={setListOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-6 py-4"
             >
-              キャンセル
-            </Button>
-          </div>
-        </div>
-      )}
+              <span className="text-base font-semibold">来場者一覧</span>
+              {listOpen ? (
+                <CaretUp className="size-5 text-muted-foreground" />
+              ) : (
+                <CaretDown className="size-5 text-muted-foreground" />
+              )}
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-1 pt-0">
+              {checkInList.length === 0 && (
+                <p className="text-muted-foreground text-sm py-2">
+                  出席予定のゲストがいません
+                </p>
+              )}
+              {checkInList.map((item) => (
+                <div key={item.id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/50 transition-colors"
+                    onClick={() => selectFromList(item)}
+                  >
+                    {item.checkedIn ? (
+                      <CheckCircle
+                        className="size-4 shrink-0 text-emerald-800/70"
+                        weight="fill"
+                      />
+                    ) : (
+                      <Circle className="size-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="text-sm flex-1 text-left">
+                      {item.guestName ?? "名前未登録"}
+                    </span>
+                    {item.checkedIn && item.checkedInAt && (
+                      <span className="text-muted-foreground text-xs">
+                        {formatTimestamp(item.checkedInAt)}
+                      </span>
+                    )}
+                  </button>
+                  {item.companions.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-md pl-6 pr-2 py-2 hover:bg-muted/50 transition-colors"
+                      onClick={() => selectFromList(item)}
+                    >
+                      {c.checkedIn ? (
+                        <CheckCircle
+                          className="size-4 shrink-0 text-emerald-800/70"
+                          weight="fill"
+                        />
+                      ) : (
+                        <Circle className="size-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="text-sm flex-1 text-left">{c.name}</span>
+                      {c.checkedIn && c.checkedInAt && (
+                        <span className="text-muted-foreground text-xs">
+                          {formatTimestamp(c.checkedInAt)}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {viewState.mode === "loading" && (
         <div className="flex flex-col items-center gap-2 py-8">

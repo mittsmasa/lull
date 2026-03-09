@@ -31,7 +31,7 @@ export function QrScanner({ onScan }: QrScannerProps) {
     });
     scannerRef.current = html5QrCode;
 
-    html5QrCode
+    const startPromise = html5QrCode
       .start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
@@ -43,11 +43,10 @@ export function QrScanner({ onScan }: QrScannerProps) {
       )
       .then(() => {
         if (cancelled) {
-          html5QrCode
+          return html5QrCode
             .stop()
             .then(() => html5QrCode.clear())
             .catch(() => {});
-          return;
         }
         setStatus("scanning");
       })
@@ -63,20 +62,23 @@ export function QrScanner({ onScan }: QrScannerProps) {
 
     return () => {
       cancelled = true;
-      const state = html5QrCode.getState();
-      // 2 = SCANNING, 3 = PAUSED
-      if (state === 2 || state === 3) {
-        html5QrCode
-          .stop()
-          .then(() => html5QrCode.clear())
-          .catch(() => {});
-      } else {
-        try {
-          html5QrCode.clear();
-        } catch {
-          // ignore
+      // start() 完了を待ってから停止する（play() interrupted 回避）
+      startPromise.then(() => {
+        const state = html5QrCode.getState();
+        // 2 = SCANNING, 3 = PAUSED
+        if (state === 2 || state === 3) {
+          html5QrCode
+            .stop()
+            .then(() => html5QrCode.clear())
+            .catch(() => {});
+        } else {
+          try {
+            html5QrCode.clear();
+          } catch {
+            // ignore
+          }
         }
-      }
+      });
     };
   }, [elementId, handleScan]);
 

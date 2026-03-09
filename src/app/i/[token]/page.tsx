@@ -1,3 +1,4 @@
+import { CheckCircle, Circle } from "@phosphor-icons/react/dist/ssr";
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
 import { QrCode } from "@/app/_components/qr-code";
 import type { EventStatus } from "@/db/schema";
@@ -51,7 +52,12 @@ function CurrentResponseView({
     guestName: string | null;
     guestEmail: string | null;
     status: string;
-    companions: { id: string; name: string }[];
+    companions: {
+      id: string;
+      name: string;
+      checkedIn: boolean;
+      checkedInAt: number | null;
+    }[];
   };
 }) {
   return (
@@ -76,6 +82,75 @@ function CurrentResponseView({
             {invitation.companions.map((c) => c.name).join("、")}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function formatCheckInTime(ts: number): string {
+  const date = new Date(ts);
+  const h = String(date.getHours()).padStart(2, "0");
+  const m = String(date.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function CheckInStatusView({
+  invitation,
+}: {
+  invitation: {
+    guestName: string | null;
+    checkedIn: boolean;
+    checkedInAt: number | null;
+    companions: {
+      id: string;
+      name: string;
+      checkedIn: boolean;
+      checkedInAt: number | null;
+    }[];
+  };
+}) {
+  return (
+    <div className="mt-6 rounded-lg border p-6">
+      <h2 className="mb-4 text-lg font-light tracking-wide">受付状況</h2>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 text-sm">
+          {invitation.checkedIn ? (
+            <CheckCircle
+              className="size-4 shrink-0 text-emerald-800/70"
+              weight="fill"
+            />
+          ) : (
+            <Circle className="size-4 shrink-0 text-muted-foreground" />
+          )}
+          <span className="flex-1">{invitation.guestName ?? "本人"}</span>
+          {invitation.checkedIn && invitation.checkedInAt ? (
+            <span className="text-muted-foreground text-xs">
+              {formatCheckInTime(invitation.checkedInAt)} 受付済み
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-xs">未受付</span>
+          )}
+        </div>
+        {invitation.companions.map((c) => (
+          <div key={c.id} className="flex items-center gap-2 text-sm">
+            {c.checkedIn ? (
+              <CheckCircle
+                className="size-4 shrink-0 text-emerald-800/70"
+                weight="fill"
+              />
+            ) : (
+              <Circle className="size-4 shrink-0 text-muted-foreground" />
+            )}
+            <span className="flex-1">{c.name}</span>
+            {c.checkedIn && c.checkedInAt ? (
+              <span className="text-muted-foreground text-xs">
+                {formatCheckInTime(c.checkedInAt)} 受付済み
+              </span>
+            ) : (
+              <span className="text-muted-foreground text-xs">未受付</span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -125,7 +200,23 @@ export default async function InvitationResponsePage(
     return <ErrorView message="現在準備中です" />;
   }
 
+  // finished + accepted → イベント情報 + 現在の回答 + 受付状況を表示
   if (event.status === "finished") {
+    if (invitation.status === "accepted") {
+      return (
+        <div className="mx-auto max-w-2xl px-6 py-12">
+          <EventInfoHeader
+            event={event}
+            inviterName={invitation.inviterDisplayName}
+          />
+          <CurrentResponseView invitation={invitation} />
+          <CheckInStatusView invitation={invitation} />
+          <div className="mt-4 rounded-md bg-muted p-4 text-sm text-muted-foreground">
+            このイベントは終了しました。
+          </div>
+        </div>
+      );
+    }
     return <ErrorView message="この招待リンクは期限切れです" />;
   }
 
@@ -146,6 +237,10 @@ export default async function InvitationResponsePage(
     invitation.status === "pending" &&
     (event.status === "published" || event.status === "ongoing");
 
+  // 受付状況を表示する条件: ongoing + accepted
+  const showCheckInStatus =
+    invitation.status === "accepted" && event.status === "ongoing";
+
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
       <EventInfoHeader
@@ -153,7 +248,7 @@ export default async function InvitationResponsePage(
         inviterName={invitation.inviterDisplayName}
       />
 
-      {invitation.status === "accepted" && (
+      {invitation.status === "accepted" && event.status !== "ongoing" && (
         <div className="mb-8">
           <QrCode path={`/i/${token}`} />
         </div>
@@ -162,6 +257,8 @@ export default async function InvitationResponsePage(
       {invitation.status !== "pending" && (
         <CurrentResponseView invitation={invitation} />
       )}
+
+      {showCheckInStatus && <CheckInStatusView invitation={invitation} />}
 
       {(canRespond || canModify) && (
         <div className="mt-8">

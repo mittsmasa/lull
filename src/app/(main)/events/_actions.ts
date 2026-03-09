@@ -290,8 +290,10 @@ export async function deleteEvent(eventId: string) {
     return { error: "イベントが見つかりません" };
   }
 
-  if (event.status !== "draft") {
-    return { error: "draft ステータスのイベントのみ削除できます" };
+  if (event.status !== "draft" && event.status !== "finished") {
+    return {
+      error: "draft または finished ステータスのイベントのみ削除できます",
+    };
   }
 
   await db.delete(events).where(eq(events.id, eventId));

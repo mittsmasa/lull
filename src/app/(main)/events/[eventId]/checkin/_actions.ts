@@ -26,6 +26,70 @@ export type LookupInvitation = {
 
 export type LookupResult = { error: string } | { invitation: LookupInvitation };
 
+/** 名前検索によるチェックイン用招待情報検索 */
+export async function searchInvitationByName(
+  eventId: string,
+  query: string,
+): Promise<{ error: string } | { invitations: LookupInvitation[] }> {
+  const session = await requireSession();
+
+  // メンバー権限チェック
+  const member = await db.query.eventMembers.findFirst({
+    where: and(
+      eq(eventMembers.eventId, eventId),
+      eq(eventMembers.userId, session.user.id),
+    ),
+  });
+  if (!member) return { error: "権限がありません" };
+
+  // イベントステータスチェック（ongoing のみ）
+  const event = await db.query.events.findFirst({
+    where: eq(events.id, eventId),
+  });
+  if (!event || event.status !== "ongoing") {
+    return { error: "チェックインは開催中のイベントでのみ利用できます" };
+  }
+
+  const trimmed = query.trim();
+  if (!trimmed) return { invitations: [] };
+
+  // guestName LIKE '%query%' + status = accepted で検索
+  // 同伴者名でも検索
+  const rows = await db.query.invitations.findMany({
+    where: and(
+      eq(invitations.eventId, eventId),
+      eq(invitations.status, "accepted"),
+    ),
+    with: {
+      companions: {
+        columns: {
+          id: true,
+          name: true,
+          checkedIn: true,
+          checkedInAt: true,
+        },
+      },
+    },
+  });
+
+  // アプリ層でフィルタ（ゲスト名 or 同伴者名に部分一致）
+  const filtered = rows.filter((r) => {
+    if (r.guestName?.includes(trimmed)) return true;
+    return r.companions.some((c) => c.name.includes(trimmed));
+  });
+
+  return {
+    invitations: filtered.map((r) => ({
+      id: r.id,
+      guestName: r.guestName,
+      guestEmail: r.guestEmail,
+      checkedIn: r.checkedIn,
+      checkedInAt: r.checkedInAt,
+      companions: r.companions,
+    })),
+  };
+}
+
 /** QR コード読み取り後、トークンから招待情報を検索 */
 export async function lookupInvitationByToken(
   eventId: string,
