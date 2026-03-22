@@ -1,7 +1,7 @@
 import "server-only";
 
 import { and, count, eq, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import {
   companions,
   type EventStatus,
@@ -86,7 +86,7 @@ export type CheckInSummary = {
 export async function getEventForInvitationManagement(
   eventId: string,
 ): Promise<EventForInvitationManagement | undefined> {
-  return db.query.events.findFirst({
+  return getDb().query.events.findFirst({
     where: eq(events.id, eventId),
     columns: { id: true, name: true, status: true, totalSeats: true },
   });
@@ -96,7 +96,7 @@ export async function getEventForInvitationManagement(
 export async function getInvitationsByEventId(
   eventId: string,
 ): Promise<InvitationItem[]> {
-  const rows = await db.query.invitations.findMany({
+  const rows = await getDb().query.invitations.findMany({
     where: eq(invitations.eventId, eventId),
     with: {
       companions: { columns: { id: true, name: true } },
@@ -126,7 +126,7 @@ export async function getInvitationsByEventId(
 export async function getInvitationByToken(
   token: string,
 ): Promise<InvitationForResponse | undefined> {
-  const invitation = await db.query.invitations.findFirst({
+  const invitation = await getDb().query.invitations.findFirst({
     where: eq(invitations.token, token),
     with: {
       event: {
@@ -170,7 +170,7 @@ export async function getInvitationByToken(
 
 /** 座席消費数を計算（同期関数: トランザクション内で呼ぶため） */
 export function getConsumedSeats(eventId: string): number {
-  const acceptedGuests = db
+  const acceptedGuests = getDb()
     .select({ count: count() })
     .from(invitations)
     .where(
@@ -178,7 +178,7 @@ export function getConsumedSeats(eventId: string): number {
     )
     .get();
 
-  const acceptedCompanions = db
+  const acceptedCompanions = getDb()
     .select({ count: count() })
     .from(companions)
     .innerJoin(invitations, eq(companions.invitationId, invitations.id))
@@ -220,7 +220,7 @@ export type CheckInListItem = {
 export async function getCheckInList(
   eventId: string,
 ): Promise<CheckInListItem[]> {
-  const rows = await db.query.invitations.findMany({
+  const rows = await getDb().query.invitations.findMany({
     where: and(
       eq(invitations.eventId, eventId),
       eq(invitations.status, "accepted"),
@@ -248,7 +248,7 @@ export async function getCheckInList(
 
 /** チェックインサマリー取得 */
 export function getCheckInSummary(eventId: string): CheckInSummary {
-  const guestStats = db
+  const guestStats = getDb()
     .select({
       total: count(),
       checkedIn: count(sql`CASE WHEN ${invitations.checkedIn} = 1 THEN 1 END`),
@@ -259,7 +259,7 @@ export function getCheckInSummary(eventId: string): CheckInSummary {
     )
     .get();
 
-  const companionStats = db
+  const companionStats = getDb()
     .select({
       total: count(),
       checkedIn: count(sql`CASE WHEN ${companions.checkedIn} = 1 THEN 1 END`),

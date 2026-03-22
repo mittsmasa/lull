@@ -18,7 +18,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "packageManager": "pnpm@10.13.1",
   "pnpm": {
@@ -29,6 +31,7 @@
   },
   "dependencies": {
     "@hono/zod-validator": "0.7.6",
+    "@opennextjs/cloudflare": "^1.17.1",
     "@phosphor-icons/react": "2.1.10",
     "@tailwindcss/postcss": "4.2.0",
     "better-auth": "1.4.19",
@@ -72,6 +75,7 @@
     "storybook": "^10.2.10",
     "typescript": "5.9.3",
     "vite": "^7.3.1",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "wrangler": "^4.76.0"
   }
 }

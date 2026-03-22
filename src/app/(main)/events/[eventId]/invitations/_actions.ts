@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { companions, eventMembers, events, invitations } from "@/db/schema";
 import { getConsumedSeats } from "@/lib/queries/invitations";
 import { requireSession } from "@/lib/session";
@@ -29,7 +29,7 @@ export async function createGuestInvitation(
 ): Promise<CreateInvitationState> {
   const session = await requireSession();
 
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -39,7 +39,7 @@ export async function createGuestInvitation(
     return { error: "権限がありません" };
   }
 
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
   if (!event) {
@@ -57,7 +57,7 @@ export async function createGuestInvitation(
   for (let attempt = 0; attempt < 3; attempt++) {
     const token = crypto.randomBytes(16).toString("base64url");
     try {
-      await db.insert(invitations).values({
+      await getDb().insert(invitations).values({
         eventId,
         memberId: member.id,
         token,
@@ -88,7 +88,7 @@ export async function invalidateInvitation(
 ): Promise<{ error: string } | undefined> {
   const session = await requireSession();
 
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -98,14 +98,14 @@ export async function invalidateInvitation(
     return { error: "権限がありません" };
   }
 
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
   if (!event || (event.status !== "published" && event.status !== "ongoing")) {
     return { error: "このステータスでは無効化できません" };
   }
 
-  const invitation = await db.query.invitations.findFirst({
+  const invitation = await getDb().query.invitations.findFirst({
     where: and(
       eq(invitations.id, invitationId),
       eq(invitations.eventId, eventId),
@@ -125,7 +125,7 @@ export async function invalidateInvitation(
 
   // accepted の場合: 同伴者削除 + ステータスを declined に変更してシート解放
   if (invitation.status === "accepted") {
-    db.transaction((tx) => {
+    getDb().transaction((tx) => {
       tx.delete(companions)
         .where(eq(companions.invitationId, invitationId))
         .run();
@@ -140,7 +140,7 @@ export async function invalidateInvitation(
         .run();
     });
   } else {
-    await db
+    await getDb()
       .update(invitations)
       .set({ invalidatedAt: Date.now() })
       .where(eq(invitations.id, invitationId));
@@ -161,7 +161,7 @@ export async function proxyChangeStatus(
 ): Promise<{ error: string } | undefined> {
   const session = await requireSession();
 
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -172,14 +172,14 @@ export async function proxyChangeStatus(
     return { error: "権限がありません" };
   }
 
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
   if (!event || (event.status !== "published" && event.status !== "ongoing")) {
     return { error: "このステータスでは変更できません" };
   }
 
-  const invitation = await db.query.invitations.findFirst({
+  const invitation = await getDb().query.invitations.findFirst({
     where: and(
       eq(invitations.id, invitationId),
       eq(invitations.eventId, eventId),
@@ -197,7 +197,7 @@ export async function proxyChangeStatus(
     }
     // 座席チェック + 更新を同期トランザクション内で行い TOCTOU を防ぐ
     if (event.totalSeats > 0) {
-      const error = db.transaction(
+      const error = getDb().transaction(
         (tx) => {
           const consumed = getConsumedSeats(eventId);
           const remaining = event.totalSeats - consumed;
@@ -214,7 +214,7 @@ export async function proxyChangeStatus(
       );
       if (error) return { error };
     } else {
-      await db
+      await getDb()
         .update(invitations)
         .set({ status: "accepted", respondedAt: Date.now() })
         .where(eq(invitations.id, invitationId));
@@ -224,7 +224,7 @@ export async function proxyChangeStatus(
     if (invitation.status !== "accepted") {
       return { error: "出席済みの招待のみ辞退に変更できます" };
     }
-    db.transaction((tx) => {
+    getDb().transaction((tx) => {
       tx.delete(companions)
         .where(eq(companions.invitationId, invitationId))
         .run();
@@ -254,7 +254,7 @@ export async function deleteInvitation(
 ): Promise<{ error: string } | undefined> {
   const session = await requireSession();
 
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -264,7 +264,7 @@ export async function deleteInvitation(
     return { error: "権限がありません" };
   }
 
-  const invitation = await db.query.invitations.findFirst({
+  const invitation = await getDb().query.invitations.findFirst({
     where: and(
       eq(invitations.id, invitationId),
       eq(invitations.eventId, eventId),
@@ -282,7 +282,7 @@ export async function deleteInvitation(
     return { error: "権限がありません" };
   }
 
-  await db.delete(invitations).where(eq(invitations.id, invitationId));
+  await getDb().delete(invitations).where(eq(invitations.id, invitationId));
 
   revalidatePath(`/events/${eventId}/invitations`);
 }

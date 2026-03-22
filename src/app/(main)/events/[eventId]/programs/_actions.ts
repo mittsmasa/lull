@@ -3,7 +3,7 @@
 import { and, eq, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import {
   eventMembers,
   events,
@@ -85,7 +85,7 @@ async function checkProgramPermission(
   eventId: string,
   userId: string,
 ): Promise<{ error: string } | { memberId: string }> {
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, userId),
@@ -100,7 +100,7 @@ async function checkProgramPermission(
     return { error: "権限がありません" };
   }
 
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
 
@@ -121,7 +121,7 @@ async function validatePerformerIds(
 ): Promise<string | null> {
   if (performerIds.length === 0) return null;
 
-  const members = await db.query.eventMembers.findMany({
+  const members = await getDb().query.eventMembers.findMany({
     where: eq(eventMembers.eventId, eventId),
     columns: { id: true },
   });
@@ -169,7 +169,7 @@ export async function createProgram(
     return { error: performerError };
   }
 
-  db.transaction((tx) => {
+  getDb().transaction((tx) => {
     const maxOrder = tx
       .select({ value: max(programs.sortOrder) })
       .from(programs)
@@ -224,7 +224,7 @@ export async function updateProgram(
     return { error: permCheck.error };
   }
 
-  const existing = await db.query.programs.findFirst({
+  const existing = await getDb().query.programs.findFirst({
     where: and(eq(programs.id, programId), eq(programs.eventId, eventId)),
   });
   if (!existing) {
@@ -250,7 +250,7 @@ export async function updateProgram(
     return { error: performerError };
   }
 
-  db.transaction((tx) => {
+  getDb().transaction((tx) => {
     tx.update(programs)
       .set({ ...programData, updatedAt: Date.now() })
       .where(and(eq(programs.id, programId), eq(programs.eventId, eventId)))
@@ -301,7 +301,7 @@ export async function deleteProgram(
     return { error: permCheck.error };
   }
 
-  await db
+  await getDb()
     .delete(programs)
     .where(and(eq(programs.id, programId), eq(programs.eventId, eventId)));
 
@@ -322,7 +322,7 @@ export async function reorderPrograms(
     return { error: permCheck.error };
   }
 
-  db.transaction((tx) => {
+  getDb().transaction((tx) => {
     for (let i = 0; i < programIds.length; i++) {
       tx.update(programs)
         .set({ sortOrder: i + 1, updatedAt: Date.now() })

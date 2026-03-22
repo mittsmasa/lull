@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import * as z from "zod";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { eventMembers, performerInvitations } from "@/db/schema";
 import { requireSession } from "@/lib/session";
 
@@ -23,7 +23,7 @@ export async function acceptPerformerInvitation(
   }
 
   // トークンから招待情報を取得
-  const invitation = await db.query.performerInvitations.findFirst({
+  const invitation = await getDb().query.performerInvitations.findFirst({
     where: eq(performerInvitations.token, token),
     with: {
       event: { columns: { id: true, status: true } },
@@ -54,7 +54,7 @@ export async function acceptPerformerInvitation(
   }
 
   // 既にメンバーかチェック
-  const existingMember = await db.query.eventMembers.findFirst({
+  const existingMember = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, invitation.event.id),
       eq(eventMembers.userId, session.user.id),
@@ -68,7 +68,7 @@ export async function acceptPerformerInvitation(
   }
 
   // event_members に出演者として登録
-  await db.insert(eventMembers).values({
+  await getDb().insert(eventMembers).values({
     eventId: invitation.event.id,
     userId: session.user.id,
     role: "performer",
@@ -76,7 +76,7 @@ export async function acceptPerformerInvitation(
   });
 
   // トークンを accepted に更新
-  await db
+  await getDb()
     .update(performerInvitations)
     .set({
       status: "accepted",

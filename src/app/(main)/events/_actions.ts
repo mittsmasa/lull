@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import * as z from "zod";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import {
   type EventStatus,
   eventMembers,
@@ -125,7 +125,7 @@ export async function createEvent(
     return { error: "開場時刻は開演時刻以前にしてください", fields };
   }
 
-  const [newEvent] = await db
+  const [newEvent] = await getDb()
     .insert(events)
     .values({
       name: rest.name,
@@ -136,12 +136,14 @@ export async function createEvent(
     })
     .returning();
 
-  await db.insert(eventMembers).values({
-    eventId: newEvent.id,
-    userId: session.user.id,
-    role: "organizer",
-    displayName: (session.user.name || "名称未設定").slice(0, 50),
-  });
+  await getDb()
+    .insert(eventMembers)
+    .values({
+      eventId: newEvent.id,
+      userId: session.user.id,
+      role: "organizer",
+      displayName: (session.user.name || "名称未設定").slice(0, 50),
+    });
 
   const event = newEvent;
 
@@ -157,7 +159,7 @@ export async function updateEvent(
   const session = await requireSession();
 
   // 主催者権限チェック
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -169,7 +171,7 @@ export async function updateEvent(
     return { error: "権限がありません" };
   }
 
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
 
@@ -254,7 +256,7 @@ export async function updateEvent(
   }
 
   // updatedAt は $onUpdateFn により自動設定
-  const [updated] = await db
+  const [updated] = await getDb()
     .update(events)
     .set(updateData)
     .where(eq(events.id, eventId))
@@ -270,7 +272,7 @@ export async function deleteEvent(eventId: string) {
   const session = await requireSession();
 
   // 主催者権限チェック
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -282,7 +284,7 @@ export async function deleteEvent(eventId: string) {
     return { error: "権限がありません" };
   }
 
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
 
@@ -296,7 +298,7 @@ export async function deleteEvent(eventId: string) {
     };
   }
 
-  await db.delete(events).where(eq(events.id, eventId));
+  await getDb().delete(events).where(eq(events.id, eventId));
 
   revalidatePath("/dashboard");
   redirect("/dashboard");
@@ -309,7 +311,7 @@ export async function updateEventStatus(
   const session = await requireSession();
 
   // 主催者権限チェック
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -321,7 +323,7 @@ export async function updateEventStatus(
     return { error: "権限がありません" };
   }
 
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
 
@@ -335,7 +337,7 @@ export async function updateEventStatus(
     };
   }
 
-  const [updated] = await db
+  const [updated] = await getDb()
     .update(events)
     .set({ status: newStatus })
     .where(eq(events.id, eventId))

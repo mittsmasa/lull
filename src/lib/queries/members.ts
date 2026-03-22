@@ -1,7 +1,7 @@
 import "server-only";
 
 import { eq } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import type {
   EventStatus,
   MemberRole,
@@ -65,7 +65,7 @@ export type PerformerInvitationForJoin = {
 export async function getEventForMemberManagement(
   eventId: string,
 ): Promise<EventForMemberManagement | undefined> {
-  return db.query.events.findFirst({
+  return getDb().query.events.findFirst({
     where: eq(events.id, eventId),
     columns: {
       id: true,
@@ -81,7 +81,7 @@ export async function getEventForMemberManagement(
 export async function getEventMembers(
   eventId: string,
 ): Promise<MemberWithUser[]> {
-  const members = await db.query.eventMembers.findMany({
+  const members = await getDb().query.eventMembers.findMany({
     where: eq(eventMembers.eventId, eventId),
     with: {
       user: {
@@ -105,7 +105,7 @@ export async function getEventMembers(
 export async function getPerformerInvitations(
   eventId: string,
 ): Promise<PerformerInvitationItem[]> {
-  const invites = await db.query.performerInvitations.findMany({
+  const invites = await getDb().query.performerInvitations.findMany({
     where: eq(performerInvitations.eventId, eventId),
   });
 
@@ -125,7 +125,7 @@ export async function getPerformerInvitations(
 export async function getPerformerInvitationByToken(
   token: string,
 ): Promise<PerformerInvitationForJoin | undefined> {
-  const invitation = await db.query.performerInvitations.findFirst({
+  const invitation = await getDb().query.performerInvitations.findFirst({
     where: eq(performerInvitations.token, token),
     with: {
       event: {

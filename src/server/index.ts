@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/auth";
 import { healthRoute } from "./routes/health";
 
 const app = new Hono().basePath("/api");
@@ -16,7 +16,7 @@ app.use(
 );
 
 app.on(["POST", "GET"], "/auth/*", (c) => {
-  return auth.handler(c.req.raw);
+  return getAuth().handler(c.req.raw);
 });
 
 const routes = app.route("/health", healthRoute);

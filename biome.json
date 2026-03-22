@@ -17,7 +17,8 @@
       "**/*.json",
       "!.claude",
       "!.mcp.json",
-      "!storybook-static"
+      "!storybook-static",
+      "!worker-configuration.d.ts"
     ]
   },
 

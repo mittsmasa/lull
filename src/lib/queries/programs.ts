@@ -1,7 +1,7 @@
 import "server-only";
 
 import { asc, eq } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import type { EventStatus, MemberRole, ProgramType } from "@/db/schema";
 import { eventMembers, events, programPieces, programs } from "@/db/schema";
 
@@ -48,7 +48,7 @@ export type MemberOption = {
 export async function getEventForProgramManagement(
   eventId: string,
 ): Promise<EventForProgramManagement | undefined> {
-  return db.query.events.findFirst({
+  return getDb().query.events.findFirst({
     where: eq(events.id, eventId),
     columns: {
       id: true,
@@ -61,7 +61,7 @@ export async function getEventForProgramManagement(
 export async function getProgramsByEventId(
   eventId: string,
 ): Promise<ProgramWithPerformers[]> {
-  const rows = await db.query.programs.findMany({
+  const rows = await getDb().query.programs.findMany({
     where: eq(programs.eventId, eventId),
     orderBy: [asc(programs.sortOrder), asc(programs.createdAt)],
     with: {
@@ -102,7 +102,7 @@ export async function getProgramsByEventId(
 export async function getEventMembersForSelect(
   eventId: string,
 ): Promise<MemberOption[]> {
-  const members = await db.query.eventMembers.findMany({
+  const members = await getDb().query.eventMembers.findMany({
     where: eq(eventMembers.eventId, eventId),
     columns: {
       id: true,

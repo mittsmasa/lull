@@ -3,7 +3,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { companions, invitations } from "@/db/schema";
 import { getConsumedSeats } from "@/lib/queries/invitations";
 
@@ -43,7 +43,7 @@ export async function respondToInvitation(
     companions: string[];
   },
 ): Promise<ResponseActionState> {
-  const invitation = await db.query.invitations.findFirst({
+  const invitation = await getDb().query.invitations.findFirst({
     where: eq(invitations.token, token),
     with: { event: true, companions: { columns: { id: true } } },
   });
@@ -97,7 +97,7 @@ export async function respondToInvitation(
   const { attendance, companions: companionNames, ...guestInfo } = parsed.data;
 
   // DB 更新（IMMEDIATE トランザクションで座席競合を防止）
-  const txError = db.transaction(
+  const txError = getDb().transaction(
     (tx) => {
       // accepted の場合: 座席枠チェック
       if (attendance === "accepted" && event.totalSeats > 0) {

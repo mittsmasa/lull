@@ -1,7 +1,7 @@
 import "server-only";
 
 import { and, asc, desc, eq, ne } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import type { EventStatus, MemberRole } from "@/db/schema";
 import { eventMembers, events } from "@/db/schema";
 
@@ -30,7 +30,7 @@ export async function getEventsByUserId(
   userId: string,
 ): Promise<EventWithRole[]> {
   // 未終了イベント（startDatetime 昇順）
-  const activeRows = await db
+  const activeRows = await getDb()
     .select({
       id: events.id,
       name: events.name,
@@ -50,7 +50,7 @@ export async function getEventsByUserId(
     .orderBy(asc(events.startDatetime));
 
   // finished イベント（startDatetime 降順）
-  const finishedRows = await db
+  const finishedRows = await getDb()
     .select({
       id: events.id,
       name: events.name,
@@ -76,7 +76,7 @@ export async function getEventsByUserId(
  * イベント詳細を取得（メンバー情報含む）
  */
 export async function getEventDetail(eventId: string) {
-  return db.query.events.findFirst({
+  return getDb().query.events.findFirst({
     where: eq(events.id, eventId),
     with: {
       eventMembers: {
@@ -90,7 +90,7 @@ export async function getEventDetail(eventId: string) {
  * ユーザーのイベントメンバーシップを取得
  */
 export async function getEventMembership(eventId: string, userId: string) {
-  return db.query.eventMembers.findFirst({
+  return getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, userId),

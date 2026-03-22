@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import {
   eventMembers,
   events,
@@ -53,7 +53,7 @@ export async function createPerformerInvitation(
   const displayName = (formData.get("displayName") as string) ?? "";
 
   // 主催者権限チェック
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -66,7 +66,7 @@ export async function createPerformerInvitation(
   }
 
   // イベントステータスチェック
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
 
@@ -94,7 +94,7 @@ export async function createPerformerInvitation(
   for (let attempt = 0; attempt < 3; attempt++) {
     const token = crypto.randomBytes(16).toString("base64url");
     try {
-      await db.insert(performerInvitations).values({
+      await getDb().insert(performerInvitations).values({
         eventId,
         token,
         displayName: parsed.data,
@@ -127,7 +127,7 @@ export async function updateDisplayName(
   const session = await requireSession();
 
   // イベントステータスチェック
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
 
@@ -151,7 +151,7 @@ export async function updateDisplayName(
   }
 
   // 自分のレコードのみ更新
-  const result = await db
+  const result = await getDb()
     .update(eventMembers)
     .set({ displayName: parsed.data })
     .where(
@@ -180,7 +180,7 @@ export async function removeMember(
   const session = await requireSession();
 
   // 主催者権限チェック
-  const organizer = await db.query.eventMembers.findFirst({
+  const organizer = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -193,7 +193,7 @@ export async function removeMember(
   }
 
   // イベントステータスチェック
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
 
@@ -206,7 +206,7 @@ export async function removeMember(
   }
 
   // 対象メンバー取得
-  const target = await db.query.eventMembers.findFirst({
+  const target = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.id, memberId),
       eq(eventMembers.eventId, eventId),
@@ -223,7 +223,7 @@ export async function removeMember(
   }
 
   // プログラムに紐づいている出演者は削除不可
-  const linkedPerformer = await db.query.programPerformers.findFirst({
+  const linkedPerformer = await getDb().query.programPerformers.findFirst({
     where: eq(programPerformers.memberId, memberId),
   });
 
@@ -235,7 +235,7 @@ export async function removeMember(
   }
 
   // メンバーに対応する出演者招待（accepted）も削除
-  await db
+  await getDb()
     .delete(performerInvitations)
     .where(
       and(
@@ -245,7 +245,7 @@ export async function removeMember(
     );
 
   // DELETE
-  await db
+  await getDb()
     .delete(eventMembers)
     .where(
       and(eq(eventMembers.id, memberId), eq(eventMembers.eventId, eventId)),
@@ -264,7 +264,7 @@ export async function invalidatePerformerInvitation(
   const session = await requireSession();
 
   // 主催者権限チェック
-  const organizer = await db.query.eventMembers.findFirst({
+  const organizer = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -277,7 +277,7 @@ export async function invalidatePerformerInvitation(
   }
 
   // イベントステータスチェック
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
 
@@ -294,7 +294,7 @@ export async function invalidatePerformerInvitation(
   }
 
   // 対象招待取得
-  const invitation = await db.query.performerInvitations.findFirst({
+  const invitation = await getDb().query.performerInvitations.findFirst({
     where: and(
       eq(performerInvitations.id, invitationId),
       eq(performerInvitations.eventId, eventId),
@@ -310,7 +310,7 @@ export async function invalidatePerformerInvitation(
   }
 
   // UPDATE
-  await db
+  await getDb()
     .update(performerInvitations)
     .set({ status: "invalidated" })
     .where(eq(performerInvitations.id, invitationId));
@@ -328,7 +328,7 @@ export async function deletePerformerInvitation(
   const session = await requireSession();
 
   // 主催者権限チェック
-  const organizer = await db.query.eventMembers.findFirst({
+  const organizer = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -341,7 +341,7 @@ export async function deletePerformerInvitation(
   }
 
   // 対象招待取得
-  const invitation = await db.query.performerInvitations.findFirst({
+  const invitation = await getDb().query.performerInvitations.findFirst({
     where: and(
       eq(performerInvitations.id, invitationId),
       eq(performerInvitations.eventId, eventId),
@@ -357,7 +357,7 @@ export async function deletePerformerInvitation(
   }
 
   // DELETE
-  await db
+  await getDb()
     .delete(performerInvitations)
     .where(eq(performerInvitations.id, invitationId));
 

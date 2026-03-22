@@ -2,7 +2,7 @@
 
 import { and, eq, exists, like, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { companions, eventMembers, events, invitations } from "@/db/schema";
 import {
   type CheckInSummary,
@@ -34,7 +34,7 @@ export async function searchInvitationByName(
   const session = await requireSession();
 
   // メンバー権限チェック
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -43,7 +43,7 @@ export async function searchInvitationByName(
   if (!member) return { error: "権限がありません" };
 
   // イベントステータスチェック（ongoing のみ）
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
   if (!event || event.status !== "ongoing") {
@@ -55,14 +55,14 @@ export async function searchInvitationByName(
 
   // DB 側で guestName / 同伴者名の LIKE 検索
   const pattern = `%${trimmed}%`;
-  const rows = await db.query.invitations.findMany({
+  const rows = await getDb().query.invitations.findMany({
     where: and(
       eq(invitations.eventId, eventId),
       eq(invitations.status, "accepted"),
       or(
         like(invitations.guestName, pattern),
         exists(
-          db
+          getDb()
             .select({ id: companions.id })
             .from(companions)
             .where(
@@ -106,7 +106,7 @@ export async function lookupInvitationByToken(
   const session = await requireSession();
 
   // メンバー権限チェック
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -115,7 +115,7 @@ export async function lookupInvitationByToken(
   if (!member) return { error: "権限がありません" };
 
   // イベントステータスチェック（ongoing のみ）
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
   if (!event || event.status !== "ongoing") {
@@ -123,7 +123,7 @@ export async function lookupInvitationByToken(
   }
 
   // トークンで招待を検索
-  const invitation = await db.query.invitations.findFirst({
+  const invitation = await getDb().query.invitations.findFirst({
     where: eq(invitations.token, token),
     with: {
       companions: {
@@ -182,7 +182,7 @@ export async function performCheckIn(
   const session = await requireSession();
 
   // 権限チェック（主催者 or 出演者）
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -191,7 +191,7 @@ export async function performCheckIn(
   if (!member) return { error: "権限がありません" };
 
   // イベントステータスチェック
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
   if (!event || event.status !== "ongoing") {
@@ -201,7 +201,7 @@ export async function performCheckIn(
   const now = Date.now();
 
   // 招待の存在・ステータス・有効性を検証（トークンも取得して revalidate に使う）
-  const inv = db
+  const inv = getDb()
     .select({
       checkedIn: invitations.checkedIn,
       checkedInAt: invitations.checkedInAt,
@@ -230,7 +230,7 @@ export async function performCheckIn(
         checkedInAt: inv.checkedInAt ?? now,
       };
     }
-    await db
+    await getDb()
       .update(invitations)
       .set({ checkedIn: true, checkedInAt: now })
       .where(
@@ -239,7 +239,7 @@ export async function performCheckIn(
   } else {
     if (!targetId) return { error: "同伴者IDが必要です" };
     // companions → invitations を JOIN して eventId スコープを担保
-    const comp = db
+    const comp = getDb()
       .select({
         checkedIn: companions.checkedIn,
         checkedInAt: companions.checkedInAt,
@@ -262,7 +262,7 @@ export async function performCheckIn(
         checkedInAt: comp.checkedInAt ?? now,
       };
     }
-    await db
+    await getDb()
       .update(companions)
       .set({ checkedIn: true, checkedInAt: now })
       .where(
@@ -289,7 +289,7 @@ export async function undoCheckIn(
 ): Promise<{ error: string } | { summary: CheckInSummary }> {
   const session = await requireSession();
 
-  const member = await db.query.eventMembers.findFirst({
+  const member = await getDb().query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
       eq(eventMembers.userId, session.user.id),
@@ -297,7 +297,7 @@ export async function undoCheckIn(
   });
   if (!member) return { error: "権限がありません" };
 
-  const event = await db.query.events.findFirst({
+  const event = await getDb().query.events.findFirst({
     where: eq(events.id, eventId),
   });
   // 取り消しは ongoing のみ（finished では不可）
@@ -308,7 +308,7 @@ export async function undoCheckIn(
   }
 
   // 招待トークンを取得（revalidate 用）
-  const inv = db
+  const inv = getDb()
     .select({ token: invitations.token })
     .from(invitations)
     .where(
@@ -318,7 +318,7 @@ export async function undoCheckIn(
   if (!inv) return { error: "招待が見つかりません" };
 
   if (targetType === "guest") {
-    await db
+    await getDb()
       .update(invitations)
       .set({ checkedIn: false, checkedInAt: null })
       .where(
@@ -327,7 +327,7 @@ export async function undoCheckIn(
   } else {
     if (!targetId) return { error: "同伴者IDが必要です" };
     // companions → invitations を JOIN して eventId スコープを検証
-    const comp = db
+    const comp = getDb()
       .select({ id: companions.id })
       .from(companions)
       .innerJoin(invitations, eq(companions.invitationId, invitations.id))
@@ -340,7 +340,7 @@ export async function undoCheckIn(
       )
       .get();
     if (!comp) return { error: "同伴者が見つかりません" };
-    await db
+    await getDb()
       .update(companions)
       .set({ checkedIn: false, checkedInAt: null })
       .where(
