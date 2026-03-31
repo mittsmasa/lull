@@ -21,7 +21,7 @@ export default async function CheckInPage(
   const event = await getEventForInvitationManagement(eventId);
   if (!event) notFound();
 
-  const summary = getCheckInSummary(eventId);
+  const summary = await getCheckInSummary(eventId);
   const checkInList = await getCheckInList(eventId);
 
   return (

@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lull",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": ".open-next/worker.js",
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "lull-db",
+      "database_id": "<placeholder>",
+      "migrations_dir": "./drizzle"
+    }
+  ],
+  "vars": {
+    "BETTER_AUTH_URL": "https://lull.example.com",
+    "NEXT_PUBLIC_APP_URL": "https://lull.example.com"
+  }
+}

@@ -168,9 +168,9 @@ export async function getInvitationByToken(
   };
 }
 
-/** 座席消費数を計算（同期関数: トランザクション内で呼ぶため） */
-export function getConsumedSeats(eventId: string): number {
-  const acceptedGuests = db
+/** 座席消費数を計算 */
+export async function getConsumedSeats(eventId: string): Promise<number> {
+  const acceptedGuests = await db
     .select({ count: count() })
     .from(invitations)
     .where(
@@ -178,7 +178,7 @@ export function getConsumedSeats(eventId: string): number {
     )
     .get();
 
-  const acceptedCompanions = db
+  const acceptedCompanions = await db
     .select({ count: count() })
     .from(companions)
     .innerJoin(invitations, eq(companions.invitationId, invitations.id))
@@ -191,11 +191,11 @@ export function getConsumedSeats(eventId: string): number {
 }
 
 /** 座席サマリー */
-export function getSeatSummary(
+export async function getSeatSummary(
   eventId: string,
   totalSeats: number,
-): SeatSummary {
-  const consumed = getConsumedSeats(eventId);
+): Promise<SeatSummary> {
+  const consumed = await getConsumedSeats(eventId);
   return {
     totalSeats,
     consumed,
@@ -247,8 +247,10 @@ export async function getCheckInList(
 }
 
 /** チェックインサマリー取得 */
-export function getCheckInSummary(eventId: string): CheckInSummary {
-  const guestStats = db
+export async function getCheckInSummary(
+  eventId: string,
+): Promise<CheckInSummary> {
+  const guestStats = await db
     .select({
       total: count(),
       checkedIn: count(sql`CASE WHEN ${invitations.checkedIn} = 1 THEN 1 END`),
@@ -259,7 +261,7 @@ export function getCheckInSummary(eventId: string): CheckInSummary {
     )
     .get();
 
-  const companionStats = db
+  const companionStats = await db
     .select({
       total: count(),
       checkedIn: count(sql`CASE WHEN ${companions.checkedIn} = 1 THEN 1 END`),

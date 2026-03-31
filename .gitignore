@@ -46,6 +46,11 @@ storybook-static/
 *.db-wal
 *.db-shm
 
+# cloudflare
+.wrangler/
+.open-next/
+worker-configuration.d.ts
+
 # claude code sandbox artifacts
 .bash_profile
 .bashrc

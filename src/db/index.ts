@@ -1,21 +1,22 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
-function createDb() {
-  const sqlite = new Database("local.db");
-  sqlite.pragma("journal_mode = WAL");
-  return drizzle({ client: sqlite, schema });
-}
+type DbInstance = ReturnType<typeof drizzle<typeof schema>>;
 
-type DbInstance = ReturnType<typeof createDb>;
+let _cachedDb: DbInstance | null = null;
 
-const globalForDb = globalThis as unknown as {
-  db: DbInstance | undefined;
+const getOrCreateDb = () => {
+  if (!_cachedDb) {
+    const { env } = getCloudflareContext();
+    _cachedDb = drizzle(env.DB, { schema });
+  }
+  return _cachedDb;
 };
 
-export const db = globalForDb.db ?? createDb();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.db = db;
-}
+// Proxy で遅延評価 — 呼び出し側は db.query... / db.select(...) のまま
+export const db: DbInstance = new Proxy({} as DbInstance, {
+  get(_, prop) {
+    return Reflect.get(getOrCreateDb(), prop);
+  },
+});

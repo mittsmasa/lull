@@ -159,9 +159,10 @@ export async function updateDisplayName(
         eq(eventMembers.eventId, eventId),
         eq(eventMembers.userId, session.user.id),
       ),
-    );
+    )
+    .returning();
 
-  if (result.changes === 0) {
+  if (result.length === 0) {
     return { error: "メンバーが見つかりません" };
   }
 

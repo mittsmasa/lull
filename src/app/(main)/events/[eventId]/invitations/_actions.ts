@@ -125,19 +125,19 @@ export async function invalidateInvitation(
 
   // accepted の場合: 同伴者削除 + ステータスを declined に変更してシート解放
   if (invitation.status === "accepted") {
-    db.transaction((tx) => {
-      tx.delete(companions)
-        .where(eq(companions.invitationId, invitationId))
-        .run();
-      tx.update(invitations)
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(companions)
+        .where(eq(companions.invitationId, invitationId));
+      await tx
+        .update(invitations)
         .set({
           status: "declined",
           invalidatedAt: Date.now(),
           checkedIn: false,
           checkedInAt: null,
         })
-        .where(eq(invitations.id, invitationId))
-        .run();
+        .where(eq(invitations.id, invitationId));
     });
   } else {
     await db
@@ -195,23 +195,20 @@ export async function proxyChangeStatus(
     if (invitation.status !== "declined") {
       return { error: "辞退済みの招待のみ出席に変更できます" };
     }
-    // 座席チェック + 更新を同期トランザクション内で行い TOCTOU を防ぐ
+    // 座席チェック + 更新をトランザクション内で行い TOCTOU を防ぐ
     if (event.totalSeats > 0) {
-      const error = db.transaction(
-        (tx) => {
-          const consumed = getConsumedSeats(eventId);
-          const remaining = event.totalSeats - consumed;
-          if (remaining < 1) {
-            return "満席のため出席に変更できません";
-          }
-          tx.update(invitations)
-            .set({ status: "accepted", respondedAt: Date.now() })
-            .where(eq(invitations.id, invitationId))
-            .run();
-          return undefined;
-        },
-        { behavior: "immediate" },
-      );
+      const error = await db.transaction(async (tx) => {
+        const consumed = await getConsumedSeats(eventId);
+        const remaining = event.totalSeats - consumed;
+        if (remaining < 1) {
+          return "満席のため出席に変更できません";
+        }
+        await tx
+          .update(invitations)
+          .set({ status: "accepted", respondedAt: Date.now() })
+          .where(eq(invitations.id, invitationId));
+        return undefined;
+      });
       if (error) return { error };
     } else {
       await db
@@ -224,19 +221,19 @@ export async function proxyChangeStatus(
     if (invitation.status !== "accepted") {
       return { error: "出席済みの招待のみ辞退に変更できます" };
     }
-    db.transaction((tx) => {
-      tx.delete(companions)
-        .where(eq(companions.invitationId, invitationId))
-        .run();
-      tx.update(invitations)
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(companions)
+        .where(eq(companions.invitationId, invitationId));
+      await tx
+        .update(invitations)
         .set({
           status: "declined",
           checkedIn: false,
           checkedInAt: null,
           respondedAt: Date.now(),
         })
-        .where(eq(invitations.id, invitationId))
-        .run();
+        .where(eq(invitations.id, invitationId));
     });
   }
 

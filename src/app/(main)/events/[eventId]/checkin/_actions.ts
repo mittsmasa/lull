@@ -201,7 +201,7 @@ export async function performCheckIn(
   const now = Date.now();
 
   // 招待の存在・ステータス・有効性を検証（トークンも取得して revalidate に使う）
-  const inv = db
+  const inv = await db
     .select({
       checkedIn: invitations.checkedIn,
       checkedInAt: invitations.checkedInAt,
@@ -226,7 +226,7 @@ export async function performCheckIn(
     // 既にチェックイン済みなら DB の時刻をそのまま返す
     if (inv.checkedIn) {
       return {
-        summary: getCheckInSummary(eventId),
+        summary: await getCheckInSummary(eventId),
         checkedInAt: inv.checkedInAt ?? now,
       };
     }
@@ -239,7 +239,7 @@ export async function performCheckIn(
   } else {
     if (!targetId) return { error: "同伴者IDが必要です" };
     // companions → invitations を JOIN して eventId スコープを担保
-    const comp = db
+    const comp = await db
       .select({
         checkedIn: companions.checkedIn,
         checkedInAt: companions.checkedInAt,
@@ -258,7 +258,7 @@ export async function performCheckIn(
     // 既にチェックイン済みなら DB の時刻をそのまま返す
     if (comp.checkedIn) {
       return {
-        summary: getCheckInSummary(eventId),
+        summary: await getCheckInSummary(eventId),
         checkedInAt: comp.checkedInAt ?? now,
       };
     }
@@ -277,7 +277,7 @@ export async function performCheckIn(
   revalidatePath(`/i/${inv.token}`);
 
   // 最新サマリーを返してクライアント側で state 更新
-  return { summary: getCheckInSummary(eventId), checkedInAt: now };
+  return { summary: await getCheckInSummary(eventId), checkedInAt: now };
 }
 
 /** チェックイン取り消し（ゲスト本人 or 同伴者） */
@@ -308,7 +308,7 @@ export async function undoCheckIn(
   }
 
   // 招待トークンを取得（revalidate 用）
-  const inv = db
+  const inv = await db
     .select({ token: invitations.token })
     .from(invitations)
     .where(
@@ -327,7 +327,7 @@ export async function undoCheckIn(
   } else {
     if (!targetId) return { error: "同伴者IDが必要です" };
     // companions → invitations を JOIN して eventId スコープを検証
-    const comp = db
+    const comp = await db
       .select({ id: companions.id })
       .from(companions)
       .innerJoin(invitations, eq(companions.invitationId, invitations.id))
@@ -354,5 +354,5 @@ export async function undoCheckIn(
   revalidatePath(`/events/${eventId}/checkin`);
   revalidatePath(`/i/${inv.token}`);
 
-  return { summary: getCheckInSummary(eventId) };
+  return { summary: await getCheckInSummary(eventId) };
 }
