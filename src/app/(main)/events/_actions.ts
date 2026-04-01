@@ -207,7 +207,7 @@ export async function updateEvent(
   if (rest.venue !== undefined) updateData.venue = rest.venue;
   if (rest.totalSeats !== undefined) {
     if (rest.totalSeats > 0) {
-      const consumed = getConsumedSeats(eventId);
+      const consumed = await getConsumedSeats(eventId);
       if (rest.totalSeats < consumed) {
         return {
           error: `現在の出席数（${consumed}名）より少ない座席数には変更できません`,

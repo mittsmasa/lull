@@ -161,7 +161,7 @@ export async function updateDisplayName(
       ),
     );
 
-  if (result.changes === 0) {
+  if (result.rowsAffected === 0) {
     return { error: "メンバーが見つかりません" };
   }
 

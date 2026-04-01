@@ -96,57 +96,52 @@ export async function respondToInvitation(
 
   const { attendance, companions: companionNames, ...guestInfo } = parsed.data;
 
-  // DB 更新（IMMEDIATE トランザクションで座席競合を防止）
-  const txError = db.transaction(
-    (tx) => {
-      // accepted の場合: 座席枠チェック
-      if (attendance === "accepted" && event.totalSeats > 0) {
-        const consumed = getConsumedSeats(event.id);
-        const currentCompanionCount =
-          invitation.status === "accepted" ? invitation.companions.length : 0;
-        const selfSeats =
-          invitation.status === "accepted" ? 1 + currentCompanionCount : 0;
-        const remaining = event.totalSeats - consumed + selfSeats;
-        const needed = 1 + companionNames.length;
-        if (remaining < needed) {
-          return "満席のため出席回答を受け付けられません";
-        }
+  // DB 更新（トランザクションで座席競合を防止）
+  const txError = await db.transaction(async (tx) => {
+    // accepted の場合: 座席枠チェック
+    if (attendance === "accepted" && event.totalSeats > 0) {
+      const consumed = await getConsumedSeats(event.id);
+      const currentCompanionCount =
+        invitation.status === "accepted" ? invitation.companions.length : 0;
+      const selfSeats =
+        invitation.status === "accepted" ? 1 + currentCompanionCount : 0;
+      const remaining = event.totalSeats - consumed + selfSeats;
+      const needed = 1 + companionNames.length;
+      if (remaining < needed) {
+        return "満席のため出席回答を受け付けられません";
       }
+    }
 
-      // 既存の同伴者を削除
-      tx.delete(companions)
-        .where(eq(companions.invitationId, invitation.id))
-        .run();
+    // 既存の同伴者を削除
+    await tx
+      .delete(companions)
+      .where(eq(companions.invitationId, invitation.id));
 
-      // 招待ステータス更新
-      tx.update(invitations)
-        .set({
-          ...guestInfo,
-          status: attendance,
-          respondedAt: Date.now(),
-          ...(attendance === "declined"
-            ? { checkedIn: false, checkedInAt: null }
-            : {}),
-        })
-        .where(eq(invitations.id, invitation.id))
-        .run();
+    // 招待ステータス更新
+    await tx
+      .update(invitations)
+      .set({
+        ...guestInfo,
+        status: attendance,
+        respondedAt: Date.now(),
+        ...(attendance === "declined"
+          ? { checkedIn: false, checkedInAt: null }
+          : {}),
+      })
+      .where(eq(invitations.id, invitation.id));
 
-      // accepted の場合: 同伴者を登録
-      if (attendance === "accepted" && companionNames.length > 0) {
-        tx.insert(companions)
-          .values(
-            companionNames.map((name) => ({
-              invitationId: invitation.id,
-              name,
-            })),
-          )
-          .run();
-      }
+    // accepted の場合: 同伴者を登録
+    if (attendance === "accepted" && companionNames.length > 0) {
+      await tx.insert(companions).values(
+        companionNames.map((name) => ({
+          invitationId: invitation.id,
+          name,
+        })),
+      );
+    }
 
-      return undefined;
-    },
-    { behavior: "immediate" },
-  );
+    return undefined;
+  });
 
   if (txError) {
     return { error: txError };

@@ -23,16 +23,15 @@
   "packageManager": "pnpm@10.13.1",
   "pnpm": {
     "onlyBuiltDependencies": [
-      "better-sqlite3",
       "lefthook"
     ]
   },
   "dependencies": {
     "@hono/zod-validator": "0.7.6",
+    "@libsql/client": "0.17.2",
     "@phosphor-icons/react": "2.1.10",
     "@tailwindcss/postcss": "4.2.0",
     "better-auth": "1.4.19",
-    "better-sqlite3": "12.6.2",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.1",
@@ -59,7 +58,6 @@
     "@storybook/addon-docs": "^10.2.10",
     "@storybook/addon-vitest": "^10.2.10",
     "@storybook/nextjs-vite": "^10.2.10",
-    "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.3.0",
     "@types/qrcode": "1.5.6",
     "@types/react": "19.2.14",

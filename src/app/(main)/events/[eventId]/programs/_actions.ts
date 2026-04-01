@@ -169,40 +169,36 @@ export async function createProgram(
     return { error: performerError };
   }
 
-  db.transaction((tx) => {
-    const maxOrder = tx
+  await db.transaction(async (tx) => {
+    const maxOrder = await tx
       .select({ value: max(programs.sortOrder) })
       .from(programs)
       .where(eq(programs.eventId, eventId))
       .get();
     const nextSortOrder = (maxOrder?.value ?? 0) + 1;
 
-    const result = tx
+    const result = await tx
       .insert(programs)
       .values({ eventId, sortOrder: nextSortOrder, ...programData })
       .returning({ id: programs.id })
       .get();
 
-    tx.insert(programPieces)
-      .values(
-        pieces.map((piece, i) => ({
-          programId: result.id,
-          sortOrder: i + 1,
-          title: piece.title,
-          composer: piece.composer,
-        })),
-      )
-      .run();
+    await tx.insert(programPieces).values(
+      pieces.map((piece, i) => ({
+        programId: result.id,
+        sortOrder: i + 1,
+        title: piece.title,
+        composer: piece.composer,
+      })),
+    );
 
     if (performerIds.length > 0) {
-      tx.insert(programPerformers)
-        .values(
-          performerIds.map((memberId) => ({
-            programId: result.id,
-            memberId,
-          })),
-        )
-        .run();
+      await tx.insert(programPerformers).values(
+        performerIds.map((memberId) => ({
+          programId: result.id,
+          memberId,
+        })),
+      );
     }
   });
 
@@ -250,37 +246,35 @@ export async function updateProgram(
     return { error: performerError };
   }
 
-  db.transaction((tx) => {
-    tx.update(programs)
+  await db.transaction(async (tx) => {
+    await tx
+      .update(programs)
       .set({ ...programData, updatedAt: Date.now() })
-      .where(and(eq(programs.id, programId), eq(programs.eventId, eventId)))
-      .run();
+      .where(and(eq(programs.id, programId), eq(programs.eventId, eventId)));
 
     // pieces: 全削除 → 全挿入
-    tx.delete(programPieces)
-      .where(eq(programPieces.programId, programId))
-      .run();
+    await tx
+      .delete(programPieces)
+      .where(eq(programPieces.programId, programId));
 
-    tx.insert(programPieces)
-      .values(
-        pieces.map((piece, i) => ({
-          programId,
-          sortOrder: i + 1,
-          title: piece.title,
-          composer: piece.composer,
-        })),
-      )
-      .run();
+    await tx.insert(programPieces).values(
+      pieces.map((piece, i) => ({
+        programId,
+        sortOrder: i + 1,
+        title: piece.title,
+        composer: piece.composer,
+      })),
+    );
 
     // performers: 全削除 → 全挿入
-    tx.delete(programPerformers)
-      .where(eq(programPerformers.programId, programId))
-      .run();
+    await tx
+      .delete(programPerformers)
+      .where(eq(programPerformers.programId, programId));
 
     if (performerIds.length > 0) {
-      tx.insert(programPerformers)
-        .values(performerIds.map((memberId) => ({ programId, memberId })))
-        .run();
+      await tx
+        .insert(programPerformers)
+        .values(performerIds.map((memberId) => ({ programId, memberId })));
     }
   });
 
@@ -322,14 +316,14 @@ export async function reorderPrograms(
     return { error: permCheck.error };
   }
 
-  db.transaction((tx) => {
+  await db.transaction(async (tx) => {
     for (let i = 0; i < programIds.length; i++) {
-      tx.update(programs)
+      await tx
+        .update(programs)
         .set({ sortOrder: i + 1, updatedAt: Date.now() })
         .where(
           and(eq(programs.id, programIds[i]), eq(programs.eventId, eventId)),
-        )
-        .run();
+        );
     }
   });
 

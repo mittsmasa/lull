@@ -26,7 +26,7 @@ export default async function InvitationsPage(
   }
 
   const allInvitations = await getInvitationsByEventId(eventId);
-  const seatSummary = getSeatSummary(eventId, event.totalSeats);
+  const seatSummary = await getSeatSummary(eventId, event.totalSeats);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
