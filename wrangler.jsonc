@@ -12,12 +12,12 @@
     {
       "binding": "DB",
       "database_name": "lull-db",
-      "database_id": "<placeholder>",
+      "database_id": "359e5836-68e0-41e2-a025-48a027d56813",
       "migrations_dir": "./drizzle"
     }
   ],
   "vars": {
-    "BETTER_AUTH_URL": "https://lull.example.com",
-    "NEXT_PUBLIC_APP_URL": "https://lull.example.com"
+    "BETTER_AUTH_URL": "https://lull.mitts-3be.workers.dev",
+    "NEXT_PUBLIC_APP_URL": "https://lull.mitts-3be.workers.dev"
   }
 }
