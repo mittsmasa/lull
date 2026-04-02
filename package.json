@@ -9,7 +9,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --fix .",
     "format": "biome format --write .",
-    "prepare": "next typegen",
+    "prepare": "test -n \"$CI\" || next typegen",
     "type-check": "next typegen && tsc --noEmit",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
