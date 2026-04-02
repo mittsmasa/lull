@@ -30,7 +30,7 @@ pnpm db:studio        # Drizzle Studio（DB GUI）
 - **パッケージマネージャ**: pnpm
 - **CSS**: Tailwind CSS v4 + shadcn/ui（new-york スタイル）
 - **API**: Hono RPC を Next.js Route Handler にマウント
-- **DB**: SQLite（better-sqlite3）/ Drizzle ORM（本番は Cloudflare D1）
+- **DB**: SQLite（@libsql/client / Turso）/ Drizzle ORM
 - **認証**: Better Auth（Google OAuth）
 - **リンター/フォーマッター**: Biome
 - **テスト**: Vitest + Storybook addon-vitest（Playwright ブラウザ）
