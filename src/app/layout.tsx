@@ -1,6 +1,27 @@
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { notoSerifJP, shipporiMincho } from "@/lib/fonts";
+
+export const metadata: Metadata = {
+  applicationName: "Lull",
+  title: {
+    default: "Lull",
+    template: "%s - Lull",
+  },
+  description: "ピアノ発表会の招待・座席・当日体験���一つに繋ぐアプリ",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Lull",
+  },
+  formatDetection: { telephone: false },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#FFFFFF",
+};
 
 export default function RootLayout({
   children,

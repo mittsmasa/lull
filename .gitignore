@@ -46,6 +46,11 @@ storybook-static/
 *.db-wal
 *.db-shm
 
+# serwist
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+
 # claude code sandbox artifacts
 .bash_profile
 .bashrc
