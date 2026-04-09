@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     default: "Lull",
     template: "%s - Lull",
   },
-  description: "ピアノ発表会の招待・座席・当日体験���一つに繋ぐアプリ",
+  description: "ピアノ発表会の招待・座席・当日体験を一つに繋ぐアプリ",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
