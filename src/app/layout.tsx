@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { SerwistProvider } from "@/components/register-sw";
 import { Toaster } from "@/components/ui/sonner";
 import { notoSerifJP, shipporiMincho } from "@/lib/fonts";
 
@@ -34,8 +35,10 @@ export default function RootLayout({
       className={`${notoSerifJP.variable} ${shipporiMincho.variable}`}
     >
       <body className="font-sans antialiased">
-        {children}
-        <Toaster />
+        <SerwistProvider swUrl="/sw.js">
+          {children}
+          <Toaster />
+        </SerwistProvider>
       </body>
     </html>
   );

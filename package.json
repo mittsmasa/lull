@@ -2,9 +2,10 @@
   "name": "lull",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && serwist build",
     "start": "next start",
     "lint": "biome check .",
     "lint:fix": "biome check --fix .",
@@ -56,6 +57,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
+    "@serwist/build": "9.5.7",
+    "@serwist/cli": "9.5.7",
     "@storybook/addon-a11y": "^10.2.10",
     "@storybook/addon-docs": "^10.2.10",
     "@storybook/addon-vitest": "^10.2.10",
