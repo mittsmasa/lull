@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@emulators/adapter-next':
+        specifier: 0.4.1
+        version: 0.4.1
+      '@emulators/google':
+        specifier: 0.4.1
+        version: 0.4.1
       '@hono/zod-validator':
         specifier: 0.7.6
         version: 0.7.6(hono@4.12.12)(zod@4.3.6)
@@ -370,6 +376,15 @@ packages:
 
   '@emnapi/runtime@1.8.1':
     resolution: {integrity: sha512-mehfKSMWjjNol8659Z8KxEMrdSJDDot5SXMq00dM8BN4o+CLNXQ0xH2V7EchNHV4RmbZLmmPdEaXZc5H2FXmDg==}
+
+  '@emulators/adapter-next@0.4.1':
+    resolution: {integrity: sha512-Lfv8lYM7N1otOdDNsHU0NHM5Ch3yjt3Pw90GoOHXnwJFpORxLCQyb0J5nVByqyh9+XFhw5g5IWsnGAhr0lU07w==}
+
+  '@emulators/core@0.4.1':
+    resolution: {integrity: sha512-LtF0JlwNusmlY2tesBcMcwWGr1xxXdhzqhd+Il2ajuykmCaOzO3t0x4PexVCeWeZc4MafB6IpCqBHtSuHdj9Sg==}
+
+  '@emulators/google@0.4.1':
+    resolution: {integrity: sha512-9aaOCbPqexQ9ScKkD8+OR/MQWh8YC+FENT/20EFQBoO4VRA2eA2BvnbJgM2F5JRGjb6Xbw/BvJ0R6PU1N3FQLQ==}
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
@@ -3286,6 +3301,9 @@ packages:
   jose@6.1.3:
     resolution: {integrity: sha512-0TpaTfihd4QMNwrz/ob2Bp7X04yuxJkjRGi4aKmOqwhov54i6u79oCv7T+C7lo70MKH6BesI3vscD1yb/yzKXQ==}
 
+  jose@6.2.2:
+    resolution: {integrity: sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ==}
+
   js-base64@3.7.8:
     resolution: {integrity: sha512-hNngCeKxIUQiEUN3GPJOkz4wF/YvdUdbNL9hsBcMQTkKzboD7T/q3OYOuuPZLUE6dBxSGpwhk5mwuDud7JVAow==}
 
@@ -4593,6 +4611,21 @@ snapshots:
     dependencies:
       tslib: 2.8.1
     optional: true
+
+  '@emulators/adapter-next@0.4.1':
+    dependencies:
+      '@emulators/core': 0.4.1
+
+  '@emulators/core@0.4.1':
+    dependencies:
+      hono: 4.12.12
+      jose: 6.2.2
+
+  '@emulators/google@0.4.1':
+    dependencies:
+      '@emulators/core': 0.4.1
+      hono: 4.12.12
+      jose: 6.1.3
 
   '@esbuild-kit/core-utils@3.3.2':
     dependencies:
@@ -7166,6 +7199,8 @@ snapshots:
   jiti@2.6.1: {}
 
   jose@6.1.3: {}
+
+  jose@6.2.2: {}
 
   js-base64@3.7.8: {}
 

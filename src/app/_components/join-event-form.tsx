@@ -43,11 +43,18 @@ export function JoinEventForm({
   };
 
   const handleJoinWithGoogle = () => {
-    // OAuth 前に表示名を sessionStorage に保存
     setSavedDisplayName(displayName);
+    const target = `/join/${token}`;
+    if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
+      authClient.signIn.oauth2({
+        providerId: "google",
+        callbackURL: target,
+      });
+      return;
+    }
     authClient.signIn.social({
       provider: "google",
-      callbackURL: `/join/${token}`,
+      callbackURL: target,
     });
   };
 

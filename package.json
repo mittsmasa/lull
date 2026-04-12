@@ -28,6 +28,8 @@
     ]
   },
   "dependencies": {
+    "@emulators/adapter-next": "0.4.1",
+    "@emulators/google": "0.4.1",
     "@hono/zod-validator": "0.7.6",
     "@libsql/client": "0.17.2",
     "@phosphor-icons/react": "2.1.10",
