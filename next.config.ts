@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
-const isPreview = process.env.VERCEL_ENV === "preview";
+// preview 判定は `src/lib/env.ts` と同じ式を直接書く。
+// env.ts を import すると定数伝播に頼る形になり、Turbopack の
+// resolveAlias 切替や dead-branch DCE が効かなくなる恐れがあるため、
+// ここは literal 参照のまま維持する。
+const isPreview = process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
 const stubPath = "./src/lib/emulate-stub.ts";
 
 const baseConfig: NextConfig = {

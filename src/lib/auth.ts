@@ -3,8 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { genericOAuth } from "better-auth/plugins";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-
-const isPreview = process.env.VERCEL_ENV === "preview";
+import { isPreview } from "@/lib/env";
 
 const withHttps = (host: string | undefined) =>
   host ? `https://${host}` : undefined;
