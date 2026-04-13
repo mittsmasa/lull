@@ -32,6 +32,12 @@ async function queryCameraPermission(): Promise<PermissionState | null> {
 
 /** getUserMedia を明示的に呼び出して権限を取得する（PWA / iOS Safari 対策） */
 async function requestCameraPermission(): Promise<void> {
+  if (
+    typeof navigator === "undefined" ||
+    !navigator.mediaDevices?.getUserMedia
+  ) {
+    throw new Error("お使いのブラウザはカメラ機能に対応していません");
+  }
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: "environment" },
     audio: false,
@@ -53,7 +59,6 @@ export function QrScanner({ onScan }: QrScannerProps) {
   const [status, setStatus] = useState<ScannerStatus>("requesting");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [attempt, setAttempt] = useState(0);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
   const onScanRef = useRef(onScan);
   const reactId = useId();
   const elementId = `qr-scanner-${reactId.replace(/:/g, "")}`;
@@ -104,7 +109,6 @@ export function QrScanner({ onScan }: QrScannerProps) {
         formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
         verbose: false,
       });
-      scannerRef.current = html5QrCode;
 
       startPromise = html5QrCode
         .start(
