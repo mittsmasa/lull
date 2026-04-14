@@ -237,7 +237,43 @@ export function CheckInView({
     }
   };
 
-  const startScanning = () => {
+  const startScanning = async () => {
+    // PWA / iOS Safari で権限ダイアログを確実に出すため、
+    // ユーザー操作のコールスタックから直接 getUserMedia を呼ぶ
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia
+    ) {
+      setViewState({
+        mode: "error",
+        message: "お使いのブラウザはカメラ機能に対応していません",
+      });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+        audio: false,
+      });
+      // html5-qrcode 側で再度 getUserMedia が呼ばれるので、ここでは停止
+      for (const track of stream.getTracks()) {
+        track.stop();
+      }
+    } catch (err: unknown) {
+      const isDenied =
+        err instanceof DOMException &&
+        (err.name === "NotAllowedError" ||
+          err.name === "PermissionDeniedError");
+      setViewState({
+        mode: "error",
+        message: isDenied
+          ? "カメラへのアクセスが許可されていません。ブラウザまたは端末の設定からカメラを許可してください。"
+          : err instanceof Error
+            ? err.message
+            : "カメラの起動に失敗しました",
+      });
+      return;
+    }
     setScanKey((k) => k + 1);
     setViewState({ mode: "scanning" });
   };
