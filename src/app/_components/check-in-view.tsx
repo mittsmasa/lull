@@ -82,6 +82,7 @@ export function CheckInView({
   const [listOpen, setListOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [isRequestingCamera, setIsRequestingCamera] = useState(false);
 
   const handleScan = useCallback(
     async (decodedText: string) => {
@@ -238,6 +239,8 @@ export function CheckInView({
   };
 
   const startScanning = async () => {
+    // 権限ダイアログ表示中の連打で getUserMedia が多重実行されるのを防ぐ
+    if (isRequestingCamera) return;
     // PWA / iOS Safari で権限ダイアログを確実に出すため、
     // ユーザー操作のコールスタックから直接 getUserMedia を呼ぶ
     if (
@@ -250,6 +253,7 @@ export function CheckInView({
       });
       return;
     }
+    setIsRequestingCamera(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
@@ -273,6 +277,8 @@ export function CheckInView({
             : "カメラの起動に失敗しました",
       });
       return;
+    } finally {
+      setIsRequestingCamera(false);
     }
     setScanKey((k) => k + 1);
     setViewState({ mode: "scanning" });
@@ -347,9 +353,14 @@ export function CheckInView({
 
       {/* QR スキャンボタン（上部に常設） */}
       {viewState.mode !== "scanning" ? (
-        <Button onClick={startScanning} size="lg" className="w-full gap-2">
+        <Button
+          onClick={startScanning}
+          size="lg"
+          className="w-full gap-2"
+          disabled={isRequestingCamera}
+        >
           <QrCode className="size-5" />
-          QR スキャン
+          {isRequestingCamera ? "カメラを起動中..." : "QR スキャン"}
         </Button>
       ) : (
         <div className="space-y-4">

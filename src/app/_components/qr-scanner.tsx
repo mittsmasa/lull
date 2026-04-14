@@ -16,7 +16,8 @@ export function QrScanner({ onScan }: QrScannerProps) {
   const [attempt, setAttempt] = useState(0);
   const onScanRef = useRef(onScan);
   const reactId = useId();
-  const elementId = `qr-scanner-${reactId.replace(/:/g, "")}`;
+  // attempt を id に含めることで、再試行時に effect の依存が変わり再実行される
+  const elementId = `qr-scanner-${reactId.replace(/:/g, "")}-${attempt}`;
 
   onScanRef.current = onScan;
 
@@ -24,7 +25,6 @@ export function QrScanner({ onScan }: QrScannerProps) {
     onScanRef.current(decodedText);
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt は再試行時に effect を強制再実行するためのトリガー
   useEffect(() => {
     let cancelled = false;
     const html5QrCode = new Html5Qrcode(elementId, {
@@ -43,12 +43,7 @@ export function QrScanner({ onScan }: QrScannerProps) {
         () => {},
       )
       .then(() => {
-        if (cancelled) {
-          return html5QrCode
-            .stop()
-            .then(() => html5QrCode.clear())
-            .catch(() => {});
-        }
+        if (cancelled) return;
         setStatus("scanning");
       })
       .catch((err: unknown) => {
@@ -79,7 +74,7 @@ export function QrScanner({ onScan }: QrScannerProps) {
         }
       });
     };
-  }, [elementId, handleScan, attempt]);
+  }, [elementId, handleScan]);
 
   const retry = () => {
     setErrorMessage("");
