@@ -1,4 +1,9 @@
-import { CheckCircle, Circle } from "@phosphor-icons/react/dist/ssr";
+import {
+  CheckCircle,
+  Circle,
+  User,
+  UsersThree,
+} from "@phosphor-icons/react/dist/ssr";
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
 import { QrCode } from "@/app/_components/qr-code";
 import type { EventStatus } from "@/db/schema";
@@ -6,19 +11,42 @@ import { formatDatetime, formatTime } from "@/lib/format";
 import { getInvitationByToken } from "@/lib/queries/invitations";
 
 // ============================================================
-// ローカルコンポーネント
+// Shell
 // ============================================================
 
-function ErrorView({ message }: { message: string }) {
+function GuestShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto max-w-2xl px-6 py-12">
-      <div className="flex flex-col items-center gap-4 py-16 text-center">
-        <h1 className="text-2xl font-light tracking-wide">招待リンクエラー</h1>
-        <p className="text-muted-foreground">{message}</p>
+    <div className="min-h-dvh bg-background">
+      <div className="mx-auto flex max-w-md flex-col gap-10 px-6 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
+        {children}
       </div>
     </div>
   );
 }
+
+// ============================================================
+// Error
+// ============================================================
+
+function ErrorView({ title, message }: { title: string; message: string }) {
+  return (
+    <GuestShell>
+      <div className="mt-16 flex flex-col items-center gap-4 text-center animate-in fade-in slide-in-from-bottom-1 duration-700 motion-reduce:animate-none">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          Lull
+        </p>
+        <h1 className="font-serif text-2xl leading-tight">{title}</h1>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {message}
+        </p>
+      </div>
+    </GuestShell>
+  );
+}
+
+// ============================================================
+// Hero
+// ============================================================
 
 function EventInfoHeader({
   event,
@@ -33,57 +61,54 @@ function EventInfoHeader({
   inviterName: string;
 }) {
   return (
-    <div className="flex flex-col gap-4 pb-8">
-      <h1 className="text-3xl font-light tracking-wide">{event.name}</h1>
-      <div className="flex flex-col gap-1 text-muted-foreground">
-        <p>{inviterName} さんからの招待</p>
-        <p>{formatDatetime(event.startDatetime)}</p>
-        <p>{event.venue}</p>
-        {event.openDatetime && <p>開場: {formatTime(event.openDatetime)}</p>}
+    <header className="flex flex-col gap-8">
+      <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-2 duration-700 motion-reduce:animate-none">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          You are invited
+        </p>
+        <h1 className="font-serif text-3xl leading-[1.3] sm:text-4xl">
+          {event.name}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {inviterName} さんからの招待
+        </p>
       </div>
-    </div>
+
+      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-4 border-t border-border/50 pt-6 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-150 motion-reduce:animate-none motion-reduce:delay-0">
+        <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          日時
+        </dt>
+        <dd className="text-sm tabular-nums">
+          {formatDatetime(event.startDatetime)}
+        </dd>
+        {event.openDatetime && (
+          <>
+            <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              開場
+            </dt>
+            <dd className="text-sm tabular-nums">
+              {formatTime(event.openDatetime)}
+            </dd>
+          </>
+        )}
+        <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          会場
+        </dt>
+        <dd className="text-sm">{event.venue}</dd>
+      </dl>
+    </header>
   );
 }
 
-function CurrentResponseView({
-  invitation,
-}: {
-  invitation: {
-    guestName: string | null;
-    guestEmail: string | null;
-    status: string;
-    companions: {
-      id: string;
-      name: string;
-      checkedIn: boolean;
-      checkedInAt: number | null;
-    }[];
-  };
-}) {
+// ============================================================
+// Helpers
+// ============================================================
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border p-6">
-      <h2 className="mb-4 text-lg font-light tracking-wide">現在の回答</h2>
-      <div className="flex flex-col gap-2 text-sm">
-        <p>
-          <span className="text-muted-foreground">お名前: </span>
-          {invitation.guestName}
-        </p>
-        <p>
-          <span className="text-muted-foreground">メール: </span>
-          {invitation.guestEmail}
-        </p>
-        <p>
-          <span className="text-muted-foreground">出欠: </span>
-          {invitation.status === "accepted" ? "出席" : "辞退"}
-        </p>
-        {invitation.companions.length > 0 && (
-          <div>
-            <span className="text-muted-foreground">同伴者: </span>
-            {invitation.companions.map((c) => c.name).join("、")}
-          </div>
-        )}
-      </div>
-    </div>
+    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+      {children}
+    </p>
   );
 }
 
@@ -93,6 +118,57 @@ function formatCheckInTime(ts: number): string {
   const m = String(date.getMinutes()).padStart(2, "0");
   return `${h}:${m}`;
 }
+
+// ============================================================
+// Current Response
+// ============================================================
+
+function CurrentResponseView({
+  invitation,
+}: {
+  invitation: {
+    guestName: string | null;
+    guestEmail: string | null;
+    status: string;
+    companions: { id: string; name: string }[];
+  };
+}) {
+  return (
+    <section className="flex flex-col gap-4 border-t border-border/50 pt-6">
+      <SectionLabel>現在の回答</SectionLabel>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3">
+        <dt className="text-xs text-muted-foreground">お名前</dt>
+        <dd className="text-sm">{invitation.guestName}</dd>
+        <dt className="text-xs text-muted-foreground">メール</dt>
+        <dd className="break-all text-sm">{invitation.guestEmail}</dd>
+        <dt className="text-xs text-muted-foreground">出欠</dt>
+        <dd className="text-sm">
+          {invitation.status === "accepted" ? "出席" : "辞退"}
+        </dd>
+        {invitation.companions.length > 0 && (
+          <>
+            <dt className="text-xs text-muted-foreground">同伴者</dt>
+            <dd className="text-sm">
+              {invitation.companions.map((c) => c.name).join("、")}
+            </dd>
+          </>
+        )}
+      </dl>
+    </section>
+  );
+}
+
+// ============================================================
+// Check-in Status
+// ============================================================
+
+type CheckInRow = {
+  key: string;
+  name: string;
+  role: "self" | "companion";
+  checkedIn: boolean;
+  checkedInAt: number | null;
+};
 
 function CheckInStatusView({
   invitation,
@@ -109,54 +185,68 @@ function CheckInStatusView({
     }[];
   };
 }) {
+  const rows: CheckInRow[] = [
+    {
+      key: "self",
+      name: invitation.guestName ?? "本人",
+      role: "self",
+      checkedIn: invitation.checkedIn,
+      checkedInAt: invitation.checkedInAt,
+    },
+    ...invitation.companions.map<CheckInRow>((c) => ({
+      key: c.id,
+      name: c.name,
+      role: "companion",
+      checkedIn: c.checkedIn,
+      checkedInAt: c.checkedInAt,
+    })),
+  ];
+
   return (
-    <div className="mt-6 rounded-lg border p-6">
-      <h2 className="mb-4 text-lg font-light tracking-wide">受付状況</h2>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-sm">
-          {invitation.checkedIn ? (
-            <CheckCircle
-              className="size-4 shrink-0 text-emerald-800/70"
-              weight="fill"
-            />
-          ) : (
-            <Circle className="size-4 shrink-0 text-muted-foreground" />
-          )}
-          <span className="flex-1">{invitation.guestName ?? "本人"}</span>
-          {invitation.checkedIn && invitation.checkedInAt ? (
-            <span className="text-muted-foreground text-xs">
-              {formatCheckInTime(invitation.checkedInAt)} 受付済み
+    <section className="flex flex-col gap-4 border-t border-border/50 pt-6">
+      <SectionLabel>受付状況</SectionLabel>
+      <ul>
+        {rows.map((row) => (
+          <li
+            key={row.key}
+            className="flex items-center gap-3 border-b border-border/30 py-3 last:border-b-0"
+          >
+            <span className="text-muted-foreground">
+              {row.role === "self" ? (
+                <User className="size-4" />
+              ) : (
+                <UsersThree className="size-4" />
+              )}
             </span>
-          ) : (
-            <span className="text-muted-foreground text-xs">未受付</span>
-          )}
-        </div>
-        {invitation.companions.map((c) => (
-          <div key={c.id} className="flex items-center gap-2 text-sm">
-            {c.checkedIn ? (
-              <CheckCircle
-                className="size-4 shrink-0 text-emerald-800/70"
-                weight="fill"
-              />
-            ) : (
-              <Circle className="size-4 shrink-0 text-muted-foreground" />
-            )}
-            <span className="flex-1">{c.name}</span>
-            {c.checkedIn && c.checkedInAt ? (
-              <span className="text-muted-foreground text-xs">
-                {formatCheckInTime(c.checkedInAt)} 受付済み
-              </span>
-            ) : (
-              <span className="text-muted-foreground text-xs">未受付</span>
-            )}
-          </div>
+            <span className="flex-1 text-sm">{row.name}</span>
+            <span
+              className={
+                row.checkedIn ? "text-primary" : "text-muted-foreground/50"
+              }
+            >
+              {row.checkedIn ? (
+                <CheckCircle className="size-4" weight="fill" />
+              ) : (
+                <Circle className="size-4" />
+              )}
+            </span>
+            <span className="w-20 text-right text-xs text-muted-foreground tabular-nums">
+              {row.checkedIn && row.checkedInAt
+                ? `${formatCheckInTime(row.checkedInAt)} 受付済み`
+                : "未受付"}
+            </span>
+          </li>
         ))}
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 }
 
-function StatusMessage({
+// ============================================================
+// Status Note
+// ============================================================
+
+function StatusNote({
   isInvalidated,
   eventStatus,
 }: {
@@ -165,22 +255,22 @@ function StatusMessage({
 }) {
   let message: string;
   if (isInvalidated) {
-    message = "この招待は主催者により変更が制限されています。";
+    message = "この招待は主催者により変更が制限されています";
   } else if (eventStatus === "ongoing") {
-    message = "回答の変更期間は終了しました。";
+    message = "回答の変更期間は終了しました";
   } else {
-    message = "現在回答の変更はできません。";
+    message = "現在、回答の変更はできません";
   }
 
   return (
-    <div className="mt-4 rounded-md bg-muted p-4 text-sm text-muted-foreground">
+    <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
       {message}
-    </div>
+    </p>
   );
 }
 
 // ============================================================
-// メインページ
+// Main
 // ============================================================
 
 export default async function InvitationResponsePage(
@@ -190,88 +280,116 @@ export default async function InvitationResponsePage(
   const invitation = await getInvitationByToken(token);
 
   if (!invitation) {
-    return <ErrorView message="この招待リンクは無効です" />;
+    return (
+      <ErrorView
+        title="招待リンクが見つかりません"
+        message="リンクに問題がある場合は、招待者にお問い合わせください"
+      />
+    );
   }
 
   const { event } = invitation;
   const isInvalidated = !!invitation.invalidatedAt;
 
   if (event.status === "draft") {
-    return <ErrorView message="現在準備中です" />;
+    return (
+      <ErrorView
+        title="現在準備中です"
+        message="イベント公開までしばらくお待ちください"
+      />
+    );
   }
 
-  // finished + accepted → イベント情報 + 現在の回答 + 受付状況を表示
+  // finished + accepted → 思い出カード
   if (event.status === "finished") {
     if (invitation.status === "accepted") {
       return (
-        <div className="mx-auto max-w-2xl px-6 py-12">
+        <GuestShell>
           <EventInfoHeader
             event={event}
             inviterName={invitation.inviterDisplayName}
           />
           <CurrentResponseView invitation={invitation} />
           <CheckInStatusView invitation={invitation} />
-          <div className="mt-4 rounded-md bg-muted p-4 text-sm text-muted-foreground">
-            このイベントは終了しました。
-          </div>
-        </div>
+          <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
+            このイベントは終了しました。お越しいただきありがとうございました
+          </p>
+        </GuestShell>
       );
     }
-    return <ErrorView message="この招待リンクは期限切れです" />;
+    return (
+      <ErrorView
+        title="招待リンクの期限が切れました"
+        message="イベントはすでに終了しています"
+      />
+    );
   }
 
   // 無効化済み + pending/declined → 無効
   if (isInvalidated && invitation.status !== "accepted") {
-    return <ErrorView message="この招待リンクは無効です" />;
+    return (
+      <ErrorView
+        title="招待リンクは無効です"
+        message="リンクに問題がある場合は、招待者にお問い合わせください"
+      />
+    );
   }
 
-  // 回答変更が可能か判定
   const canModify =
     !isInvalidated &&
     event.status === "published" &&
     invitation.status !== "pending";
 
-  // 初回回答が可能か判定
   const canRespond =
     !isInvalidated &&
     invitation.status === "pending" &&
     (event.status === "published" || event.status === "ongoing");
 
-  // 受付状況を表示する条件: ongoing + accepted
   const showCheckInStatus =
     invitation.status === "accepted" && event.status === "ongoing";
 
+  const showPass =
+    invitation.status === "accepted" &&
+    (event.status === "published" || event.status === "ongoing");
+
+  const passCaption =
+    event.status === "ongoing"
+      ? "スタッフにこのコードをお見せください"
+      : "当日、受付でお見せください";
+
   return (
-    <div className="mx-auto max-w-2xl px-6 py-12">
+    <GuestShell>
       <EventInfoHeader
         event={event}
         inviterName={invitation.inviterDisplayName}
       />
 
-      {invitation.status === "accepted" && (
-        <div className="mb-8">
-          <QrCode path={`/i/${token}`} />
+      {showPass && (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-300 motion-reduce:animate-none motion-reduce:delay-0">
+          <QrCode
+            path={`/i/${token}`}
+            eventName={event.name}
+            eventDatetime={formatDatetime(event.startDatetime)}
+            caption={passCaption}
+          />
         </div>
       )}
+
+      {showCheckInStatus && <CheckInStatusView invitation={invitation} />}
 
       {invitation.status !== "pending" && (
         <CurrentResponseView invitation={invitation} />
       )}
 
-      {showCheckInStatus && <CheckInStatusView invitation={invitation} />}
-
       {(canRespond || canModify) && (
-        <div className="mt-8">
+        <div className="border-t border-border/50 pt-8">
           <InvitationResponseForm token={token} invitation={invitation} />
         </div>
       )}
 
       {!canRespond && !canModify && invitation.status !== "pending" && (
-        <StatusMessage
-          isInvalidated={isInvalidated}
-          eventStatus={event.status}
-        />
+        <StatusNote isInvalidated={isInvalidated} eventStatus={event.status} />
       )}
-    </div>
+    </GuestShell>
   );
 }
