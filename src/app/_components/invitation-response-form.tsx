@@ -86,7 +86,7 @@ export function InvitationResponseForm({
         if (result.fieldErrors) setFieldErrors(result.fieldErrors);
       } else {
         setSuccess(true);
-        if (isUpdate) setIsOpen(false);
+        setIsOpen(false);
       }
     });
   };
