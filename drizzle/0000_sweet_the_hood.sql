@@ -15,18 +15,18 @@ CREATE TABLE `accounts` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `check_ins` (
+CREATE TABLE `companions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`invitation_id` text NOT NULL,
-	`checked_in_at` integer NOT NULL,
-	`checked_in_by` text NOT NULL,
-	`head_count` integer NOT NULL,
-	FOREIGN KEY (`invitation_id`) REFERENCES `invitations`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`checked_in_by`) REFERENCES `event_members`(`id`) ON UPDATE no action ON DELETE no action
+	`name` text NOT NULL,
+	`checked_in` integer DEFAULT false NOT NULL,
+	`checked_in_at` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`invitation_id`) REFERENCES `invitations`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `check_ins_invitation_id_idx` ON `check_ins` (`invitation_id`);--> statement-breakpoint
-CREATE INDEX `check_ins_checked_in_by_idx` ON `check_ins` (`checked_in_by`);--> statement-breakpoint
+CREATE INDEX `companions_invitation_id_idx` ON `companions` (`invitation_id`);--> statement-breakpoint
 CREATE TABLE `event_members` (
 	`id` text PRIMARY KEY NOT NULL,
 	`event_id` text NOT NULL,
@@ -58,43 +58,79 @@ CREATE TABLE `events` (
 CREATE TABLE `invitations` (
 	`id` text PRIMARY KEY NOT NULL,
 	`event_id` text NOT NULL,
-	`member_id` text NOT NULL,
-	`token` text NOT NULL,
-	`guest_name` text NOT NULL,
-	`guest_email` text,
-	`companion_count` integer DEFAULT 0 NOT NULL,
-	`status` text DEFAULT 'pending' NOT NULL,
-	`responded_at` integer,
-	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL,
-	FOREIGN KEY (`event_id`) REFERENCES `events`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`member_id`) REFERENCES `event_members`(`id`) ON UPDATE no action ON DELETE cascade
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `invitations_token_unique` ON `invitations` (`token`);--> statement-breakpoint
-CREATE INDEX `invitations_event_id_idx` ON `invitations` (`event_id`);--> statement-breakpoint
-CREATE INDEX `invitations_member_id_idx` ON `invitations` (`member_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `invitations_token_idx` ON `invitations` (`token`);--> statement-breakpoint
-CREATE TABLE `programs` (
-	`id` text PRIMARY KEY NOT NULL,
-	`event_id` text NOT NULL,
-	`order` integer NOT NULL,
-	`type` text NOT NULL,
-	`title` text NOT NULL,
-	`composer` text,
 	`member_id` text,
-	`scheduled_time` text,
-	`estimated_duration` integer,
-	`note` text,
+	`token` text NOT NULL,
+	`inviter_display_name` text NOT NULL,
+	`guest_name` text,
+	`guest_email` text,
+	`status` text DEFAULT 'pending' NOT NULL,
+	`checked_in` integer DEFAULT false NOT NULL,
+	`checked_in_at` integer,
+	`invalidated_at` integer,
+	`responded_at` integer,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`event_id`) REFERENCES `events`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`member_id`) REFERENCES `event_members`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `invitations_token_unique` ON `invitations` (`token`);--> statement-breakpoint
+CREATE INDEX `invitations_event_id_idx` ON `invitations` (`event_id`);--> statement-breakpoint
+CREATE INDEX `invitations_member_id_idx` ON `invitations` (`member_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `invitations_token_idx` ON `invitations` (`token`);--> statement-breakpoint
+CREATE TABLE `performer_invitations` (
+	`id` text PRIMARY KEY NOT NULL,
+	`event_id` text NOT NULL,
+	`token` text NOT NULL,
+	`display_name` text NOT NULL,
+	`status` text DEFAULT 'pending' NOT NULL,
+	`accepted_by_user_id` text,
+	`accepted_at` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`event_id`) REFERENCES `events`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`accepted_by_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `performer_invitations_token_unique` ON `performer_invitations` (`token`);--> statement-breakpoint
+CREATE INDEX `performer_invitations_event_id_idx` ON `performer_invitations` (`event_id`);--> statement-breakpoint
+CREATE TABLE `program_performers` (
+	`id` text PRIMARY KEY NOT NULL,
+	`program_id` text NOT NULL,
+	`member_id` text NOT NULL,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`program_id`) REFERENCES `programs`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`member_id`) REFERENCES `event_members`(`id`) ON UPDATE no action ON DELETE restrict
+);
+--> statement-breakpoint
+CREATE INDEX `program_performers_program_id_idx` ON `program_performers` (`program_id`);--> statement-breakpoint
+CREATE INDEX `program_performers_member_id_idx` ON `program_performers` (`member_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `program_performers_unique` ON `program_performers` (`program_id`,`member_id`);--> statement-breakpoint
+CREATE TABLE `program_pieces` (
+	`id` text PRIMARY KEY NOT NULL,
+	`program_id` text NOT NULL,
+	`sort_order` integer NOT NULL,
+	`title` text NOT NULL,
+	`composer` text,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`program_id`) REFERENCES `programs`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `program_pieces_program_id_idx` ON `program_pieces` (`program_id`);--> statement-breakpoint
+CREATE TABLE `programs` (
+	`id` text PRIMARY KEY NOT NULL,
+	`event_id` text NOT NULL,
+	`sort_order` integer NOT NULL,
+	`type` text NOT NULL,
+	`scheduled_time` text,
+	`estimated_duration` integer,
+	`note` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`event_id`) REFERENCES `events`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
 CREATE INDEX `programs_event_id_idx` ON `programs` (`event_id`);--> statement-breakpoint
-CREATE INDEX `programs_member_id_idx` ON `programs` (`member_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `programs_event_order_unique` ON `programs` (`event_id`,`order`);--> statement-breakpoint
 CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`expires_at` integer NOT NULL,

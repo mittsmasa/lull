@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1772245219155,
-      "tag": "0000_silly_satana",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1772450369531,
-      "tag": "0001_sturdy_shaman",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1772451714174,
-      "tag": "0002_omniscient_ultimo",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1776225381579,
-      "tag": "0003_stiff_betty_brant",
+      "when": 1776226633330,
+      "tag": "0000_sweet_the_hood",
       "breakpoints": true
     }
   ]
