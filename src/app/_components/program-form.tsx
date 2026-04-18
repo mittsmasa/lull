@@ -255,21 +255,6 @@ export function ProgramForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="scheduledTime">
-            予定時刻
-            <span className="text-muted-foreground ml-1 text-xs font-normal">
-              （任意）
-            </span>
-          </Label>
-          <Input
-            id="scheduledTime"
-            name="scheduledTime"
-            type="time"
-            defaultValue={initialData?.scheduledTime ?? ""}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
           <Label htmlFor="estimatedDuration">
             所要時間（分）
             <span className="text-muted-foreground ml-1 text-xs font-normal">
@@ -283,6 +268,21 @@ export function ProgramForm({
             min={1}
             max={999}
             defaultValue={initialData?.estimatedDuration ?? ""}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="scheduledTime">
+            予定時刻
+            <span className="text-muted-foreground ml-1 text-xs font-normal">
+              （任意）
+            </span>
+          </Label>
+          <Input
+            id="scheduledTime"
+            name="scheduledTime"
+            type="time"
+            defaultValue={initialData?.scheduledTime ?? ""}
           />
         </div>
       </div>
