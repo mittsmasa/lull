@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
+import { toast } from "sonner";
 import {
   deleteEvent,
   updateEvent,
@@ -57,10 +58,21 @@ export function EventDetail({
   availableTransitions,
 }: EventDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [editState, editAction, isEditPending] = useActionState(
-    updateEvent.bind(null, event.id),
+  const [, editAction, isEditPending] = useActionState(
+    async (
+      prevState: Awaited<ReturnType<typeof updateEvent>> | null,
+      formData: FormData,
+    ) => {
+      const result = await updateEvent(event.id, prevState, formData);
+      if (result && "error" in result) {
+        toast.error(result.error);
+      } else if (result && "event" in result) {
+        toast.success("イベントを更新しました");
+        setIsEditing(false);
+      }
+      return result;
+    },
     null,
   );
   const isOrganizer = currentUserRole === "organizer";
@@ -71,7 +83,9 @@ export function EventDetail({
     startTransition(async () => {
       const result = await updateEventStatus(event.id, newStatus);
       if (result?.error) {
-        setError(result.error);
+        toast.error(result.error);
+      } else {
+        toast.success("ステータスを変更しました");
       }
     });
   };
@@ -80,8 +94,9 @@ export function EventDetail({
     startTransition(async () => {
       const result = await deleteEvent(event.id);
       if (result?.error) {
-        setError(result.error);
+        toast.error(result.error);
       }
+      // 成功時は redirect されるため、ここには到達しない
     });
   };
 
@@ -103,12 +118,6 @@ export function EventDetail({
           </Button>
         )}
       </div>
-
-      {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
 
       {/* イベント情報 — 閲覧モード */}
       {!isEditing && (
@@ -158,11 +167,6 @@ export function EventDetail({
           </h2>
 
           <form action={editAction} className="flex flex-col gap-6">
-            {editState?.error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {editState.error}
-              </div>
-            )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="name">イベント名</Label>
               <Input

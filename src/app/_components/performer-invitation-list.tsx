@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, useTransition } from "react";
+import { toast } from "sonner";
 import {
   deletePerformerInvitation,
   invalidatePerformerInvitation,
@@ -36,9 +37,7 @@ export function PerformerInvitationList({
   eventStatus: EventStatus;
   invitations: PerformerInvitationItem[];
 }) {
-  const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const canInvalidate =
@@ -46,28 +45,24 @@ export function PerformerInvitationList({
     eventStatus === "published" ||
     eventStatus === "ongoing";
 
-  const handleCopy = useCallback(
-    async (invitationId: string, token: string) => {
-      try {
-        const url = `${window.location.origin}/join/${token}`;
-        await navigator.clipboard.writeText(url);
-        setCopiedId(invitationId);
-        setTimeout(() => setCopiedId(null), 2000);
-      } catch {
-        setError("クリップボードへのコピーに失敗しました");
-      }
-    },
-    [],
-  );
+  const handleCopy = useCallback(async (token: string) => {
+    try {
+      const url = `${window.location.origin}/join/${token}`;
+      await navigator.clipboard.writeText(url);
+      toast.success("リンクをコピーしました");
+    } catch {
+      toast.error("クリップボードへのコピーに失敗しました");
+    }
+  }, []);
 
   const handleInvalidate = (invitationId: string) => {
     setPendingId(invitationId);
     startTransition(async () => {
       const result = await invalidatePerformerInvitation(eventId, invitationId);
       if (result?.error) {
-        setError(result.error);
+        toast.error(result.error);
       } else {
-        setError(null);
+        toast.success("招待を無効化しました");
       }
       setPendingId(null);
     });
@@ -78,9 +73,9 @@ export function PerformerInvitationList({
     startTransition(async () => {
       const result = await deletePerformerInvitation(eventId, invitationId);
       if (result?.error) {
-        setError(result.error);
+        toast.error(result.error);
       } else {
-        setError(null);
+        toast.success("招待を削除しました");
       }
       setPendingId(null);
     });
@@ -94,11 +89,6 @@ export function PerformerInvitationList({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-0">
-        {error && (
-          <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
         {invitations.map((inv, index) => (
           <div key={inv.id}>
             {index > 0 && <Separator />}
@@ -114,9 +104,9 @@ export function PerformerInvitationList({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleCopy(inv.id, inv.token)}
+                    onClick={() => handleCopy(inv.token)}
                   >
-                    {copiedId === inv.id ? "コピーしました" : "リンクをコピー"}
+                    リンクをコピー
                   </Button>
                 )}
                 {canInvalidate && inv.status === "pending" && (

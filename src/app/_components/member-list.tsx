@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import {
   removeMember,
   updateDisplayName,
@@ -53,7 +54,6 @@ export function MemberList({
   isOrganizer: boolean;
   canModify: boolean;
 }) {
-  const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -67,9 +67,9 @@ export function MemberList({
     startTransition(async () => {
       const result = await removeMember(eventId, memberId);
       if (result?.error) {
-        setError(result.error);
+        toast.error(result.error);
       } else {
-        setError(null);
+        toast.success("メンバーを削除しました");
       }
       setPendingId(null);
     });
@@ -90,11 +90,6 @@ export function MemberList({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-0">
-        {error && (
-          <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
         {sorted.map((member, index) => (
           <div key={member.id}>
             {index > 0 && <Separator />}
@@ -177,16 +172,15 @@ function EditDisplayNameDialog({
   currentDisplayName: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (formData: FormData) => {
     startTransition(async () => {
       const result = await updateDisplayName(eventId, null, formData);
       if (result?.error) {
-        setError(result.error);
+        toast.error(result.error);
       } else {
-        setError(null);
+        toast.success("表示名を変更しました");
         setOpen(false);
       }
     });
@@ -204,11 +198,6 @@ function EditDisplayNameDialog({
           <DialogTitle>表示名を変更</DialogTitle>
         </DialogHeader>
         <form action={handleSubmit} className="flex flex-col gap-4">
-          {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="displayName">表示名</Label>
             <Input

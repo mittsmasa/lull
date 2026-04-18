@@ -94,6 +94,8 @@ export function ProgramForm({
           setPieces([{ id: crypto.randomUUID(), title: "", composer: "" }]);
         }
         onSuccess?.();
+      } else if (result.error && !result.fieldErrors) {
+        toast.error(result.error);
       }
       return result;
     },
@@ -342,10 +344,6 @@ export function ProgramForm({
           </p>
         )}
       </div>
-
-      {state?.error && !state.fieldErrors && (
-        <p className="text-sm text-destructive">{state.error}</p>
-      )}
 
       <div className="flex justify-end">
         <Button type="submit" disabled={isPending}>

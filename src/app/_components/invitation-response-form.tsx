@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { respondToInvitation } from "@/app/i/[token]/_actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,10 +44,8 @@ export function InvitationResponseForm({
         }))
       : [],
   );
-  const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
-  const [success, setSuccess] = useState(false);
   const [isOpen, setIsOpen] = useState(!isUpdate);
 
   const handleAddCompanion = () => {
@@ -66,9 +65,7 @@ export function InvitationResponseForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     setFieldErrors({});
-    setSuccess(false);
 
     startTransition(async () => {
       const result = await respondToInvitation(token, {
@@ -82,10 +79,10 @@ export function InvitationResponseForm({
       });
 
       if (result) {
-        if (result.error) setError(result.error);
         if (result.fieldErrors) setFieldErrors(result.fieldErrors);
+        if (result.error) toast.error(result.error);
       } else {
-        setSuccess(true);
+        toast.success("回答を受け取りました");
         setIsOpen(false);
       }
     });
@@ -101,18 +98,10 @@ export function InvitationResponseForm({
           <h2 className="font-serif text-2xl leading-tight">
             回答は送信済みです
           </h2>
-          {success && (
-            <p className="mt-3 font-serif text-sm text-accent-foreground animate-in fade-in slide-in-from-top-1 duration-500 motion-reduce:animate-none">
-              回答を受け取りました
-            </p>
-          )}
         </div>
         <button
           type="button"
-          onClick={() => {
-            setSuccess(false);
-            setIsOpen(true);
-          }}
+          onClick={() => setIsOpen(true)}
           className="self-start rounded-sm px-1 py-1 text-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           回答を変更する
@@ -130,16 +119,6 @@ export function InvitationResponseForm({
         <h2 className="font-serif text-2xl leading-tight">
           {isUpdate ? "回答を変更する" : "出欠をお聞かせください"}
         </h2>
-        {success && (
-          <p className="mt-3 font-serif text-sm text-accent-foreground animate-in fade-in slide-in-from-top-1 duration-500 motion-reduce:animate-none">
-            回答を受け取りました
-          </p>
-        )}
-        {error && (
-          <p className="mt-3 border-t border-destructive/30 pt-3 text-sm text-destructive">
-            {error}
-          </p>
-        )}
       </div>
 
       <fieldset
