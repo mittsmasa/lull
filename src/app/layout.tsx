@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     default: "Lull",
     template: "%s - Lull",
   },
-  description: "ピアノ発表会の招待・座席・当日体験を一つに繋ぐアプリ",
+  description: "発表会・リサイタルの招待・座席・当日体験を一つに繋ぐアプリ",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FFFFFF",
+  themeColor: "#F5F0E8",
 };
 
 export default function RootLayout({

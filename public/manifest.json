@@ -1,22 +1,35 @@
 {
-  "name": "Lull - ピアノ発表会",
+  "name": "Lull — 発表会・リサイタル",
   "short_name": "Lull",
-  "description": "ピアノ発表会の招待・座席・当日体験を一つに繋ぐアプリ",
+  "description": "発表会・リサイタルの招待・座席・当日体験を一つに繋ぐアプリ",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='38' fill='%23FFFFFF'/%3E%3Ctext x='96' y='118' text-anchor='middle' font-size='92' font-family='Arial,sans-serif' fill='%23000000'%3EL%3C/text%3E%3C/svg%3E",
+      "src": "/icon.svg",
       "sizes": "192x192",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='102' fill='%23FFFFFF'/%3E%3Ctext x='256' y='316' text-anchor='middle' font-size='240' font-family='Arial,sans-serif' fill='%23000000'%3EL%3C/text%3E%3C/svg%3E",
+      "src": "/icon.svg",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ],
-  "theme_color": "#FFFFFF",
-  "background_color": "#FFFFFF",
+  "theme_color": "#F5F0E8",
+  "background_color": "#F5F0E8",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait"
