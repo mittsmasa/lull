@@ -66,6 +66,18 @@ export function ProgramForm({
       composer: p.composer ?? "",
     })) ?? [{ id: crypto.randomUUID(), title: "", composer: "" }],
   );
+  // 任意入力欄は controlled 化する。React 19 の form action では
+  // 送信時に uncontrolled 入力が自動リセットされるため、バリデーション
+  // エラーで再表示した際に値が消えてしまう。
+  const [scheduledTime, setScheduledTime] = useState(
+    initialData?.scheduledTime ?? "",
+  );
+  const [estimatedDuration, setEstimatedDuration] = useState(
+    initialData?.estimatedDuration != null
+      ? String(initialData.estimatedDuration)
+      : "",
+  );
+  const [note, setNote] = useState(initialData?.note ?? "");
   const [isPending, startTransition] = useTransition();
 
   const [state, formAction] = useActionState<ProgramActionState, FormData>(
@@ -73,9 +85,9 @@ export function ProgramForm({
       const data = {
         type: formData.get("type") as string,
         pieces,
-        scheduledTime: formData.get("scheduledTime") as string,
-        estimatedDuration: formData.get("estimatedDuration") as string,
-        note: formData.get("note") as string,
+        scheduledTime,
+        estimatedDuration,
+        note,
         performerIds: selectedPerformerIds,
       };
       const result =
@@ -92,6 +104,9 @@ export function ProgramForm({
           setSelectedType("performance");
           setSelectedPerformerIds([]);
           setPieces([{ id: crypto.randomUUID(), title: "", composer: "" }]);
+          setScheduledTime("");
+          setEstimatedDuration("");
+          setNote("");
         }
         onSuccess?.();
       } else if (result.error && !result.fieldErrors) {
@@ -222,7 +237,7 @@ export function ProgramForm({
               />
               {selectedType === "performance" && (
                 <Input
-                  placeholder="作曲者"
+                  placeholder="作曲者・作詞者・編曲者など"
                   value={piece.composer}
                   onChange={(e) => updatePiece(i, "composer", e.target.value)}
                 />
@@ -255,21 +270,6 @@ export function ProgramForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="scheduledTime">
-            予定時刻
-            <span className="text-muted-foreground ml-1 text-xs font-normal">
-              （任意）
-            </span>
-          </Label>
-          <Input
-            id="scheduledTime"
-            name="scheduledTime"
-            type="time"
-            defaultValue={initialData?.scheduledTime ?? ""}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2">
           <Label htmlFor="estimatedDuration">
             所要時間（分）
             <span className="text-muted-foreground ml-1 text-xs font-normal">
@@ -282,7 +282,24 @@ export function ProgramForm({
             type="number"
             min={1}
             max={999}
-            defaultValue={initialData?.estimatedDuration ?? ""}
+            value={estimatedDuration}
+            onChange={(e) => setEstimatedDuration(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="scheduledTime">
+            予定時刻
+            <span className="text-muted-foreground ml-1 text-xs font-normal">
+              （任意）
+            </span>
+          </Label>
+          <Input
+            id="scheduledTime"
+            name="scheduledTime"
+            type="time"
+            value={scheduledTime}
+            onChange={(e) => setScheduledTime(e.target.value)}
           />
         </div>
       </div>
@@ -297,7 +314,8 @@ export function ProgramForm({
         <Textarea
           id="note"
           name="note"
-          defaultValue={initialData?.note ?? ""}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
           maxLength={500}
           rows={2}
         />

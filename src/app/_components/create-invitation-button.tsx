@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { buildShareUrl } from "@/lib/share-url";
 
 export function CreateInvitationButton({ eventId }: { eventId: string }) {
   const [isPending, startTransition] = useTransition();
@@ -23,7 +24,7 @@ export function CreateInvitationButton({ eventId }: { eventId: string }) {
         toast.error(result.error);
         return;
       }
-      const url = `${window.location.origin}/i/${result.token}`;
+      const url = buildShareUrl(`/i/${result.token}`);
       try {
         await navigator.clipboard.writeText(url);
         toast.success("招待リンクをコピーしました");

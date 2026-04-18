@@ -1,7 +1,7 @@
 "use client";
 
 import { DotsSixVertical, PencilSimple, Trash } from "@phosphor-icons/react";
-import { Reorder } from "motion/react";
+import { Reorder, useDragControls } from "motion/react";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -99,120 +99,155 @@ export function ProgramList({
             className="flex flex-col gap-2"
           >
             {programs.map((program, index) => (
-              <Reorder.Item
+              <ProgramRow
                 key={program.id}
-                value={program}
-                dragListener={canModify}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg p-3",
-                  program.type === "performance"
-                    ? "border bg-card"
-                    : "border bg-muted/50",
-                )}
-                whileDrag={{
-                  scale: 1.02,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                }}
-              >
-                {canModify && (
-                  <DotsSixVertical
-                    className="mt-0.5 text-muted-foreground shrink-0 cursor-grab"
-                    size={16}
-                  />
-                )}
-
-                <span className="mt-0.5 text-muted-foreground/60 shrink-0 text-xs tabular-nums">
-                  {index + 1}
-                </span>
-
-                {program.type === "performance" ? (
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    {program.performers.length > 0 && (
-                      <span className="min-w-0 font-medium">
-                        {program.performers
-                          .map((p) => p.displayName)
-                          .join(", ")}
-                      </span>
-                    )}
-                    {program.pieces.map((piece) => (
-                      <div
-                        key={piece.id}
-                        className="flex items-baseline gap-2 text-sm text-muted-foreground"
-                      >
-                        <span>{piece.title}</span>
-                        {piece.composer && (
-                          <span className="text-muted-foreground/60">
-                            {piece.composer}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                    {program.estimatedDuration && (
-                      <span className="text-xs text-muted-foreground">
-                        {program.estimatedDuration}分
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex min-w-0 flex-1 items-baseline gap-2 text-sm text-muted-foreground">
-                    <span>{program.pieces[0]?.title}</span>
-                    {program.estimatedDuration && (
-                      <span className="text-xs">
-                        {program.estimatedDuration}分
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {canModify && (
-                  <div className="flex shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-7"
-                      onClick={() => onEdit(program)}
-                    >
-                      <PencilSimple size={14} />
-                    </Button>
-
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash size={14} />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>プログラムを削除</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            「
-                            {program.type === "performance"
-                              ? `${program.performers.map((p) => p.displayName).join(", ")} - ${program.pieces[0]?.title ?? ""}`
-                              : (program.pieces[0]?.title ?? "このプログラム")}
-                            」を削除してもよろしいですか？この操作は取り消せません。
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(program.id)}
-                          >
-                            削除する
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                )}
-              </Reorder.Item>
+                program={program}
+                index={index}
+                canModify={canModify}
+                onEdit={onEdit}
+                onDelete={handleDelete}
+              />
             ))}
           </Reorder.Group>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+type ProgramRowProps = {
+  program: ProgramWithPerformers;
+  index: number;
+  canModify: boolean;
+  onEdit: (program: ProgramWithPerformers) => void;
+  onDelete: (programId: string) => void;
+};
+
+function ProgramRow({
+  program,
+  index,
+  canModify,
+  onEdit,
+  onDelete,
+}: ProgramRowProps) {
+  const dragControls = useDragControls();
+  // 削除確認に表示する演目表記（複数曲の場合はすべて列挙）
+  const deleteTargetLabel =
+    program.type === "performance"
+      ? `${program.performers.map((p) => p.displayName).join(", ")} - ${program.pieces.map((piece) => piece.title).join(" / ")}`
+      : (program.pieces[0]?.title ?? "このプログラム");
+
+  return (
+    <Reorder.Item
+      value={program}
+      dragListener={false}
+      dragControls={dragControls}
+      className={cn(
+        "flex items-center gap-2 rounded-lg p-3",
+        program.type === "performance"
+          ? "border bg-card"
+          : "border bg-muted/50",
+      )}
+      whileDrag={{
+        scale: 1.02,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+      }}
+    >
+      {canModify && (
+        <button
+          type="button"
+          aria-label="並び替え"
+          className="mt-0.5 shrink-0 cursor-grab touch-none p-1 text-muted-foreground active:cursor-grabbing"
+          onPointerDown={(e) => dragControls.start(e)}
+        >
+          <DotsSixVertical size={16} />
+        </button>
+      )}
+
+      <span className="mt-0.5 text-muted-foreground/60 shrink-0 text-xs tabular-nums">
+        {index + 1}
+      </span>
+
+      {program.type === "performance" ? (
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {program.performers.length > 0 && (
+            <span className="min-w-0 font-medium">
+              {program.performers.map((p) => p.displayName).join(", ")}
+            </span>
+          )}
+          {program.pieces.map((piece) => (
+            <div
+              key={piece.id}
+              className="flex items-baseline gap-2 text-sm text-muted-foreground"
+            >
+              <span>{piece.title}</span>
+              {piece.composer && (
+                <span className="text-muted-foreground/60">
+                  {piece.composer}
+                </span>
+              )}
+            </div>
+          ))}
+          {(program.estimatedDuration || program.scheduledTime) && (
+            <span className="text-xs text-muted-foreground">
+              {program.estimatedDuration && `${program.estimatedDuration}分`}
+              {program.estimatedDuration && program.scheduledTime && " / "}
+              {program.scheduledTime && `${program.scheduledTime}〜`}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-baseline gap-2 text-sm text-muted-foreground">
+          <span>{program.pieces[0]?.title}</span>
+          {(program.estimatedDuration || program.scheduledTime) && (
+            <span className="text-xs">
+              {program.estimatedDuration && `${program.estimatedDuration}分`}
+              {program.estimatedDuration && program.scheduledTime && " / "}
+              {program.scheduledTime && `${program.scheduledTime}〜`}
+            </span>
+          )}
+        </div>
+      )}
+
+      {canModify && (
+        <div className="flex shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={() => onEdit(program)}
+          >
+            <PencilSimple size={14} />
+          </Button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 text-muted-foreground hover:text-destructive"
+              >
+                <Trash size={14} />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>プログラムを削除</AlertDialogTitle>
+                <AlertDialogDescription>
+                  「{deleteTargetLabel}
+                  」を削除してもよろしいですか？この操作は取り消せません。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete(program.id)}>
+                  削除する
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
+    </Reorder.Item>
   );
 }

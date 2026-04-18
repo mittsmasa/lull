@@ -3,6 +3,7 @@
 import { House, Plus, SignOut } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { PendingLinkIndicator } from "@/app/_components/pending-link-indicator";
 import {
   Sheet,
   SheetContent,
@@ -55,7 +56,7 @@ export function NavigationSheet({ open, onOpenChange }: NavigationSheetProps) {
                 }`}
               >
                 <Icon weight="light" className="size-4" />
-                {label}
+                <PendingLinkIndicator>{label}</PendingLinkIndicator>
               </Link>
             );
           })}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { PendingLinkIndicator } from "@/app/_components/pending-link-indicator";
 import {
   deleteEvent,
   updateEvent,
@@ -286,16 +287,24 @@ export function EventDetail({
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <Button variant="outline" asChild className="tracking-wider">
-            <Link href={`/events/${event.id}/programs`}>プログラム管理</Link>
+            <Link href={`/events/${event.id}/programs`}>
+              <PendingLinkIndicator>プログラム管理</PendingLinkIndicator>
+            </Link>
           </Button>
           <Button variant="outline" asChild className="tracking-wider">
-            <Link href={`/events/${event.id}/members`}>メンバー管理</Link>
+            <Link href={`/events/${event.id}/members`}>
+              <PendingLinkIndicator>メンバー管理</PendingLinkIndicator>
+            </Link>
           </Button>
           <Button variant="outline" asChild className="tracking-wider">
-            <Link href={`/events/${event.id}/invitations`}>招待管理</Link>
+            <Link href={`/events/${event.id}/invitations`}>
+              <PendingLinkIndicator>招待管理</PendingLinkIndicator>
+            </Link>
           </Button>
           <Button variant="outline" asChild className="tracking-wider">
-            <Link href={`/events/${event.id}/checkin`}>チェックイン</Link>
+            <Link href={`/events/${event.id}/checkin`}>
+              <PendingLinkIndicator>チェックイン</PendingLinkIndicator>
+            </Link>
           </Button>
         </CardContent>
       </Card>
