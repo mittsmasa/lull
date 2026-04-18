@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { AppSplash } from "@/app/_components/app-splash";
 import { SerwistProvider } from "@/components/register-sw";
 import { Toaster } from "@/components/ui/sonner";
 import { notoSerifJP, shipporiMincho } from "@/lib/fonts";
@@ -10,8 +11,16 @@ export const metadata: Metadata = {
     default: "Lull",
     template: "%s - Lull",
   },
-  description: "ピアノ発表会の招待・座席・当日体験を一つに繋ぐアプリ",
+  description: "発表会・リサイタルの招待・座席・当日体験を一つに繋ぐアプリ",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -21,7 +30,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#FFFFFF",
+  themeColor: "#F5F0E8",
 };
 
 export default function RootLayout({
@@ -38,6 +47,7 @@ export default function RootLayout({
         <SerwistProvider swUrl="/sw.js">
           {children}
           <Toaster />
+          <AppSplash />
         </SerwistProvider>
       </body>
     </html>
