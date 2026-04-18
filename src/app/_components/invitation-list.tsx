@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useTransition } from "react";
+import { toast } from "sonner";
 import {
   deleteInvitation,
   invalidateInvitation,
@@ -132,14 +133,6 @@ function InvitationRow({
   isOrganizer: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-    const id = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(id);
-  }, [copied]);
 
   const isInvalidated = !!invitation.invalidatedAt;
   const canInvalidate =
@@ -157,9 +150,9 @@ function InvitationRow({
     const url = `${window.location.origin}/i/${invitation.token}`;
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
+      toast.success("リンクをコピーしました");
     } catch {
-      setError(`クリップボードへのコピーに失敗しました。URL: ${url}`);
+      toast.error(`クリップボードへのコピーに失敗しました。URL: ${url}`);
     }
   };
 
@@ -167,7 +160,9 @@ function InvitationRow({
     startTransition(async () => {
       const result = await invalidateInvitation(eventId, invitation.id);
       if (result?.error) {
-        setError(result.error);
+        toast.error(result.error);
+      } else {
+        toast.success("招待を無効化しました");
       }
     });
   };
@@ -176,7 +171,9 @@ function InvitationRow({
     startTransition(async () => {
       const result = await deleteInvitation(eventId, invitation.id);
       if (result?.error) {
-        setError(result.error);
+        toast.error(result.error);
+      } else {
+        toast.success("招待を削除しました");
       }
     });
   };
@@ -185,7 +182,9 @@ function InvitationRow({
     startTransition(async () => {
       const result = await proxyChangeStatus(eventId, invitation.id, newStatus);
       if (result?.error) {
-        setError(result.error);
+        toast.error(result.error);
+      } else {
+        toast.success("出欠を変更しました");
       }
     });
   };
@@ -237,16 +236,10 @@ function InvitationRow({
         </Collapsible>
       )}
 
-      {error && (
-        <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
       <div className="flex flex-wrap items-center gap-2">
         {canCopyLink && (
           <Button variant="outline" size="sm" onClick={handleCopyLink}>
-            {copied ? "コピーしました" : "リンクをコピー"}
+            リンクをコピー
           </Button>
         )}
 

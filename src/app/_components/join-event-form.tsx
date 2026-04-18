@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { acceptPerformerInvitation } from "@/app/join/[token]/_actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,17 +35,15 @@ export function JoinEventForm({
   const [displayName, setDisplayName] = useState(
     savedDisplayName ?? defaultDisplayName,
   );
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const autoJoinTriggered = useRef(false);
 
   const submitJoin = useCallback(
     (name: string) => {
       startTransition(async () => {
-        setError(null);
         const result = await acceptPerformerInvitation(token, name);
         if (result?.error) {
-          setError(result.error);
+          toast.error(result.error);
         }
         // 成功時は redirect されるため、ここには到達しない
       });
@@ -117,12 +116,6 @@ export function JoinEventForm({
           プログラムに表示される名前です。あとで変更できます
         </p>
       </div>
-
-      {error && (
-        <p className="border-l-2 border-destructive pl-3 text-sm text-destructive">
-          {error}
-        </p>
-      )}
 
       {isAuthenticated ? (
         <Button

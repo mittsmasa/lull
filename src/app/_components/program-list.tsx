@@ -75,6 +75,8 @@ export function ProgramList({
       const result = await onDelete(eventId, programId);
       if (result?.error) {
         toast.error(result.error);
+      } else {
+        toast.success("プログラムを削除しました");
       }
     });
   };

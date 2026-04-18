@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { toast } from "sonner";
 import {
   type CreateEventState,
   createEvent,
@@ -14,7 +15,13 @@ export function CreateEventForm() {
   const [state, formAction, isPending] = useActionState<
     CreateEventState,
     FormData
-  >(createEvent, null);
+  >(async (prevState, formData) => {
+    const result = await createEvent(prevState, formData);
+    if (result?.error) {
+      toast.error(result.error);
+    }
+    return result;
+  }, null);
 
   const f = state?.fields;
 
@@ -25,12 +32,6 @@ export function CreateEventForm() {
       </h2>
 
       <form action={formAction} className="flex flex-col gap-6">
-        {state?.error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-            {state.error}
-          </div>
-        )}
-
         <div className="flex flex-col gap-2">
           <Label htmlFor="name">イベント名</Label>
           <Input
