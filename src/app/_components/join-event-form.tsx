@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { acceptPerformerInvitation } from "@/app/join/[token]/_actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,15 +38,19 @@ export function JoinEventForm({
   const [isPending, startTransition] = useTransition();
   const autoJoinTriggered = useRef(false);
 
-  const submitJoin = (name: string) => {
-    startTransition(async () => {
-      const result = await acceptPerformerInvitation(token, name);
-      if (result?.error) {
-        setError(result.error);
-      }
-      // 成功時は redirect されるため、ここには到達しない
-    });
-  };
+  const submitJoin = useCallback(
+    (name: string) => {
+      startTransition(async () => {
+        setError(null);
+        const result = await acceptPerformerInvitation(token, name);
+        if (result?.error) {
+          setError(result.error);
+        }
+        // 成功時は redirect されるため、ここには到達しない
+      });
+    },
+    [token],
+  );
 
   // OAuth 戻り直後の自動参加
   // ref ガードで重複実行を防ぐため、deps が変動しても初回 1 度だけ submit される
@@ -60,19 +64,14 @@ export function JoinEventForm({
     const name = (savedDisplayName ?? defaultDisplayName).trim();
     if (!name) return;
 
-    startTransition(async () => {
-      const result = await acceptPerformerInvitation(token, name);
-      if (result?.error) {
-        setError(result.error);
-      }
-    });
+    submitJoin(name);
   }, [
     isAuthenticated,
     pendingFlag,
     savedDisplayName,
     defaultDisplayName,
     removePendingFlag,
-    token,
+    submitJoin,
   ]);
 
   const handleJoinAuthenticated = () => {
@@ -96,9 +95,6 @@ export function JoinEventForm({
     });
   };
 
-  const isAutoJoining =
-    isAuthenticated && (pendingFlag === "true" || autoJoinTriggered.current);
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
@@ -115,7 +111,7 @@ export function JoinEventForm({
           onChange={(e) => setDisplayName(e.target.value)}
           maxLength={50}
           required
-          disabled={isAutoJoining || isPending}
+          disabled={isPending}
         />
         <p className="text-xs text-muted-foreground">
           プログラムに表示される名前です。あとで変更できます
@@ -131,10 +127,10 @@ export function JoinEventForm({
       {isAuthenticated ? (
         <Button
           onClick={handleJoinAuthenticated}
-          disabled={isPending || isAutoJoining || !displayName.trim()}
+          disabled={isPending || !displayName.trim()}
           className="w-full tracking-[0.18em]"
         >
-          {isPending || isAutoJoining ? "参加処理中..." : "参加する"}
+          {isPending ? "参加処理中..." : "参加する"}
         </Button>
       ) : (
         <Button
