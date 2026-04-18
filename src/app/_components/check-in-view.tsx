@@ -74,12 +74,14 @@ function extractToken(scannedValue: string): string | null {
   return match ? match[1] : null;
 }
 
-/** タイムスタンプを HH:mm 形式にフォーマット */
+/** タイムスタンプを JST の HH:mm 形式にフォーマット */
 function formatTimestamp(ts: number): string {
-  const date = new Date(ts);
-  const h = String(date.getHours()).padStart(2, "0");
-  const m = String(date.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+  return new Intl.DateTimeFormat("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Tokyo",
+  }).format(new Date(ts));
 }
 
 export function CheckInView({
@@ -533,25 +535,24 @@ export function CheckInView({
         </Card>
       )}
 
-      {/* サマリーカード */}
+      {/* サマリーカード：チェックイン済み / 出席予定 合計 */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">来場者数</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-8">
-            <div className="flex items-center gap-2">
-              <User className="text-muted-foreground size-5" />
-              <span className="text-sm">
-                ゲスト: {summary.checkedInGuests}/{summary.totalAccepted}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Users className="text-muted-foreground size-5" />
-              <span className="text-sm">
-                同伴者: {summary.checkedInCompanions}/{summary.totalCompanions}
-              </span>
-            </div>
+          <div className="flex items-baseline gap-2">
+            <Users className="text-muted-foreground size-5 self-center" />
+            <span className="text-2xl font-light tabular-nums">
+              {summary.checkedInGuests + summary.checkedInCompanions}
+            </span>
+            <span className="text-muted-foreground text-sm">/</span>
+            <span className="text-muted-foreground tabular-nums">
+              {summary.totalAccepted + summary.totalCompanions}
+            </span>
+            <span className="text-muted-foreground text-xs ml-1">
+              名がチェックイン済み
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -659,7 +660,7 @@ export function CheckInView({
           if (!open) setViewState({ mode: "idle" });
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {viewState.mode === "found"

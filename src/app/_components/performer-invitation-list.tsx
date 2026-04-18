@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { EventStatus, PerformerInvitationStatus } from "@/db/schema";
 import type { PerformerInvitationItem } from "@/lib/queries/members";
+import { buildShareUrl } from "@/lib/share-url";
 
 const invitationStatusLabels: Record<PerformerInvitationStatus, string> = {
   pending: "未承認",
@@ -47,7 +48,7 @@ export function PerformerInvitationList({
 
   const handleCopy = useCallback(async (token: string) => {
     try {
-      const url = `${window.location.origin}/join/${token}`;
+      const url = buildShareUrl(`/join/${token}`);
       await navigator.clipboard.writeText(url);
       toast.success("リンクをコピーしました");
     } catch {

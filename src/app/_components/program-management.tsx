@@ -74,7 +74,7 @@ export function ProgramManagement({
           if (!open) setEditingProgram(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>プログラムを編集</DialogTitle>
           </DialogHeader>

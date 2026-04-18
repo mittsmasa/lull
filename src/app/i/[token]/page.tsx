@@ -113,10 +113,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function formatCheckInTime(ts: number): string {
-  const date = new Date(ts);
-  const h = String(date.getHours()).padStart(2, "0");
-  const m = String(date.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+  // SSR 環境（UTC）でも JST で表示するため timeZone を明示する
+  return new Intl.DateTimeFormat("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Tokyo",
+  }).format(new Date(ts));
 }
 
 // ============================================================

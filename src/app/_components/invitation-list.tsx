@@ -29,6 +29,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import type { EventStatus } from "@/db/schema";
 import type { InvitationItem } from "@/lib/queries/invitations";
+import { buildShareUrl } from "@/lib/share-url";
 
 // ============================================================
 // 定数
@@ -147,7 +148,7 @@ function InvitationRow({
   const canCopyLink = !isInvalidated;
 
   const handleCopyLink = async () => {
-    const url = `${window.location.origin}/i/${invitation.token}`;
+    const url = buildShareUrl(`/i/${invitation.token}`);
     try {
       await navigator.clipboard.writeText(url);
       toast.success("リンクをコピーしました");
