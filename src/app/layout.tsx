@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { AppSplash } from "@/app/_components/app-splash";
 import { SerwistProvider } from "@/components/register-sw";
 import { Toaster } from "@/components/ui/sonner";
 import { notoSerifJP, shipporiMincho } from "@/lib/fonts";
@@ -46,6 +47,7 @@ export default function RootLayout({
         <SerwistProvider swUrl="/sw.js">
           {children}
           <Toaster />
+          <AppSplash />
         </SerwistProvider>
       </body>
     </html>
