@@ -16,6 +16,7 @@ import {
   type LookupInvitation,
   lookupInvitationByToken,
   performCheckIn,
+  type SearchInvitationResult,
   searchInvitationByName,
   undoCheckIn,
 } from "@/app/(main)/events/[eventId]/checkin/_actions";
@@ -284,9 +285,9 @@ export function CheckInView({
     setViewState({ mode: "scanning" });
   };
 
-  const [searchResults, setSearchResults] = useState<LookupInvitation[] | null>(
-    null,
-  );
+  const [searchResults, setSearchResults] = useState<
+    SearchInvitationResult[] | null
+  >(null);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -385,7 +386,7 @@ export function CheckInView({
           <CardContent className="space-y-4">
             <div className="flex gap-2">
               <Input
-                placeholder="ゲスト名を入力"
+                placeholder="ゲスト名・同伴者名を入力"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -419,33 +420,55 @@ export function CheckInView({
 
             {searchResults && searchResults.length > 0 && (
               <div className="space-y-1">
-                {searchResults.map((inv) => (
-                  <button
-                    key={inv.id}
-                    type="button"
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-3 hover:bg-muted/50 transition-colors border"
-                    onClick={() =>
-                      setViewState({ mode: "found", invitation: inv })
-                    }
-                  >
-                    {inv.checkedIn ? (
-                      <CheckCircle
-                        className="size-4 shrink-0 text-emerald-800/70"
-                        weight="fill"
-                      />
-                    ) : (
-                      <Circle className="size-4 shrink-0 text-muted-foreground" />
-                    )}
-                    <span className="text-sm flex-1 text-left">
-                      {inv.guestName ?? "名前未登録"}
-                    </span>
-                    {inv.companions.length > 0 && (
-                      <span className="text-muted-foreground text-xs">
-                        +{inv.companions.length}名
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {searchResults.map((inv) => {
+                  const matchedCompanionNames = inv.companions
+                    .filter((c) => inv.matchedCompanionIds.includes(c.id))
+                    .map((c) => c.name);
+                  return (
+                    <button
+                      key={inv.id}
+                      type="button"
+                      className="flex w-full items-start gap-2 rounded-md px-3 py-3 hover:bg-muted/50 transition-colors border"
+                      onClick={() =>
+                        setViewState({
+                          mode: "found",
+                          invitation: {
+                            id: inv.id,
+                            guestName: inv.guestName,
+                            guestEmail: inv.guestEmail,
+                            checkedIn: inv.checkedIn,
+                            checkedInAt: inv.checkedInAt,
+                            companions: inv.companions,
+                          },
+                        })
+                      }
+                    >
+                      {inv.checkedIn ? (
+                        <CheckCircle
+                          className="size-4 shrink-0 mt-0.5 text-emerald-800/70"
+                          weight="fill"
+                        />
+                      ) : (
+                        <Circle className="size-4 shrink-0 mt-0.5 text-muted-foreground" />
+                      )}
+                      <div className="flex-1 text-left">
+                        <div className="text-sm">
+                          {inv.guestName ?? "名前未登録"}
+                          {inv.companions.length > 0 && (
+                            <span className="text-muted-foreground text-xs ml-2">
+                              +{inv.companions.length}名
+                            </span>
+                          )}
+                        </div>
+                        {matchedCompanionNames.length > 0 && (
+                          <div className="text-muted-foreground text-xs mt-0.5">
+                            同伴者: {matchedCompanionNames.join("、")}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </CardContent>

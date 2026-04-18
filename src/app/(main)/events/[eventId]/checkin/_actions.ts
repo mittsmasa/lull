@@ -24,13 +24,20 @@ export type LookupInvitation = {
   }[];
 };
 
+export type SearchInvitationResult = LookupInvitation & {
+  /** ゲスト名が検索クエリにマッチしたか */
+  guestNameMatched: boolean;
+  /** 検索クエリにマッチした同伴者 id のリスト */
+  matchedCompanionIds: string[];
+};
+
 export type LookupResult = { error: string } | { invitation: LookupInvitation };
 
 /** 名前検索によるチェックイン用招待情報検索 */
 export async function searchInvitationByName(
   eventId: string,
   query: string,
-): Promise<{ error: string } | { invitations: LookupInvitation[] }> {
+): Promise<{ error: string } | { invitations: SearchInvitationResult[] }> {
   const session = await requireSession();
 
   // メンバー権限チェック
@@ -86,15 +93,25 @@ export async function searchInvitationByName(
     },
   });
 
+  const lower = trimmed.toLowerCase();
   return {
-    invitations: rows.map((r) => ({
-      id: r.id,
-      guestName: r.guestName,
-      guestEmail: r.guestEmail,
-      checkedIn: r.checkedIn,
-      checkedInAt: r.checkedInAt,
-      companions: r.companions,
-    })),
+    invitations: rows.map((r) => {
+      const guestNameMatched =
+        r.guestName?.toLowerCase().includes(lower) ?? false;
+      const matchedCompanionIds = r.companions
+        .filter((c) => c.name.toLowerCase().includes(lower))
+        .map((c) => c.id);
+      return {
+        id: r.id,
+        guestName: r.guestName,
+        guestEmail: r.guestEmail,
+        checkedIn: r.checkedIn,
+        checkedInAt: r.checkedInAt,
+        companions: r.companions,
+        guestNameMatched,
+        matchedCompanionIds,
+      };
+    }),
   };
 }
 
