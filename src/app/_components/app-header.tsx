@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, List } from "@phosphor-icons/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useHeaderConfig } from "@/app/_components/header-config";
@@ -30,11 +31,15 @@ export function AppHeader() {
           )}
         </div>
 
-        {/* 中央: ロゴ（常に中央固定） */}
+        {/* 中央: ロゴ（常に中央固定）→ タップでダッシュボードへ */}
         <div className="justify-self-center">
-          <span className="font-serif text-lg font-light tracking-widest text-primary">
+          <Link
+            href="/dashboard"
+            aria-label="ホームへ"
+            className="font-serif text-lg font-light tracking-widest text-primary"
+          >
             Lull
-          </span>
+          </Link>
         </div>
 
         {/* 右: ハンバーガーメニュー */}
