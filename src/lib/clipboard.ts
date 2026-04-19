@@ -10,6 +10,22 @@
 
 type PlainTextClipboardItem = Record<"text/plain", Promise<Blob>>;
 
+class ClipboardUnsupportedError extends Error {
+  constructor() {
+    super(
+      "このブラウザはクリップボード API に対応していません。URL を手動でコピーしてください。",
+    );
+    this.name = "ClipboardUnsupportedError";
+  }
+}
+
+function hasClipboardWriteText(): boolean {
+  return (
+    typeof navigator !== "undefined" &&
+    typeof navigator.clipboard?.writeText === "function"
+  );
+}
+
 function hasClipboardWrite(): boolean {
   return (
     typeof navigator !== "undefined" &&
@@ -20,6 +36,9 @@ function hasClipboardWrite(): boolean {
 
 /** 通常のテキストコピー（user gesture 直下で呼ぶ想定） */
 export async function copyText(text: string): Promise<void> {
+  if (!hasClipboardWriteText()) {
+    throw new ClipboardUnsupportedError();
+  }
   await navigator.clipboard.writeText(text);
 }
 
@@ -38,6 +57,11 @@ export async function copyTextFromPromise(
     };
     await navigator.clipboard.write([new ClipboardItem(items)]);
     return;
+  }
+  if (!hasClipboardWriteText()) {
+    // resolver は副作用を持つ可能性があるので失敗前に必ず実行する
+    await resolver();
+    throw new ClipboardUnsupportedError();
   }
   const text = await resolver();
   await navigator.clipboard.writeText(text);

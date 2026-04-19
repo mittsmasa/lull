@@ -16,8 +16,8 @@ export function CreateInvitationButton({ eventId }: { eventId: string }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   // iOS Safari のクリップボードは user gesture 直下で呼ばないと失敗するため、
-  // form action ではなく onClick ハンドラから直接 copyTextFromPromise を
-  // 呼び出して user gesture を維持する。
+  // form action は使わず、preventDefault() した onSubmit ハンドラ内で
+  // copyTextFromPromise を呼び出して user gesture を維持する。
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;

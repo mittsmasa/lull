@@ -3,7 +3,7 @@
 import { CaretDown, House, Plus, SignOut } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PendingLinkIndicator } from "@/app/_components/pending-link-indicator";
 import {
   Collapsible,
@@ -126,6 +126,12 @@ function EventNavItem({
   const isWithinEvent =
     pathname === eventBase || pathname.startsWith(`${eventBase}/`);
   const [open, setOpen] = useState(isWithinEvent);
+
+  // 現在表示中のイベントに該当するアコーディオンは自動で開く。
+  // 手動で閉じた状態を尊重したいので、true になったときのみ開く。
+  useEffect(() => {
+    if (isWithinEvent) setOpen(true);
+  }, [isWithinEvent]);
 
   const subItems = useMemo(
     () => [
