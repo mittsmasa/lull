@@ -54,8 +54,14 @@ type CheckInViewProps = {
   initialList: CheckInListItem[];
 };
 
-/** QR スキャン結果は Dialog、名前検索・一覧選択はインラインで表示 */
-type ResultSource = "qr" | "inline";
+/**
+ * 結果の表示先。
+ * - popup: QR スキャン / 名前検索で選択したアイテム / 一覧からの選択など、
+ *   ユーザーが特定のゲストを指定したケースは Dialog で表示する（切り替わりに
+ *   気づけるようカメラ時と同じ体験に統一）。
+ * - inline: ページ下部にそのまま出す（現在は未使用）。
+ */
+type ResultSource = "popup" | "inline";
 
 type ViewState =
   | { mode: "idle" }
@@ -107,25 +113,25 @@ export function CheckInView({
         setViewState({
           mode: "error",
           message: "QR コードからトークンを読み取れませんでした",
-          source: "qr",
+          source: "popup",
         });
         return;
       }
 
-      setViewState({ mode: "loading", source: "qr" });
+      setViewState({ mode: "loading", source: "popup" });
 
       const result = await lookupInvitationByToken(event.id, token);
       if ("error" in result) {
         setViewState({
           mode: "error",
           message: result.error,
-          source: "qr",
+          source: "popup",
         });
       } else {
         setViewState({
           mode: "found",
           invitation: result.invitation,
-          source: "qr",
+          source: "popup",
         });
       }
     },
@@ -371,7 +377,7 @@ export function CheckInView({
         checkedInAt: item.checkedInAt,
         companions: item.companions,
       },
-      source: "inline",
+      source: "popup",
     });
   };
 
@@ -499,7 +505,7 @@ export function CheckInView({
                             checkedInAt: inv.checkedInAt,
                             companions: inv.companions,
                           },
-                          source: "inline",
+                          source: "popup",
                         })
                       }
                     >
@@ -654,7 +660,7 @@ export function CheckInView({
           (viewState.mode === "loading" ||
             viewState.mode === "error" ||
             viewState.mode === "found") &&
-          viewState.source === "qr"
+          viewState.source === "popup"
         }
         onOpenChange={(open) => {
           if (!open) setViewState({ mode: "idle" });
@@ -673,7 +679,7 @@ export function CheckInView({
           {(viewState.mode === "loading" ||
             viewState.mode === "error" ||
             viewState.mode === "found") &&
-            viewState.source === "qr" && (
+            viewState.source === "popup" && (
               <ResultPanel
                 viewState={viewState}
                 processing={processing}

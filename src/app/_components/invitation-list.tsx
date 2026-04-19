@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import type { EventStatus } from "@/db/schema";
+import { copyText } from "@/lib/clipboard";
+import { formatGuestInvitationCopy } from "@/lib/invitation-copy";
 import type { InvitationItem } from "@/lib/queries/invitations";
 import { buildShareUrl } from "@/lib/share-url";
 
@@ -149,8 +151,14 @@ function InvitationRow({
 
   const handleCopyLink = async () => {
     const url = buildShareUrl(`/i/${invitation.token}`);
+    const text = formatGuestInvitationCopy({
+      url,
+      guestName: invitation.guestName,
+      status: invitation.status,
+      isInvalidated,
+    });
     try {
-      await navigator.clipboard.writeText(url);
+      await copyText(text);
       toast.success("リンクをコピーしました");
     } catch {
       toast.error(`クリップボードへのコピーに失敗しました。URL: ${url}`);
