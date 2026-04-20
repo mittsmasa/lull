@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { EventStatus, PerformerInvitationStatus } from "@/db/schema";
+import { copyText } from "@/lib/clipboard";
+import { formatPerformerInvitationCopy } from "@/lib/invitation-copy";
 import type { PerformerInvitationItem } from "@/lib/queries/members";
 import { buildShareUrl } from "@/lib/share-url";
 
@@ -46,10 +48,11 @@ export function PerformerInvitationList({
     eventStatus === "published" ||
     eventStatus === "ongoing";
 
-  const handleCopy = useCallback(async (token: string) => {
+  const handleCopy = useCallback(async (token: string, displayName: string) => {
+    const url = buildShareUrl(`/join/${token}`);
+    const text = formatPerformerInvitationCopy({ url, displayName });
     try {
-      const url = buildShareUrl(`/join/${token}`);
-      await navigator.clipboard.writeText(url);
+      await copyText(text);
       toast.success("リンクをコピーしました");
     } catch {
       toast.error("クリップボードへのコピーに失敗しました");
@@ -105,7 +108,7 @@ export function PerformerInvitationList({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleCopy(inv.token)}
+                    onClick={() => handleCopy(inv.token, inv.displayName)}
                   >
                     リンクをコピー
                   </Button>

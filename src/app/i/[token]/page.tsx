@@ -7,7 +7,7 @@ import {
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
 import { QrCode } from "@/app/_components/qr-code";
 import type { EventStatus } from "@/db/schema";
-import { formatDatetime, formatTime } from "@/lib/format";
+import { formatDate, formatDatetime, formatTime } from "@/lib/format";
 import { getInvitationByToken } from "@/lib/queries/invitations";
 
 // ============================================================
@@ -74,12 +74,12 @@ function EventInfoHeader({
         </p>
       </div>
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-4 border-t border-border/50 pt-6 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-150 motion-reduce:animate-none motion-reduce:delay-0">
+      <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-6 gap-y-4 border-t border-border/50 pt-6 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-150 motion-reduce:animate-none motion-reduce:delay-0">
         <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          日時
+          開演
         </dt>
         <dd className="text-sm tabular-nums">
-          {formatDatetime(event.startDatetime)}
+          {formatTime(event.startDatetime)}
         </dd>
         {event.openDatetime && (
           <>
@@ -94,7 +94,13 @@ function EventInfoHeader({
         <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           会場
         </dt>
-        <dd className="text-sm">{event.venue}</dd>
+        <dd className="text-sm">
+          <span className="tabular-nums">
+            {formatDate(event.startDatetime)}
+          </span>
+          {" ／ "}
+          {event.venue}
+        </dd>
       </dl>
     </header>
   );
@@ -139,7 +145,7 @@ function CurrentResponseView({
   return (
     <section className="flex flex-col gap-4 border-t border-border/50 pt-6">
       <SectionLabel>現在の回答</SectionLabel>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3">
+      <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-6 gap-y-3">
         <dt className="text-xs text-muted-foreground">お名前</dt>
         <dd className="text-sm">{invitation.guestName}</dd>
         <dt className="text-xs text-muted-foreground">メール</dt>

@@ -1,38 +1,60 @@
 "use client";
 
-import { useRef, useTransition } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { createGuestInvitation } from "@/app/(main)/events/[eventId]/invitations/_actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { copyTextFromPromise } from "@/lib/clipboard";
+import { formatGuestInvitationCopy } from "@/lib/invitation-copy";
 import { buildShareUrl } from "@/lib/share-url";
 
 export function CreateInvitationButton({ eventId }: { eventId: string }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const handleSubmit = (formData: FormData) => {
-    const guestName = formData.get("guestName") as string | undefined;
-    startTransition(async () => {
-      const result = await createGuestInvitation(
-        eventId,
-        guestName || undefined,
+  // iOS Safari のクリップボードは user gesture 直下で呼ばないと失敗するため、
+  // form action は使わず、preventDefault() した onSubmit ハンドラ内で
+  // copyTextFromPromise を呼び出して user gesture を維持する。
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const guestName = (formData.get("guestName") as string | null) || undefined;
+
+    setIsPending(true);
+    let successName: string | null | undefined;
+    try {
+      await copyTextFromPromise(async () => {
+        const result = await createGuestInvitation(eventId, guestName);
+        if ("error" in result) {
+          throw new Error(result.error);
+        }
+        const url = buildShareUrl(`/i/${result.token}`);
+        successName = guestName ?? null;
+        return formatGuestInvitationCopy({
+          url,
+          guestName: guestName ?? null,
+          status: "pending",
+        });
+      });
+      toast.success(
+        successName
+          ? `${successName} さんの招待リンクをコピーしました`
+          : "招待リンクをコピーしました",
       );
-      if ("error" in result) {
-        toast.error(result.error);
-        return;
-      }
-      const url = buildShareUrl(`/i/${result.token}`);
-      try {
-        await navigator.clipboard.writeText(url);
-        toast.success("招待リンクをコピーしました");
-      } catch {
-        toast.error(`クリップボードへのコピーに失敗しました。URL: ${url}`);
-      }
       formRef.current?.reset();
-    });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "招待リンクの発行に失敗しました";
+      toast.error(message);
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -45,7 +67,7 @@ export function CreateInvitationButton({ eventId }: { eventId: string }) {
       <CardContent>
         <form
           ref={formRef}
-          action={handleSubmit}
+          onSubmit={handleSubmit}
           className="flex flex-col gap-4"
         >
           <div className="flex flex-col gap-2">

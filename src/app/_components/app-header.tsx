@@ -5,10 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useHeaderConfig } from "@/app/_components/header-config";
-import { NavigationSheet } from "@/app/_components/navigation-sheet";
+import {
+  type NavigationEvent,
+  NavigationSheet,
+} from "@/app/_components/navigation-sheet";
 import { Button } from "@/components/ui/button";
 
-export function AppHeader() {
+type AppHeaderProps = {
+  events?: NavigationEvent[];
+};
+
+export function AppHeader({ events = [] }: AppHeaderProps) {
   const router = useRouter();
   const { showBackButton } = useHeaderConfig();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -56,7 +63,11 @@ export function AppHeader() {
         </div>
       </div>
 
-      <NavigationSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+      <NavigationSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        events={events}
+      />
     </header>
   );
 }
