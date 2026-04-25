@@ -497,7 +497,7 @@ function findErrorElement(
     return form.querySelector<HTMLElement>("[data-performers-root]");
   }
   if (key === "type") {
-    return form.querySelector<HTMLElement>("[data-type-root]");
+    return form.querySelector<HTMLElement>("[data-type-root] [role='radio']");
   }
   return form.querySelector<HTMLElement>(`[name="${key}"]`);
 }
