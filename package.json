@@ -16,6 +16,7 @@
     "build-storybook": "storybook build",
     "test": "vitest",
     "test:unit": "vitest run --project unit",
+    "test:db": "vitest run --project db",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
