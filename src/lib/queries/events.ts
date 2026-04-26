@@ -1,10 +1,16 @@
 import "server-only";
 
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/db";
 import type { EventStatus, MemberRole } from "@/db/schema";
-import { eventMembers, events } from "@/db/schema";
+import {
+  companions,
+  eventMembers,
+  events,
+  invitations,
+  programs,
+} from "@/db/schema";
 
 export type EventWithRole = {
   id: string;
@@ -79,17 +85,106 @@ export const getEventsByUserId = cache(
 );
 
 /**
- * イベント詳細を取得（メンバー情報含む）
+ * イベント詳細を取得
  */
 export async function getEventDetail(eventId: string) {
   return db.query.events.findFirst({
     where: eq(events.id, eventId),
-    with: {
-      eventMembers: {
-        with: { user: true },
-      },
-    },
   });
+}
+
+export type EventStats = {
+  programCount: number;
+  performerCount: number;
+  invitationTotal: number;
+  invitationAccepted: number;
+  invitationPending: number;
+  invitationDeclined: number;
+  checkedInGuests: number;
+  checkedInCompanions: number;
+  totalAttendees: number;
+};
+
+/**
+ * イベント詳細画面のサマリ集計
+ * - 管理メニューのタイルに各エリアの現在値を表示するために使う
+ */
+export async function getEventStats(eventId: string): Promise<EventStats> {
+  const [programStats, performerStats, invitationStats, companionStats] =
+    await Promise.all([
+      db
+        .select({ total: count() })
+        .from(programs)
+        .where(eq(programs.eventId, eventId))
+        .get(),
+      db
+        .select({ total: count() })
+        .from(eventMembers)
+        .where(
+          and(
+            eq(eventMembers.eventId, eventId),
+            eq(eventMembers.role, "performer"),
+          ),
+        )
+        .get(),
+      db
+        .select({
+          total: count(),
+          accepted: count(
+            sql`CASE WHEN ${invitations.status} = 'accepted' THEN 1 END`,
+          ),
+          pending: count(
+            sql`CASE WHEN ${invitations.status} = 'pending' THEN 1 END`,
+          ),
+          declined: count(
+            sql`CASE WHEN ${invitations.status} = 'declined' THEN 1 END`,
+          ),
+          // チェックインは accepted のみ対象（getCheckInSummary と整合）
+          checkedInGuests: count(
+            sql`CASE WHEN ${invitations.status} = 'accepted' AND ${invitations.checkedIn} = 1 THEN 1 END`,
+          ),
+        })
+        .from(invitations)
+        // 無効化済み招待は管理ハブの分母・回答状況集計から除外（SeatSummaryCard と整合）
+        .where(
+          and(
+            eq(invitations.eventId, eventId),
+            isNull(invitations.invalidatedAt),
+          ),
+        )
+        .get(),
+      db
+        .select({
+          checkedIn: count(
+            sql`CASE WHEN ${companions.checkedIn} = 1 THEN 1 END`,
+          ),
+        })
+        .from(companions)
+        .innerJoin(invitations, eq(companions.invitationId, invitations.id))
+        .where(
+          and(
+            eq(invitations.eventId, eventId),
+            eq(invitations.status, "accepted"),
+            isNull(invitations.invalidatedAt),
+          ),
+        )
+        .get(),
+    ]);
+
+  const checkedInGuests = invitationStats?.checkedInGuests ?? 0;
+  const checkedInCompanions = companionStats?.checkedIn ?? 0;
+
+  return {
+    programCount: programStats?.total ?? 0,
+    performerCount: performerStats?.total ?? 0,
+    invitationTotal: invitationStats?.total ?? 0,
+    invitationAccepted: invitationStats?.accepted ?? 0,
+    invitationPending: invitationStats?.pending ?? 0,
+    invitationDeclined: invitationStats?.declined ?? 0,
+    checkedInGuests,
+    checkedInCompanions,
+    totalAttendees: checkedInGuests + checkedInCompanions,
+  };
 }
 
 /**
