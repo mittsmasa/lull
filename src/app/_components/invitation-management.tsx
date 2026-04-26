@@ -34,7 +34,7 @@ export function InvitationManagement({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-light tracking-wide">招待管理</h1>
+        <h1 className="text-3xl font-light tracking-wide">ゲスト管理</h1>
         <div className="mt-2 flex items-center gap-3">
           <span className="text-muted-foreground">{event.name}</span>
           <Badge variant={statusVariants[event.status]}>

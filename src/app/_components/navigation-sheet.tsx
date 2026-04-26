@@ -136,7 +136,7 @@ function EventNavItem({
   const subItems = useMemo(
     () => [
       { href: `${eventBase}`, label: "イベント詳細" },
-      { href: `${eventBase}/invitations`, label: "招待管理" },
+      { href: `${eventBase}/invitations`, label: "ゲスト管理" },
       { href: `${eventBase}/programs`, label: "プログラム管理" },
       { href: `${eventBase}/members`, label: "メンバー管理" },
       { href: `${eventBase}/checkin`, label: "チェックイン" },
