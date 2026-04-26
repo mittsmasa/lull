@@ -39,7 +39,7 @@
     "@phosphor-icons/react": "2.1.10",
     "@serwist/next": "9.5.7",
     "@tailwindcss/postcss": "4.2.2",
-    "better-auth": "1.6.2",
+    "better-auth": "1.6.9",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.2",
