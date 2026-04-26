@@ -113,23 +113,30 @@ export function ProgramList({
       onReorder={handleReorder}
       className="flex flex-col divide-y divide-border/60 rounded-md border border-border/60 bg-card/40"
     >
-      {programs.map((program, index) => (
-        <ProgramRow
-          key={program.id}
-          program={program}
-          index={index}
-          canModify={canModify}
-          onEdit={onEdit}
-          onDelete={handleDelete}
-        />
-      ))}
+      {(() => {
+        let performanceCounter = 0;
+        return programs.map((program) => {
+          const performanceNumber =
+            program.type === "performance" ? ++performanceCounter : null;
+          return (
+            <ProgramRow
+              key={program.id}
+              program={program}
+              performanceNumber={performanceNumber}
+              canModify={canModify}
+              onEdit={onEdit}
+              onDelete={handleDelete}
+            />
+          );
+        });
+      })()}
     </Reorder.Group>
   );
 }
 
 type ProgramRowProps = {
   program: ProgramWithPerformers;
-  index: number;
+  performanceNumber: number | null;
   canModify: boolean;
   onEdit: (program: ProgramWithPerformers) => void;
   onDelete: (programId: string) => void;
@@ -137,7 +144,7 @@ type ProgramRowProps = {
 
 function ProgramRow({
   program,
-  index,
+  performanceNumber,
   canModify,
   onEdit,
   onDelete,
@@ -184,15 +191,17 @@ function ProgramRow({
         </button>
       )}
 
-      {program.type === "performance" ? (
-        <span className="mt-0.5 w-6 shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
-          {index + 1}.
-        </span>
-      ) : (
-        <span className="mt-1 shrink-0 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-          {PROGRAM_TYPE_LABELS[program.type]}
-        </span>
-      )}
+      <span className="w-12 shrink-0">
+        {program.type === "performance" ? (
+          <span className="mt-0.5 block text-sm font-medium tabular-nums text-muted-foreground">
+            {performanceNumber}.
+          </span>
+        ) : program.type === "other" ? null : (
+          <span className="mt-1 block text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            {PROGRAM_TYPE_LABELS[program.type]}
+          </span>
+        )}
+      </span>
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {program.type === "performance" ? (

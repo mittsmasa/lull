@@ -4,11 +4,13 @@ import {
   User,
   UsersThree,
 } from "@phosphor-icons/react/dist/ssr";
+import { InvitationProgramView } from "@/app/_components/invitation-program-view";
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
 import { QrCode } from "@/app/_components/qr-code";
 import type { EventStatus } from "@/db/schema";
 import { formatDate, formatDatetime, formatTime } from "@/lib/format";
 import { getInvitationByToken } from "@/lib/queries/invitations";
+import { getProgramsByEventId } from "@/lib/queries/programs";
 
 // ============================================================
 // Shell
@@ -76,10 +78,14 @@ function EventInfoHeader({
 
       <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-6 gap-y-4 border-t border-border/50 pt-6 animate-in fade-in slide-in-from-bottom-2 duration-700 delay-150 motion-reduce:animate-none motion-reduce:delay-0">
         <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          開演
+          会場
         </dt>
-        <dd className="text-sm tabular-nums">
-          {formatTime(event.startDatetime)}
+        <dd className="text-sm">
+          <span className="tabular-nums">
+            {formatDate(event.startDatetime)}
+          </span>
+          {" ／ "}
+          {event.venue}
         </dd>
         {event.openDatetime && (
           <>
@@ -92,14 +98,10 @@ function EventInfoHeader({
           </>
         )}
         <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          会場
+          開演
         </dt>
-        <dd className="text-sm">
-          <span className="tabular-nums">
-            {formatDate(event.startDatetime)}
-          </span>
-          {" ／ "}
-          {event.venue}
+        <dd className="text-sm tabular-nums">
+          {formatTime(event.startDatetime)}
         </dd>
       </dl>
     </header>
@@ -309,23 +311,8 @@ export default async function InvitationResponsePage(
     );
   }
 
-  // finished + accepted → 思い出カード
-  if (event.status === "finished") {
-    if (invitation.status === "accepted") {
-      return (
-        <GuestShell>
-          <EventInfoHeader
-            event={event}
-            inviterName={invitation.inviterDisplayName}
-          />
-          <CurrentResponseView invitation={invitation} />
-          <CheckInStatusView invitation={invitation} />
-          <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
-            このイベントは終了しました。お越しいただきありがとうございました
-          </p>
-        </GuestShell>
-      );
-    }
+  // finished + 非 accepted → 期限切れ
+  if (event.status === "finished" && invitation.status !== "accepted") {
     return (
       <ErrorView
         title="招待リンクの期限が切れました"
@@ -341,6 +328,27 @@ export default async function InvitationResponsePage(
         title="招待リンクは無効です"
         message="リンクに問題がある場合は、招待者にお問い合わせください"
       />
+    );
+  }
+
+  // 以降はプログラム表示があるため、ここで初めてフェッチ
+  const programs = await getProgramsByEventId(event.id);
+
+  // finished + accepted → 思い出カード
+  if (event.status === "finished") {
+    return (
+      <GuestShell>
+        <EventInfoHeader
+          event={event}
+          inviterName={invitation.inviterDisplayName}
+        />
+        <InvitationProgramView programs={programs} />
+        <CurrentResponseView invitation={invitation} />
+        <CheckInStatusView invitation={invitation} />
+        <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
+          このイベントは終了しました。お越しいただきありがとうございました
+        </p>
+      </GuestShell>
     );
   }
 
@@ -372,6 +380,8 @@ export default async function InvitationResponsePage(
         event={event}
         inviterName={invitation.inviterDisplayName}
       />
+
+      <InvitationProgramView programs={programs} />
 
       {showPass && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-300 motion-reduce:animate-none motion-reduce:delay-0">

@@ -298,7 +298,7 @@ export function EventDetail({
           </Button>
           <Button variant="outline" asChild className="tracking-wider">
             <Link href={`/events/${event.id}/invitations`}>
-              <PendingLinkIndicator>招待管理</PendingLinkIndicator>
+              <PendingLinkIndicator>ゲスト管理</PendingLinkIndicator>
             </Link>
           </Button>
           <Button variant="outline" asChild className="tracking-wider">
