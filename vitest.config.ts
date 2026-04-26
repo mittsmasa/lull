@@ -43,9 +43,7 @@ export default defineConfig({
           include: ["tests/db/**/*.test.ts", "src/lib/queries/**/*.test.ts"],
           environment: "node",
           setupFiles: ["tests/db/setup.ts"],
-          pool: "forks",
-          // @ts-expect-error vitest v4 の ProjectConfig 型に forks が未反映だが実行時は受け付ける
-          forks: { singleFork: true },
+          maxWorkers: 1,
         },
       },
       // Storybook テスト（ブラウザ環境）
