@@ -137,7 +137,7 @@ describe("invalidateInvitation", () => {
   it("出演者は他人が発行した招待を無効化できない", async () => {
     const { event } = await setupOrganizer();
     const performerUser = await createUser();
-    const performerMemberId = await addEventMember({
+    await addEventMember({
       eventId: event.id,
       userId: performerUser.id,
       role: "performer",
@@ -155,7 +155,6 @@ describe("invalidateInvitation", () => {
     });
     // 出演者本人としてログイン
     loginAs(performerUser);
-    void performerMemberId;
     const result = await invalidateInvitation(event.id, inv.id);
     expect(result).toEqual({ error: "権限がありません" });
   });
