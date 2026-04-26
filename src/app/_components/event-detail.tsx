@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -338,39 +337,28 @@ export function EventDetail({
 
       {/* 二次アクション */}
       {!isEditing && isOrganizer && availableTransitions.length > 0 && (
-        <Collapsible>
-          <Card className="border-dashed">
-            <CardContent className="p-0">
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="group flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm tracking-wider transition-colors hover:bg-muted/40"
+        <Collapsible className="rounded-sm border border-border/60 border-dashed">
+          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm tracking-wider transition-colors hover:bg-muted/40">
+            <span className="text-muted-foreground">ステータスを変更</span>
+            <CaretRight className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <Separator />
+            <div className="flex flex-wrap gap-2 px-5 py-4">
+              {availableTransitions.map((next) => (
+                <Button
+                  key={next}
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => handleStatusChange(next)}
+                  className="tracking-wider"
                 >
-                  <span className="text-muted-foreground">
-                    ステータスを変更
-                  </span>
-                  <CaretRight className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <Separator />
-                <div className="flex flex-wrap gap-2 px-5 py-4">
-                  {availableTransitions.map((next) => (
-                    <Button
-                      key={next}
-                      variant="outline"
-                      size="sm"
-                      disabled={isPending}
-                      onClick={() => handleStatusChange(next)}
-                      className="tracking-wider"
-                    >
-                      {transitionLabels[next]}
-                    </Button>
-                  ))}
-                </div>
-              </CollapsibleContent>
-            </CardContent>
-          </Card>
+                  {transitionLabels[next]}
+                </Button>
+              ))}
+            </div>
+          </CollapsibleContent>
         </Collapsible>
       )}
 
