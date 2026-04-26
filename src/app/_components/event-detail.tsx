@@ -57,12 +57,6 @@ type EventDetailProps = {
     openDatetime: string | null;
     status: EventStatus;
     totalSeats: number;
-    eventMembers: Array<{
-      id: string;
-      role: MemberRole;
-      displayName: string;
-      user: { id: string; name: string; image: string | null };
-    }>;
   };
   stats: EventStats;
   currentUserRole: MemberRole;
@@ -279,61 +273,7 @@ export function EventDetail({
       )}
 
       {/* 管理ハブ */}
-      {!isEditing && (
-        <section className="flex flex-col gap-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-xs uppercase text-muted-foreground tracking-[0.24em]">
-              管理
-            </h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <ManageTile
-              href={`/events/${event.id}/programs`}
-              icon={<MusicNotes className="h-4 w-4" aria-hidden />}
-              label="プログラム"
-              primary={`${stats.programCount} 件`}
-              hint="演目・休憩・あいさつ"
-            />
-            <ManageTile
-              href={`/events/${event.id}/members`}
-              icon={<IdentificationCard className="h-4 w-4" aria-hidden />}
-              label="メンバー"
-              primary={`${stats.performerCount} 名`}
-              hint="出演者の一覧と招待"
-            />
-            <ManageTile
-              href={`/events/${event.id}/invitations`}
-              icon={<Users className="h-4 w-4" aria-hidden />}
-              label="ゲスト"
-              primary={
-                stats.invitationTotal === 0
-                  ? "未発行"
-                  : `${stats.invitationAccepted} / ${stats.invitationTotal} 出席`
-              }
-              hint={
-                stats.invitationPending > 0
-                  ? `未回答 ${stats.invitationPending} 件`
-                  : "全員回答済"
-              }
-            />
-            <ManageTile
-              href={`/events/${event.id}/checkin`}
-              icon={<Scan className="h-4 w-4" aria-hidden />}
-              label="チェックイン"
-              primary={
-                stats.invitationAccepted === 0
-                  ? "受付なし"
-                  : `${stats.totalAttendees} 名 来場`
-              }
-              hint={
-                stats.invitationAccepted === 0
-                  ? "出席者が確定したら受付できます"
-                  : `出席予定 ${stats.invitationAccepted} 名`
-              }
-            />
-          </div>
-        </section>
-      )}
+      {!isEditing && <ManageHub eventId={event.id} stats={stats} />}
 
       {/* 二次アクション */}
       {!isEditing && isOrganizer && availableTransitions.length > 0 && (
@@ -420,6 +360,62 @@ function FactItem({
         <dd className="text-muted-foreground text-xs tracking-wide">{sub}</dd>
       )}
     </div>
+  );
+}
+
+function ManageHub({ eventId, stats }: { eventId: string; stats: EventStats }) {
+  const hasInvitations = stats.invitationTotal > 0;
+  const hasAccepted = stats.invitationAccepted > 0;
+  const hasPending = stats.invitationPending > 0;
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-xs uppercase text-muted-foreground tracking-[0.24em]">
+          管理
+        </h2>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ManageTile
+          href={`/events/${eventId}/programs`}
+          icon={<MusicNotes className="h-4 w-4" aria-hidden />}
+          label="プログラム"
+          primary={`${stats.programCount} 件`}
+          hint="演目・休憩・あいさつ"
+        />
+        <ManageTile
+          href={`/events/${eventId}/members`}
+          icon={<IdentificationCard className="h-4 w-4" aria-hidden />}
+          label="メンバー"
+          primary={`${stats.performerCount} 名`}
+          hint="出演者の一覧と招待"
+        />
+        <ManageTile
+          href={`/events/${eventId}/invitations`}
+          icon={<Users className="h-4 w-4" aria-hidden />}
+          label="ゲスト"
+          primary={
+            hasInvitations
+              ? `${stats.invitationAccepted} / ${stats.invitationTotal} 出席`
+              : "未発行"
+          }
+          hint={
+            hasPending ? `未回答 ${stats.invitationPending} 件` : "全員回答済"
+          }
+        />
+        <ManageTile
+          href={`/events/${eventId}/checkin`}
+          icon={<Scan className="h-4 w-4" aria-hidden />}
+          label="チェックイン"
+          primary={hasAccepted ? `${stats.totalAttendees} 名 来場` : "受付なし"}
+          hint={
+            hasAccepted
+              ? `出席予定 ${stats.invitationAccepted} 名`
+              : "出席者が確定したら受付できます"
+          }
+        />
+      </div>
+    </section>
   );
 }
 

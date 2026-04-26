@@ -85,16 +85,11 @@ export const getEventsByUserId = cache(
 );
 
 /**
- * イベント詳細を取得（メンバー情報含む）
+ * イベント詳細を取得
  */
 export async function getEventDetail(eventId: string) {
   return db.query.events.findFirst({
     where: eq(events.id, eventId),
-    with: {
-      eventMembers: {
-        with: { user: true },
-      },
-    },
   });
 }
 
