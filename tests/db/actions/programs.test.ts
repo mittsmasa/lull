@@ -356,3 +356,68 @@ describe("reorderPrograms", () => {
     expect(result?.error).toMatch(/終了/);
   });
 });
+
+describe("deleteProgram", () => {
+  it("CASCADE で pieces / performers が消える", async () => {
+    const { event, organizerMemberId } = await setupOrganizer();
+    const program = await addProgram({
+      eventId: event.id,
+      sortOrder: 1,
+      type: "performance",
+    });
+    await addProgramPiece({ programId: program.id, sortOrder: 1, title: "曲" });
+    await addProgramPerformer({
+      programId: program.id,
+      memberId: organizerMemberId,
+    });
+
+    const result = await deleteProgram(event.id, program.id);
+    expect(result).toBeNull();
+
+    const remaining = await db
+      .select()
+      .from(programs)
+      .where(eq(programs.id, program.id));
+    expect(remaining).toHaveLength(0);
+
+    const pieces = await db
+      .select()
+      .from(programPieces)
+      .where(eq(programPieces.programId, program.id));
+    expect(pieces).toHaveLength(0);
+
+    const performers = await db
+      .select()
+      .from(programPerformers)
+      .where(eq(programPerformers.programId, program.id));
+    expect(performers).toHaveLength(0);
+  });
+
+  it("他イベントの programId は削除対象に含めても消えない（eventId 一致のみ）", async () => {
+    const { event } = await setupOrganizer();
+    const otherEvent = await createEvent({ status: "published" });
+    const foreign = await addProgram({ eventId: otherEvent.id, sortOrder: 1 });
+
+    const result = await deleteProgram(event.id, foreign.id);
+    expect(result).toBeNull();
+
+    const stillThere = await db
+      .select()
+      .from(programs)
+      .where(eq(programs.id, foreign.id));
+    expect(stillThere).toHaveLength(1);
+  });
+
+  it("finished イベントでは削除不可", async () => {
+    const { event } = await setupOrganizer({ status: "finished" });
+    const program = await addProgram({ eventId: event.id, sortOrder: 1 });
+    const result = await deleteProgram(event.id, program.id);
+    expect(result?.error).toMatch(/終了/);
+
+    const stillThere = await db
+      .select()
+      .from(programs)
+      .where(eq(programs.id, program.id));
+    expect(stillThere).toHaveLength(1);
+  });
+});
