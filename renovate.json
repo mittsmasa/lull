@@ -5,9 +5,7 @@
     ":pinDevDependencies",
     ":automergePatch",
     "monorepo:nextjs",
-    "monorepo:storybook",
-    "group:nextjs",
-    "group:storybook"
+    "monorepo:storybook"
   ],
   "rangeStrategy": "pin",
   "timezone": "Asia/Tokyo",
