@@ -1,7 +1,9 @@
 "use client";
 
+import { Plus } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -32,29 +34,47 @@ type ProgramManagementProps = {
   currentUserRole: MemberRole;
 };
 
+type DialogState =
+  | { mode: "add" }
+  | { mode: "edit"; program: ProgramWithPerformers }
+  | null;
+
 export function ProgramManagement({
   event,
   programs,
   members,
   currentUserRole,
 }: ProgramManagementProps) {
-  const [editingProgram, setEditingProgram] =
-    useState<ProgramWithPerformers | null>(null);
+  const [dialog, setDialog] = useState<DialogState>(null);
 
   const canModify =
     event.status !== "finished" &&
     (currentUserRole === "organizer" || currentUserRole === "performer");
 
+  const openAdd = () => setDialog({ mode: "add" });
+  const close = () => setDialog(null);
+
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-light tracking-wide">プログラム管理</h1>
-        <div className="mt-2 flex items-center gap-3">
-          <span className="text-muted-foreground">{event.name}</span>
-          <Badge variant={statusVariants[event.status]}>
-            {statusLabels[event.status]}
-          </Badge>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-light tracking-wide">プログラム管理</h1>
+          <div className="mt-2 flex items-center gap-3">
+            <span className="text-muted-foreground">{event.name}</span>
+            <Badge variant={statusVariants[event.status]}>
+              {statusLabels[event.status]}
+            </Badge>
+          </div>
         </div>
+        {canModify && (
+          <Button
+            onClick={openAdd}
+            className="tracking-wider self-start sm:self-auto"
+          >
+            <Plus size={16} />
+            プログラムを追加
+          </Button>
+        )}
       </div>
 
       <ProgramList
@@ -63,39 +83,49 @@ export function ProgramManagement({
         canModify={canModify}
         onReorder={reorderPrograms}
         onDelete={deleteProgram}
-        onEdit={setEditingProgram}
+        onEdit={(program) => setDialog({ mode: "edit", program })}
+        onAdd={canModify ? openAdd : undefined}
       />
 
-      {canModify && <ProgramForm eventId={event.id} members={members} />}
-
       <Dialog
-        open={editingProgram !== null}
+        open={dialog !== null}
         onOpenChange={(open) => {
-          if (!open) setEditingProgram(null);
+          if (!open) close();
         }}
       >
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>プログラムを編集</DialogTitle>
+            <DialogTitle>
+              {dialog?.mode === "edit"
+                ? "プログラムを編集"
+                : "プログラムを追加"}
+            </DialogTitle>
           </DialogHeader>
-          {editingProgram && (
+          {dialog?.mode === "add" && (
+            <ProgramForm
+              eventId={event.id}
+              members={members}
+              onSuccess={close}
+            />
+          )}
+          {dialog?.mode === "edit" && (
             <ProgramForm
               eventId={event.id}
               members={members}
               mode="edit"
               initialData={{
-                id: editingProgram.id,
-                type: editingProgram.type,
-                pieces: editingProgram.pieces.map((p) => ({
+                id: dialog.program.id,
+                type: dialog.program.type,
+                pieces: dialog.program.pieces.map((p) => ({
                   title: p.title,
                   composer: p.composer,
                 })),
-                scheduledTime: editingProgram.scheduledTime,
-                estimatedDuration: editingProgram.estimatedDuration,
-                note: editingProgram.note,
-                performerIds: editingProgram.performers.map((p) => p.memberId),
+                scheduledTime: dialog.program.scheduledTime,
+                estimatedDuration: dialog.program.estimatedDuration,
+                note: dialog.program.note,
+                performerIds: dialog.program.performers.map((p) => p.memberId),
               }}
-              onSuccess={() => setEditingProgram(null)}
+              onSuccess={close}
             />
           )}
         </DialogContent>

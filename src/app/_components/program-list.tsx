@@ -1,6 +1,11 @@
 "use client";
 
-import { DotsSixVertical, PencilSimple, Trash } from "@phosphor-icons/react";
+import {
+  DotsSixVertical,
+  PencilSimple,
+  Plus,
+  Trash,
+} from "@phosphor-icons/react";
 import { Reorder, useDragControls } from "motion/react";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -16,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PROGRAM_TYPE_LABELS } from "@/db/schema";
 import type { ProgramWithPerformers } from "@/lib/queries/programs";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +38,7 @@ type ProgramListProps = {
     programId: string,
   ) => Promise<{ error: string } | null>;
   onEdit: (program: ProgramWithPerformers) => void;
+  onAdd?: () => void;
 };
 
 export function ProgramList({
@@ -42,13 +48,13 @@ export function ProgramList({
   onReorder,
   onDelete,
   onEdit,
+  onAdd,
 }: ProgramListProps) {
   const [programs, setPrograms] =
     useState<ProgramWithPerformers[]>(initialPrograms);
   const [, startTransition] = useTransition();
   const previousOrderRef = useRef<ProgramWithPerformers[]>(initialPrograms);
 
-  // props 更新時にローカル state を同期
   if (initialPrograms !== previousOrderRef.current) {
     previousOrderRef.current = initialPrograms;
     setPrograms(initialPrograms);
@@ -66,6 +72,11 @@ export function ProgramList({
       if (result?.error) {
         setPrograms(prevOrder);
         toast.error(result.error);
+      } else {
+        toast.success("並び順を保存しました", {
+          duration: 1500,
+          id: "program-reorder",
+        });
       }
     });
   };
@@ -81,37 +92,38 @@ export function ProgramList({
     });
   };
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-light">プログラム一覧</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {programs.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">
-            プログラムがありません
-          </p>
-        ) : (
-          <Reorder.Group
-            axis="y"
-            values={programs}
-            onReorder={handleReorder}
-            className="flex flex-col gap-2"
-          >
-            {programs.map((program, index) => (
-              <ProgramRow
-                key={program.id}
-                program={program}
-                index={index}
-                canModify={canModify}
-                onEdit={onEdit}
-                onDelete={handleDelete}
-              />
-            ))}
-          </Reorder.Group>
+  if (programs.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-4 rounded-md border border-dashed border-border/60 bg-card/40 px-6 py-12 text-center">
+        <p className="text-muted-foreground">まだプログラムがありません</p>
+        {canModify && onAdd && (
+          <Button variant="outline" onClick={onAdd} className="tracking-wider">
+            <Plus size={16} />
+            最初のプログラムを追加
+          </Button>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    );
+  }
+
+  return (
+    <Reorder.Group
+      axis="y"
+      values={programs}
+      onReorder={handleReorder}
+      className="flex flex-col divide-y divide-border/60 rounded-md border border-border/60 bg-card/40"
+    >
+      {programs.map((program, index) => (
+        <ProgramRow
+          key={program.id}
+          program={program}
+          index={index}
+          canModify={canModify}
+          onEdit={onEdit}
+          onDelete={handleDelete}
+        />
+      ))}
+    </Reorder.Group>
   );
 }
 
@@ -131,11 +143,20 @@ function ProgramRow({
   onDelete,
 }: ProgramRowProps) {
   const dragControls = useDragControls();
-  // 削除確認に表示する演目表記（複数曲の場合はすべて列挙）
   const deleteTargetLabel =
     program.type === "performance"
       ? `${program.performers.map((p) => p.displayName).join(", ")} - ${program.pieces.map((piece) => piece.title).join(" / ")}`
       : (program.pieces[0]?.title ?? "このプログラム");
+
+  const timeLabel =
+    program.scheduledTime || program.estimatedDuration != null
+      ? [
+          program.scheduledTime && `${program.scheduledTime}〜`,
+          program.estimatedDuration != null && `${program.estimatedDuration}分`,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : null;
 
   return (
     <Reorder.Item
@@ -143,78 +164,78 @@ function ProgramRow({
       dragListener={false}
       dragControls={dragControls}
       className={cn(
-        "flex items-center gap-2 rounded-lg p-3",
-        program.type === "performance"
-          ? "border bg-card"
-          : "border bg-muted/50",
+        "group flex items-start gap-3 px-3 py-3 transition-colors first:rounded-t-md last:rounded-b-md",
+        "hover:bg-muted/40 focus-within:bg-muted/40",
+        program.type !== "performance" && "bg-muted/30",
       )}
       whileDrag={{
-        scale: 1.02,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+        scale: 1.01,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
       }}
     >
       {canModify && (
         <button
           type="button"
           aria-label="並び替え"
-          className="mt-0.5 shrink-0 cursor-grab touch-none p-1 text-muted-foreground active:cursor-grabbing"
+          className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground/60 transition-colors hover:text-muted-foreground active:cursor-grabbing"
           onPointerDown={(e) => dragControls.start(e)}
         >
           <DotsSixVertical size={16} />
         </button>
       )}
 
-      <span className="mt-0.5 text-muted-foreground/60 shrink-0 text-xs tabular-nums">
-        {index + 1}
-      </span>
-
       {program.type === "performance" ? (
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {program.performers.length > 0 && (
-            <span className="min-w-0 font-medium">
-              {program.performers.map((p) => p.displayName).join(", ")}
-            </span>
-          )}
-          {program.pieces.map((piece) => (
-            <div
-              key={piece.id}
-              className="flex items-baseline gap-2 text-sm text-muted-foreground"
-            >
-              <span>{piece.title}</span>
-              {piece.composer && (
-                <span className="text-muted-foreground/60">
-                  {piece.composer}
-                </span>
-              )}
-            </div>
-          ))}
-          {(program.estimatedDuration || program.scheduledTime) && (
-            <span className="text-xs text-muted-foreground">
-              {program.estimatedDuration && `${program.estimatedDuration}分`}
-              {program.estimatedDuration && program.scheduledTime && " / "}
-              {program.scheduledTime && `${program.scheduledTime}〜`}
-            </span>
-          )}
-        </div>
+        <span className="mt-0.5 w-6 shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
+          {index + 1}.
+        </span>
       ) : (
-        <div className="flex min-w-0 flex-1 items-baseline gap-2 text-sm text-muted-foreground">
-          <span>{program.pieces[0]?.title}</span>
-          {(program.estimatedDuration || program.scheduledTime) && (
-            <span className="text-xs">
-              {program.estimatedDuration && `${program.estimatedDuration}分`}
-              {program.estimatedDuration && program.scheduledTime && " / "}
-              {program.scheduledTime && `${program.scheduledTime}〜`}
-            </span>
-          )}
-        </div>
+        <span className="mt-1 shrink-0 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          {PROGRAM_TYPE_LABELS[program.type]}
+        </span>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        {program.type === "performance" ? (
+          <>
+            {program.performers.length > 0 && (
+              <span className="min-w-0 font-medium">
+                {program.performers.map((p) => p.displayName).join(", ")}
+              </span>
+            )}
+            {program.pieces.map((piece) => (
+              <div
+                key={piece.id}
+                className="flex items-baseline gap-2 text-sm text-muted-foreground"
+              >
+                <span>{piece.title}</span>
+                {piece.composer && (
+                  <span className="text-muted-foreground/60">
+                    {piece.composer}
+                  </span>
+                )}
+              </div>
+            ))}
+          </>
+        ) : (
+          <span className="text-sm text-muted-foreground">
+            {program.pieces[0]?.title}
+          </span>
+        )}
+      </div>
+
+      {timeLabel && (
+        <span className="mt-0.5 shrink-0 text-xs tabular-nums text-muted-foreground">
+          {timeLabel}
+        </span>
       )}
 
       {canModify && (
-        <div className="flex shrink-0">
+        <div className="flex shrink-0 items-start gap-0.5 opacity-60 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <Button
             variant="ghost"
             size="icon"
             className="size-7"
+            aria-label="編集"
             onClick={() => onEdit(program)}
           >
             <PencilSimple size={14} />
@@ -225,6 +246,7 @@ function ProgramRow({
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="削除"
                 className="size-7 text-muted-foreground hover:text-destructive"
               >
                 <Trash size={14} />

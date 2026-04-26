@@ -9,6 +9,7 @@ const meta = {
     onReorder: fn(async () => null),
     onDelete: fn(async () => null),
     onEdit: fn(),
+    onAdd: fn(),
   },
 } satisfies Meta<typeof ProgramList>;
 

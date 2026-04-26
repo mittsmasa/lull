@@ -33,6 +33,9 @@ storybook-static/
 # plan
 .plan/
 
+# playwright-cli artifacts
+.playwright-cli/
+
 # claude code
 .claude/
 
