@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { searchInvitationByName } from "@/app/(main)/events/[eventId]/checkin/_actions";
+import {
+  lookupInvitationByToken,
+  searchInvitationByName,
+} from "@/app/(main)/events/[eventId]/checkin/_actions";
 import {
   addCompanion,
   addEventMember,
@@ -113,6 +116,111 @@ describe("searchInvitationByName", () => {
     const stranger = await createUser();
     loginAs(stranger);
     const result = await searchInvitationByName(event.id, "誰か");
+    expect(result).toEqual({ error: "権限がありません" });
+  });
+});
+
+describe("lookupInvitationByToken", () => {
+  it("accepted 招待の token から招待情報を返す", async () => {
+    const { event, memberId } = await setupMember();
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      token: "tok-accepted",
+    });
+    await addCompanion({ invitationId: inv.id, name: "同伴者A" });
+
+    const result = await lookupInvitationByToken(event.id, "tok-accepted");
+    if ("error" in result) throw new Error(result.error);
+    expect(result.invitation.id).toBe(inv.id);
+    expect(result.invitation.companions).toHaveLength(1);
+    expect(result.invitation.companions[0]).toMatchObject({ name: "同伴者A" });
+  });
+
+  it("別イベントの token はエラー", async () => {
+    const { event: ownEvent } = await setupMember();
+    const otherEvent = await createEvent({ status: "ongoing" });
+    const otherUser = await createUser();
+    const otherMember = await addEventMember({
+      eventId: otherEvent.id,
+      userId: otherUser.id,
+      role: "organizer",
+    });
+    await addInvitation({
+      eventId: otherEvent.id,
+      memberId: otherMember,
+      status: "accepted",
+      token: "tok-other",
+    });
+    const result = await lookupInvitationByToken(ownEvent.id, "tok-other");
+    expect(result).toEqual({ error: expect.stringContaining("別のイベント") });
+  });
+
+  it("無効化された招待はエラー", async () => {
+    const { event, memberId } = await setupMember();
+    await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      token: "tok-invalidated",
+      invalidatedAt: 1,
+    });
+    const result = await lookupInvitationByToken(event.id, "tok-invalidated");
+    expect(result).toEqual({ error: expect.stringContaining("無効化") });
+  });
+
+  it("pending / declined はそれぞれエラーメッセージが異なる", async () => {
+    const { event, memberId } = await setupMember();
+    await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "pending",
+      token: "tok-pending",
+    });
+    await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "declined",
+      token: "tok-declined",
+    });
+    const pendingResult = await lookupInvitationByToken(
+      event.id,
+      "tok-pending",
+    );
+    expect(pendingResult).toEqual({
+      error: expect.stringContaining("出欠回答"),
+    });
+    const declinedResult = await lookupInvitationByToken(
+      event.id,
+      "tok-declined",
+    );
+    expect(declinedResult).toEqual({ error: expect.stringContaining("辞退") });
+  });
+
+  it("存在しない token はエラー", async () => {
+    const { event } = await setupMember();
+    const result = await lookupInvitationByToken(event.id, "no-such-token");
+    expect(result).toEqual({ error: expect.stringContaining("無効") });
+  });
+
+  it("ongoing 以外のイベントではエラー", async () => {
+    const { event, memberId } = await setupMember({ status: "published" });
+    await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      token: "tok-x",
+    });
+    const result = await lookupInvitationByToken(event.id, "tok-x");
+    expect(result).toEqual({ error: expect.stringContaining("開催中") });
+  });
+
+  it("非メンバーは検索不可", async () => {
+    const event = await createEvent({ status: "ongoing" });
+    const stranger = await createUser();
+    loginAs(stranger);
+    const result = await lookupInvitationByToken(event.id, "tok");
     expect(result).toEqual({ error: "権限がありません" });
   });
 });
