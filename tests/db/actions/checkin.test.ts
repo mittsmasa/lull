@@ -4,6 +4,7 @@ import {
   lookupInvitationByToken,
   performCheckIn,
   searchInvitationByName,
+  undoCheckIn,
 } from "@/app/(main)/events/[eventId]/checkin/_actions";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
@@ -421,6 +422,139 @@ describe("performCheckIn", () => {
       status: "accepted",
     });
     const result = await performCheckIn(ownEvent.id, otherInv.id, "guest");
+    expect(result).toEqual({
+      error: expect.stringContaining("見つかりません"),
+    });
+  });
+});
+
+describe("undoCheckIn", () => {
+  it("guest: checkedIn=false + checkedInAt=null にリセット", async () => {
+    const { event, memberId } = await setupMember();
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      checkedIn: true,
+      checkedInAt: 1234,
+    });
+
+    const result = await undoCheckIn(event.id, inv.id, "guest");
+    if ("error" in result) throw new Error(result.error);
+    expect(result.summary).toMatchObject({ checkedInGuests: 0 });
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after).toMatchObject({ checkedIn: false, checkedInAt: null });
+  });
+
+  it("companion: 指定 id の同伴者だけリセット", async () => {
+    const { event, memberId } = await setupMember();
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+    });
+    const target = await addCompanion({
+      invitationId: inv.id,
+      checkedIn: true,
+      checkedInAt: 100,
+    });
+    const other = await addCompanion({
+      invitationId: inv.id,
+      checkedIn: true,
+      checkedInAt: 200,
+    });
+
+    const result = await undoCheckIn(event.id, inv.id, "companion", target.id);
+    if ("error" in result) throw new Error(result.error);
+
+    const targetRow = await db.query.companions.findFirst({
+      where: eq(companions.id, target.id),
+    });
+    const otherRow = await db.query.companions.findFirst({
+      where: eq(companions.id, other.id),
+    });
+    expect(targetRow).toMatchObject({ checkedIn: false, checkedInAt: null });
+    expect(otherRow).toMatchObject({ checkedIn: true, checkedInAt: 200 });
+  });
+
+  it("companion: targetId 未指定はエラー", async () => {
+    const { event, memberId } = await setupMember();
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+    });
+    const result = await undoCheckIn(event.id, inv.id, "companion");
+    expect(result).toEqual({ error: expect.stringContaining("同伴者ID") });
+  });
+
+  it("companion: 別招待配下の id は弾く", async () => {
+    const { event, memberId } = await setupMember();
+    const invA = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+    });
+    const invB = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+    });
+    const compB = await addCompanion({
+      invitationId: invB.id,
+      checkedIn: true,
+      checkedInAt: 100,
+    });
+
+    const result = await undoCheckIn(event.id, invA.id, "companion", compB.id);
+    expect(result).toEqual({ error: expect.stringContaining("同伴者") });
+
+    // invB 配下の同伴者は変わらない
+    const stillCheckedIn = await db.query.companions.findFirst({
+      where: eq(companions.id, compB.id),
+    });
+    expect(stillCheckedIn).toMatchObject({ checkedIn: true, checkedInAt: 100 });
+  });
+
+  it("ongoing 以外（finished 含む）では取り消し不可", async () => {
+    const { event, memberId } = await setupMember({ status: "finished" });
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      checkedIn: true,
+      checkedInAt: 1,
+    });
+    const result = await undoCheckIn(event.id, inv.id, "guest");
+    expect(result).toEqual({ error: expect.stringContaining("開催中") });
+  });
+
+  it("非メンバーは取り消し不可", async () => {
+    const event = await createEvent({ status: "ongoing" });
+    const stranger = await createUser();
+    loginAs(stranger);
+    const result = await undoCheckIn(event.id, "any", "guest");
+    expect(result).toEqual({ error: "権限がありません" });
+  });
+
+  it("別イベント配下の invitationId はエラー", async () => {
+    const { event: ownEvent } = await setupMember();
+    const otherEvent = await createEvent({ status: "ongoing" });
+    const otherUser = await createUser();
+    const otherMember = await addEventMember({
+      eventId: otherEvent.id,
+      userId: otherUser.id,
+      role: "organizer",
+    });
+    const otherInv = await addInvitation({
+      eventId: otherEvent.id,
+      memberId: otherMember,
+      status: "accepted",
+    });
+    const result = await undoCheckIn(ownEvent.id, otherInv.id, "guest");
     expect(result).toEqual({
       error: expect.stringContaining("見つかりません"),
     });
