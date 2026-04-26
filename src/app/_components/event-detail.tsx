@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  CalendarBlank,
+  CaretRight,
+  IdentificationCard,
+  MapPin,
+  MusicNotes,
+  Scan,
+  Users,
+} from "@phosphor-icons/react";
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -22,9 +31,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import type { EventStatus, MemberRole } from "@/db/schema";
 import {
   statusLabels,
@@ -32,6 +47,7 @@ import {
   transitionLabels,
 } from "@/lib/event-status";
 import { formatDatetime } from "@/lib/format";
+import type { EventStats } from "@/lib/queries/events";
 
 type EventDetailProps = {
   event: {
@@ -49,12 +65,14 @@ type EventDetailProps = {
       user: { id: string; name: string; image: string | null };
     }>;
   };
+  stats: EventStats;
   currentUserRole: MemberRole;
   availableTransitions: EventStatus[];
 };
 
 export function EventDetail({
   event,
+  stats,
   currentUserRole,
   availableTransitions,
 }: EventDetailProps) {
@@ -79,6 +97,8 @@ export function EventDetail({
   const isOrganizer = currentUserRole === "organizer";
   const canEdit =
     isOrganizer && (event.status === "draft" || event.status === "published");
+  const canDelete =
+    isOrganizer && (event.status === "draft" || event.status === "finished");
 
   const handleStatusChange = (newStatus: EventStatus) => {
     startTransition(async () => {
@@ -102,68 +122,73 @@ export function EventDetail({
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* ヘッダー */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-light tracking-wide">{event.name}</h1>
-          <div className="mt-2 flex items-center gap-3">
-            <Badge variant={statusVariants[event.status]}>
+    <div className="flex flex-col gap-10">
+      {/* ヒーロー */}
+      <header className="flex flex-col gap-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-3">
+            <Badge
+              variant={statusVariants[event.status]}
+              className="w-fit tracking-[0.18em] uppercase"
+            >
               {statusLabels[event.status]}
             </Badge>
+            <h1 className="font-light text-3xl tracking-wide leading-tight md:text-4xl">
+              {event.name}
+            </h1>
           </div>
+          {canEdit && !isEditing && (
+            <Button
+              variant="outline"
+              onClick={() => setIsEditing(true)}
+              className="tracking-wider"
+            >
+              編集
+            </Button>
+          )}
+          {canEdit && isEditing && (
+            <Button
+              variant="ghost"
+              onClick={() => setIsEditing(false)}
+              className="tracking-wider"
+            >
+              キャンセル
+            </Button>
+          )}
         </div>
-        {canEdit && (
-          <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
-            {isEditing ? "キャンセル" : "編集"}
-          </Button>
+
+        {!isEditing && (
+          <dl className="grid gap-6 border-border/60 border-y py-6 md:grid-cols-3">
+            <FactItem
+              icon={<CalendarBlank className="h-4 w-4" aria-hidden />}
+              label="開演"
+              value={formatDatetime(event.startDatetime)}
+              sub={
+                event.openDatetime
+                  ? `開場 ${formatDatetime(event.openDatetime)}`
+                  : null
+              }
+            />
+            <FactItem
+              icon={<MapPin className="h-4 w-4" aria-hidden />}
+              label="会場"
+              value={event.venue}
+            />
+            <FactItem
+              icon={<IdentificationCard className="h-4 w-4" aria-hidden />}
+              label="座席"
+              value={
+                event.totalSeats === 0 ? "無制限" : `${event.totalSeats} 席`
+              }
+            />
+          </dl>
         )}
-      </div>
+      </header>
 
-      {/* イベント情報 — 閲覧モード */}
-      {!isEditing && (
-        <Card>
-          <CardContent className="space-y-4 pt-6">
-            <div>
-              <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground">
-                開催日時
-              </p>
-              <p className="leading-relaxed">
-                {formatDatetime(event.startDatetime)}
-              </p>
-            </div>
-            {event.openDatetime && (
-              <div>
-                <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground">
-                  開場
-                </p>
-                <p className="leading-relaxed">
-                  {formatDatetime(event.openDatetime)}
-                </p>
-              </div>
-            )}
-            <div>
-              <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground">
-                会場
-              </p>
-              <p className="leading-relaxed">{event.venue}</p>
-            </div>
-            <div>
-              <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground">
-                座席数
-              </p>
-              <p className="leading-relaxed">
-                {event.totalSeats === 0 ? "無制限" : `${event.totalSeats} 席`}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* イベント情報 — 編集モード */}
+      {/* 編集モード */}
       {isEditing && (
         <div className="rounded-sm border border-border/50 bg-card p-8">
-          <h2 className="mb-6 font-serif text-lg font-light text-foreground">
+          <h2 className="mb-6 font-light font-serif text-foreground text-lg">
             イベント情報を編集
           </h2>
 
@@ -254,91 +279,197 @@ export function EventDetail({
         </div>
       )}
 
-      {/* ステータス変更（主催者のみ） */}
-      {isOrganizer && availableTransitions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-light tracking-wide text-lg">
-              ステータス変更
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex gap-3">
-            {availableTransitions.map((next) => (
-              <Button
-                key={next}
-                variant="outline"
-                disabled={isPending}
-                onClick={() => handleStatusChange(next)}
-                className="tracking-wider"
-              >
-                {transitionLabels[next]}
-              </Button>
-            ))}
-          </CardContent>
-        </Card>
+      {/* 管理ハブ */}
+      {!isEditing && (
+        <section className="flex flex-col gap-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-xs uppercase text-muted-foreground tracking-[0.24em]">
+              管理
+            </h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ManageTile
+              href={`/events/${event.id}/programs`}
+              icon={<MusicNotes className="h-4 w-4" aria-hidden />}
+              label="プログラム"
+              primary={`${stats.programCount} 件`}
+              hint="演目・休憩・あいさつ"
+            />
+            <ManageTile
+              href={`/events/${event.id}/members`}
+              icon={<IdentificationCard className="h-4 w-4" aria-hidden />}
+              label="メンバー"
+              primary={`${stats.performerCount} 名`}
+              hint="出演者の一覧と招待"
+            />
+            <ManageTile
+              href={`/events/${event.id}/invitations`}
+              icon={<Users className="h-4 w-4" aria-hidden />}
+              label="ゲスト"
+              primary={
+                stats.invitationTotal === 0
+                  ? "未発行"
+                  : `${stats.invitationAccepted} / ${stats.invitationTotal} 出席`
+              }
+              hint={
+                stats.invitationPending > 0
+                  ? `未回答 ${stats.invitationPending} 件`
+                  : "全員回答済"
+              }
+            />
+            <ManageTile
+              href={`/events/${event.id}/checkin`}
+              icon={<Scan className="h-4 w-4" aria-hidden />}
+              label="チェックイン"
+              primary={
+                stats.invitationAccepted === 0
+                  ? "受付なし"
+                  : `${stats.totalAttendees} 名 来場`
+              }
+              hint={
+                stats.invitationAccepted === 0
+                  ? "出席者が確定したら受付できます"
+                  : `出席予定 ${stats.invitationAccepted} 名`
+              }
+            />
+          </div>
+        </section>
       )}
 
-      {/* 管理メニュー（後続で実装するページへのリンク） */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-light tracking-wide text-lg">
-            管理
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <Button variant="outline" asChild className="tracking-wider">
-            <Link href={`/events/${event.id}/programs`}>
-              <PendingLinkIndicator>プログラム管理</PendingLinkIndicator>
-            </Link>
-          </Button>
-          <Button variant="outline" asChild className="tracking-wider">
-            <Link href={`/events/${event.id}/members`}>
-              <PendingLinkIndicator>メンバー管理</PendingLinkIndicator>
-            </Link>
-          </Button>
-          <Button variant="outline" asChild className="tracking-wider">
-            <Link href={`/events/${event.id}/invitations`}>
-              <PendingLinkIndicator>ゲスト管理</PendingLinkIndicator>
-            </Link>
-          </Button>
-          <Button variant="outline" asChild className="tracking-wider">
-            <Link href={`/events/${event.id}/checkin`}>
-              <PendingLinkIndicator>チェックイン</PendingLinkIndicator>
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
+      {/* 二次アクション */}
+      {!isEditing && isOrganizer && availableTransitions.length > 0 && (
+        <Collapsible>
+          <Card className="border-dashed">
+            <CardContent className="p-0">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="group flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm tracking-wider transition-colors hover:bg-muted/40"
+                >
+                  <span className="text-muted-foreground">
+                    ステータスを変更
+                  </span>
+                  <CaretRight className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <Separator />
+                <div className="flex flex-wrap gap-2 px-5 py-4">
+                  {availableTransitions.map((next) => (
+                    <Button
+                      key={next}
+                      variant="outline"
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => handleStatusChange(next)}
+                      className="tracking-wider"
+                    >
+                      {transitionLabels[next]}
+                    </Button>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </CardContent>
+          </Card>
+        </Collapsible>
+      )}
 
-      {/* 削除（主催者 + draft/finished のみ） */}
-      {isOrganizer &&
-        (event.status === "draft" || event.status === "finished") && (
-          <div className="pt-4 border-t">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive">イベントを削除</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>イベントを削除しますか？</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {event.status === "finished"
-                      ? `「${event.name}」のすべてのデータ（招待・チェックイン記録・プログラム情報）が完全に削除されます。この操作は元に戻せません。`
-                      : `「${event.name}」を削除すると、関連するメンバー・招待・プログラム情報もすべて削除されます。この操作は元に戻せません。`}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDelete}
-                    disabled={isPending}
-                  >
-                    {isPending ? "削除中..." : "削除する"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        )}
+      {/* Danger Zone */}
+      {!isEditing && canDelete && (
+        <div className="mt-2 flex items-center justify-between gap-4 border-border/40 border-t pt-6">
+          <p className="text-muted-foreground text-xs tracking-[0.18em] uppercase">
+            このイベントを削除
+          </p>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-destructive">
+                削除
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>イベントを削除しますか？</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {event.status === "finished"
+                    ? `「${event.name}」のすべてのデータ（招待・チェックイン記録・プログラム情報）が完全に削除されます。この操作は元に戻せません。`
+                    : `「${event.name}」を削除すると、関連するメンバー・招待・プログラム情報もすべて削除されます。この操作は元に戻せません。`}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={isPending}>
+                  {isPending ? "削除中..." : "削除する"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
     </div>
+  );
+}
+
+function FactItem({
+  icon,
+  label,
+  value,
+  sub,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: string | null;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <dt className="flex items-center gap-2 text-muted-foreground text-xs tracking-[0.2em] uppercase">
+        <span className="text-foreground/60">{icon}</span>
+        {label}
+      </dt>
+      <dd className="font-light text-base leading-relaxed">{value}</dd>
+      {sub && (
+        <dd className="text-muted-foreground text-xs tracking-wide">{sub}</dd>
+      )}
+    </div>
+  );
+}
+
+function ManageTile({
+  href,
+  icon,
+  label,
+  primary,
+  hint,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  primary: string;
+  hint: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group relative flex flex-col gap-3 rounded-sm border border-border/60 bg-card p-5 transition-colors hover:border-foreground/40 hover:bg-muted/30"
+    >
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2 text-muted-foreground text-xs tracking-[0.2em] uppercase">
+          <span className="text-foreground/60">{icon}</span>
+          <PendingLinkIndicator>{label}</PendingLinkIndicator>
+        </span>
+        <CaretRight
+          className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+          aria-hidden
+        />
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="font-light text-foreground text-xl tracking-wide">
+          {primary}
+        </span>
+        <span className="text-muted-foreground text-xs tracking-wide">
+          {hint}
+        </span>
+      </div>
+    </Link>
   );
 }

@@ -1,10 +1,16 @@
 import "server-only";
 
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, ne, sql } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/db";
 import type { EventStatus, MemberRole } from "@/db/schema";
-import { eventMembers, events } from "@/db/schema";
+import {
+  companions,
+  eventMembers,
+  events,
+  invitations,
+  programs,
+} from "@/db/schema";
 
 export type EventWithRole = {
   id: string;
@@ -90,6 +96,85 @@ export async function getEventDetail(eventId: string) {
       },
     },
   });
+}
+
+export type EventStats = {
+  programCount: number;
+  performerCount: number;
+  invitationTotal: number;
+  invitationAccepted: number;
+  invitationPending: number;
+  invitationDeclined: number;
+  checkedInGuests: number;
+  checkedInCompanions: number;
+  totalAttendees: number;
+};
+
+/**
+ * イベント詳細画面のサマリ集計
+ * - 管理メニューのタイルに各エリアの現在値を表示するために使う
+ */
+export async function getEventStats(eventId: string): Promise<EventStats> {
+  const programStats = await db
+    .select({ total: count() })
+    .from(programs)
+    .where(eq(programs.eventId, eventId))
+    .get();
+
+  const performerStats = await db
+    .select({ total: count() })
+    .from(eventMembers)
+    .where(
+      and(
+        eq(eventMembers.eventId, eventId),
+        eq(eventMembers.role, "performer"),
+      ),
+    )
+    .get();
+
+  const invitationStats = await db
+    .select({
+      total: count(),
+      accepted: count(
+        sql`CASE WHEN ${invitations.status} = 'accepted' THEN 1 END`,
+      ),
+      pending: count(
+        sql`CASE WHEN ${invitations.status} = 'pending' THEN 1 END`,
+      ),
+      declined: count(
+        sql`CASE WHEN ${invitations.status} = 'declined' THEN 1 END`,
+      ),
+      checkedInGuests: count(
+        sql`CASE WHEN ${invitations.checkedIn} = 1 THEN 1 END`,
+      ),
+    })
+    .from(invitations)
+    .where(eq(invitations.eventId, eventId))
+    .get();
+
+  const companionStats = await db
+    .select({
+      checkedIn: count(sql`CASE WHEN ${companions.checkedIn} = 1 THEN 1 END`),
+    })
+    .from(companions)
+    .innerJoin(invitations, eq(companions.invitationId, invitations.id))
+    .where(eq(invitations.eventId, eventId))
+    .get();
+
+  const checkedInGuests = invitationStats?.checkedInGuests ?? 0;
+  const checkedInCompanions = companionStats?.checkedIn ?? 0;
+
+  return {
+    programCount: programStats?.total ?? 0,
+    performerCount: performerStats?.total ?? 0,
+    invitationTotal: invitationStats?.total ?? 0,
+    invitationAccepted: invitationStats?.accepted ?? 0,
+    invitationPending: invitationStats?.pending ?? 0,
+    invitationDeclined: invitationStats?.declined ?? 0,
+    checkedInGuests,
+    checkedInCompanions,
+    totalAttendees: checkedInGuests + checkedInCompanions,
+  };
 }
 
 /**

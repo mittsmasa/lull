@@ -2,7 +2,11 @@ import { notFound } from "next/navigation";
 import { EventDetail } from "@/app/_components/event-detail";
 import { HeaderConfig } from "@/app/_components/header-config";
 import { VALID_TRANSITIONS } from "@/db/schema";
-import { getEventDetail, getEventMembership } from "@/lib/queries/events";
+import {
+  getEventDetail,
+  getEventMembership,
+  getEventStats,
+} from "@/lib/queries/events";
 import { requireSession } from "@/lib/session";
 
 export default async function EventDetailPage(
@@ -16,7 +20,10 @@ export default async function EventDetailPage(
     notFound();
   }
 
-  const event = await getEventDetail(eventId);
+  const [event, stats] = await Promise.all([
+    getEventDetail(eventId),
+    getEventStats(eventId),
+  ]);
   if (!event) {
     notFound();
   }
@@ -28,6 +35,7 @@ export default async function EventDetailPage(
       <HeaderConfig showBackButton />
       <EventDetail
         event={event}
+        stats={stats}
         currentUserRole={member.role}
         availableTransitions={availableTransitions}
       />
