@@ -12,11 +12,11 @@ import {
 import { loginAs, logout } from "../helpers/auth";
 
 describe("acceptPerformerInvitation", () => {
-  it("未ログインなら /join/<token> へリダイレクト", async () => {
+  it("未ログインなら returnTo 付きでログインページへリダイレクト", async () => {
     logout();
     await expect(
-      acceptPerformerInvitation("any-token", "出演者"),
-    ).rejects.toThrow("REDIRECT:/");
+      acceptPerformerInvitation("tok-xyz", "出演者"),
+    ).rejects.toThrow("REDIRECT:/?returnTo=%2Fjoin%2Ftok-xyz");
   });
 
   it("displayName が空ならエラー", async () => {

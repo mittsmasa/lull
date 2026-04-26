@@ -39,9 +39,14 @@ vi.mock("@/lib/session", () => ({
   getSession: async () => {
     return (globalThis as { __mockSession?: unknown }).__mockSession ?? null;
   },
-  requireSession: async () => {
+  requireSession: async (returnTo?: string) => {
     const s = (globalThis as { __mockSession?: unknown }).__mockSession;
-    if (!s) throw new Error("REDIRECT:/");
+    if (!s) {
+      const target = returnTo
+        ? `/?returnTo=${encodeURIComponent(returnTo)}`
+        : "/";
+      throw new Error(`REDIRECT:${target}`);
+    }
     return s;
   },
   validateReturnTo: (v: string | string[] | undefined) => {
