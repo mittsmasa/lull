@@ -48,6 +48,9 @@ export default defineConfig({
           // 同じ DB コネクションを共有する必要がある
           isolate: false,
           fileParallelism: false,
+          // vitest 4: maxWorkers が他 project と異なる場合、groupOrder も
+          // 別にする必要がある（同じだと起動時に検証エラー）
+          sequence: { groupOrder: 1 },
         },
       },
       // Storybook テスト（ブラウザ環境）
