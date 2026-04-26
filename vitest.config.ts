@@ -44,6 +44,10 @@ export default defineConfig({
           environment: "node",
           setupFiles: ["tests/db/setup.ts"],
           maxWorkers: 1,
+          // setup.ts でテスト DB を初期化するため、ファイル間で同じプロセス・
+          // 同じ DB コネクションを共有する必要がある
+          isolate: false,
+          fileParallelism: false,
         },
       },
       // Storybook テスト（ブラウザ環境）
