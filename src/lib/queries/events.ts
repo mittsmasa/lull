@@ -115,51 +115,59 @@ export type EventStats = {
  * - 管理メニューのタイルに各エリアの現在値を表示するために使う
  */
 export async function getEventStats(eventId: string): Promise<EventStats> {
-  const programStats = await db
-    .select({ total: count() })
-    .from(programs)
-    .where(eq(programs.eventId, eventId))
-    .get();
-
-  const performerStats = await db
-    .select({ total: count() })
-    .from(eventMembers)
-    .where(
-      and(
-        eq(eventMembers.eventId, eventId),
-        eq(eventMembers.role, "performer"),
-      ),
-    )
-    .get();
-
-  const invitationStats = await db
-    .select({
-      total: count(),
-      accepted: count(
-        sql`CASE WHEN ${invitations.status} = 'accepted' THEN 1 END`,
-      ),
-      pending: count(
-        sql`CASE WHEN ${invitations.status} = 'pending' THEN 1 END`,
-      ),
-      declined: count(
-        sql`CASE WHEN ${invitations.status} = 'declined' THEN 1 END`,
-      ),
-      checkedInGuests: count(
-        sql`CASE WHEN ${invitations.checkedIn} = 1 THEN 1 END`,
-      ),
-    })
-    .from(invitations)
-    .where(eq(invitations.eventId, eventId))
-    .get();
-
-  const companionStats = await db
-    .select({
-      checkedIn: count(sql`CASE WHEN ${companions.checkedIn} = 1 THEN 1 END`),
-    })
-    .from(companions)
-    .innerJoin(invitations, eq(companions.invitationId, invitations.id))
-    .where(eq(invitations.eventId, eventId))
-    .get();
+  const [programStats, performerStats, invitationStats, companionStats] =
+    await Promise.all([
+      db
+        .select({ total: count() })
+        .from(programs)
+        .where(eq(programs.eventId, eventId))
+        .get(),
+      db
+        .select({ total: count() })
+        .from(eventMembers)
+        .where(
+          and(
+            eq(eventMembers.eventId, eventId),
+            eq(eventMembers.role, "performer"),
+          ),
+        )
+        .get(),
+      db
+        .select({
+          total: count(),
+          accepted: count(
+            sql`CASE WHEN ${invitations.status} = 'accepted' THEN 1 END`,
+          ),
+          pending: count(
+            sql`CASE WHEN ${invitations.status} = 'pending' THEN 1 END`,
+          ),
+          declined: count(
+            sql`CASE WHEN ${invitations.status} = 'declined' THEN 1 END`,
+          ),
+          // チェックインは accepted のみ対象（getCheckInSummary と整合）
+          checkedInGuests: count(
+            sql`CASE WHEN ${invitations.status} = 'accepted' AND ${invitations.checkedIn} = 1 THEN 1 END`,
+          ),
+        })
+        .from(invitations)
+        .where(eq(invitations.eventId, eventId))
+        .get(),
+      db
+        .select({
+          checkedIn: count(
+            sql`CASE WHEN ${companions.checkedIn} = 1 THEN 1 END`,
+          ),
+        })
+        .from(companions)
+        .innerJoin(invitations, eq(companions.invitationId, invitations.id))
+        .where(
+          and(
+            eq(invitations.eventId, eventId),
+            eq(invitations.status, "accepted"),
+          ),
+        )
+        .get(),
+    ]);
 
   const checkedInGuests = invitationStats?.checkedInGuests ?? 0;
   const checkedInCompanions = companionStats?.checkedIn ?? 0;

@@ -409,7 +409,8 @@ function FactItem({
   sub?: string | null;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    // biome-ignore lint/a11y/useSemanticElements: <dl> の子として <fieldset> は使えないため、name-value group のラッパとして div + role="group" を採用
+    <div role="group" className="flex flex-col gap-1.5">
       <dt className="flex items-center gap-2 text-muted-foreground text-xs tracking-[0.2em] uppercase">
         <span className="text-foreground/60">{icon}</span>
         {label}
