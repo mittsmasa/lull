@@ -35,8 +35,12 @@ jobs:
       - run: pnpm type-check
 
   test:
-    name: Test
+    name: Test (${{ matrix.project }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [unit, db, storybook]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -45,5 +49,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: npx playwright install chromium --with-deps
-      - run: pnpm vitest run
+      - if: matrix.project == 'storybook'
+        run: npx playwright install chromium --with-deps
+      - run: pnpm vitest run --project ${{ matrix.project }}
