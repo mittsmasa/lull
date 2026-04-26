@@ -301,7 +301,6 @@ export default async function InvitationResponsePage(
 
   const { event } = invitation;
   const isInvalidated = !!invitation.invalidatedAt;
-  const programs = await getProgramsByEventId(event.id);
 
   if (event.status === "draft") {
     return (
@@ -312,24 +311,8 @@ export default async function InvitationResponsePage(
     );
   }
 
-  // finished + accepted → 思い出カード
-  if (event.status === "finished") {
-    if (invitation.status === "accepted") {
-      return (
-        <GuestShell>
-          <EventInfoHeader
-            event={event}
-            inviterName={invitation.inviterDisplayName}
-          />
-          <InvitationProgramView programs={programs} />
-          <CurrentResponseView invitation={invitation} />
-          <CheckInStatusView invitation={invitation} />
-          <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
-            このイベントは終了しました。お越しいただきありがとうございました
-          </p>
-        </GuestShell>
-      );
-    }
+  // finished + 非 accepted → 期限切れ
+  if (event.status === "finished" && invitation.status !== "accepted") {
     return (
       <ErrorView
         title="招待リンクの期限が切れました"
@@ -345,6 +328,27 @@ export default async function InvitationResponsePage(
         title="招待リンクは無効です"
         message="リンクに問題がある場合は、招待者にお問い合わせください"
       />
+    );
+  }
+
+  // 以降はプログラム表示があるため、ここで初めてフェッチ
+  const programs = await getProgramsByEventId(event.id);
+
+  // finished + accepted → 思い出カード
+  if (event.status === "finished") {
+    return (
+      <GuestShell>
+        <EventInfoHeader
+          event={event}
+          inviterName={invitation.inviterDisplayName}
+        />
+        <InvitationProgramView programs={programs} />
+        <CurrentResponseView invitation={invitation} />
+        <CheckInStatusView invitation={invitation} />
+        <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
+          このイベントは終了しました。お越しいただきありがとうございました
+        </p>
+      </GuestShell>
     );
   }
 

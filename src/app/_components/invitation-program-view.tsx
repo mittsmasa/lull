@@ -38,7 +38,7 @@ export function InvitationProgramView({
               </span>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="pb-0">
+          <AccordionContent>
             <ol className="flex flex-col divide-y divide-border/30 overflow-hidden rounded-md border border-border/40">
               {programs.map((program) => {
                 const isPerformance = program.type === "performance";
