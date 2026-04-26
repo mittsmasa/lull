@@ -310,3 +310,49 @@ describe("updateProgram", () => {
     expect(result?.error).toMatch(/終了/);
   });
 });
+
+describe("reorderPrograms", () => {
+  it("配列 index 通りに sortOrder を 1..N に再付番する", async () => {
+    const { event } = await setupOrganizer();
+    const a = await addProgram({ eventId: event.id, sortOrder: 10 });
+    const b = await addProgram({ eventId: event.id, sortOrder: 20 });
+    const c = await addProgram({ eventId: event.id, sortOrder: 30 });
+
+    const result = await reorderPrograms(event.id, [c.id, a.id, b.id]);
+    expect(result).toBeNull();
+
+    const rows = await db.query.programs.findMany({
+      where: eq(programs.eventId, event.id),
+    });
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r.sortOrder]));
+    expect(byId[c.id]).toBe(1);
+    expect(byId[a.id]).toBe(2);
+    expect(byId[b.id]).toBe(3);
+  });
+
+  it("他イベントの programId は更新対象に含めても黙って無視される（自イベントの分のみ更新）", async () => {
+    const { event } = await setupOrganizer();
+    const otherEvent = await createEvent({ status: "published" });
+    const own = await addProgram({ eventId: event.id, sortOrder: 5 });
+    const foreign = await addProgram({ eventId: otherEvent.id, sortOrder: 9 });
+
+    const result = await reorderPrograms(event.id, [foreign.id, own.id]);
+    expect(result).toBeNull();
+
+    const ownAfter = await db.query.programs.findFirst({
+      where: eq(programs.id, own.id),
+    });
+    const foreignAfter = await db.query.programs.findFirst({
+      where: eq(programs.id, foreign.id),
+    });
+    expect(ownAfter?.sortOrder).toBe(2);
+    expect(foreignAfter?.sortOrder).toBe(9);
+  });
+
+  it("finished イベントでは並び替え不可", async () => {
+    const { event } = await setupOrganizer({ status: "finished" });
+    const p = await addProgram({ eventId: event.id, sortOrder: 1 });
+    const result = await reorderPrograms(event.id, [p.id]);
+    expect(result?.error).toMatch(/終了/);
+  });
+});
