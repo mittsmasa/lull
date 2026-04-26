@@ -8,9 +8,12 @@ export async function resetDb() {
     (v) => v instanceof SQLiteTable,
   ) as SQLiteTable[];
   await db.run(sql`PRAGMA foreign_keys = OFF`);
-  for (const table of tables) {
-    const name = getTableName(table);
-    await db.run(sql.raw(`DELETE FROM "${name}"`));
+  try {
+    for (const table of tables) {
+      const name = getTableName(table);
+      await db.run(sql.raw(`DELETE FROM "${name}"`));
+    }
+  } finally {
+    await db.run(sql`PRAGMA foreign_keys = ON`);
   }
-  await db.run(sql`PRAGMA foreign_keys = ON`);
 }
