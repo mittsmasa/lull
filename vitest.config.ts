@@ -44,6 +44,13 @@ export default defineConfig({
           environment: "node",
           setupFiles: ["tests/db/setup.ts"],
           maxWorkers: 1,
+          // setup.ts でテスト DB を初期化するため、ファイル間で同じプロセス・
+          // 同じ DB コネクションを共有する必要がある
+          isolate: false,
+          fileParallelism: false,
+          // vitest 4: maxWorkers が他 project と異なる場合、groupOrder も
+          // 別にする必要がある（同じだと起動時に検証エラー）
+          sequence: { groupOrder: 1 },
         },
       },
       // Storybook テスト（ブラウザ環境）
