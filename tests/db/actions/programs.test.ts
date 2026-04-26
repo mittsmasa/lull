@@ -147,3 +147,166 @@ describe("createProgram", () => {
     expect(result?.error).toMatch(/終了/);
   });
 });
+
+describe("updateProgram", () => {
+  it("pieces / performers を tx 内で全削除→再 INSERT する（旧データは消える）", async () => {
+    const { event, organizerMemberId } = await setupOrganizer();
+
+    const performerUser = await createUser();
+    const performerMemberId = await addEventMember({
+      eventId: event.id,
+      userId: performerUser.id,
+      role: "performer",
+      displayName: "出演者B",
+    });
+
+    const program = await addProgram({
+      eventId: event.id,
+      sortOrder: 1,
+      type: "performance",
+    });
+    const oldPiece = await addProgramPiece({
+      programId: program.id,
+      sortOrder: 1,
+      title: "旧曲",
+    });
+    const oldPerformer = await addProgramPerformer({
+      programId: program.id,
+      memberId: organizerMemberId,
+    });
+
+    const result = await updateProgram(event.id, program.id, {
+      ...baseInput,
+      pieces: [
+        { title: "新曲1", composer: "X" },
+        { title: "新曲2", composer: "" },
+      ],
+      performerIds: [performerMemberId],
+    });
+    expect(result).toBeNull();
+
+    // 旧データが残っていない
+    const oldPieceStill = await db
+      .select()
+      .from(programPieces)
+      .where(eq(programPieces.id, oldPiece.id));
+    expect(oldPieceStill).toHaveLength(0);
+    const oldPerformerStill = await db
+      .select()
+      .from(programPerformers)
+      .where(eq(programPerformers.id, oldPerformer.id));
+    expect(oldPerformerStill).toHaveLength(0);
+
+    // 新データが整合的に挿入されている
+    const pieces = await db
+      .select()
+      .from(programPieces)
+      .where(eq(programPieces.programId, program.id));
+    expect(pieces).toHaveLength(2);
+    expect(
+      pieces.sort((a, b) => a.sortOrder - b.sortOrder).map((p) => p.title),
+    ).toEqual(["新曲1", "新曲2"]);
+
+    const performers = await db
+      .select()
+      .from(programPerformers)
+      .where(eq(programPerformers.programId, program.id));
+    expect(performers).toHaveLength(1);
+    expect(performers[0].memberId).toBe(performerMemberId);
+  });
+
+  it("performerIds を空にすると performers が空になる（intermission 等）", async () => {
+    const { event, organizerMemberId } = await setupOrganizer();
+    const program = await addProgram({
+      eventId: event.id,
+      sortOrder: 1,
+      type: "performance",
+    });
+    await addProgramPerformer({
+      programId: program.id,
+      memberId: organizerMemberId,
+    });
+
+    const result = await updateProgram(event.id, program.id, {
+      ...baseInput,
+      type: "intermission",
+      pieces: [{ title: "休憩", composer: "" }],
+      performerIds: [],
+    });
+    expect(result).toBeNull();
+
+    const performers = await db
+      .select()
+      .from(programPerformers)
+      .where(eq(programPerformers.programId, program.id));
+    expect(performers).toHaveLength(0);
+  });
+
+  it("バリデーションエラー時は既存 pieces / performers を破壊しない", async () => {
+    const { event, organizerMemberId } = await setupOrganizer();
+    const program = await addProgram({
+      eventId: event.id,
+      sortOrder: 1,
+      type: "performance",
+    });
+    await addProgramPiece({
+      programId: program.id,
+      sortOrder: 1,
+      title: "残るべき曲",
+    });
+    await addProgramPerformer({
+      programId: program.id,
+      memberId: organizerMemberId,
+    });
+
+    // performance タイプで performerIds 空 → fieldErrors
+    const result = await updateProgram(event.id, program.id, {
+      ...baseInput,
+      performerIds: [],
+    });
+    expect(result?.fieldErrors?.performerIds).toBeTruthy();
+
+    const pieces = await db
+      .select()
+      .from(programPieces)
+      .where(eq(programPieces.programId, program.id));
+    expect(pieces).toHaveLength(1);
+    const performers = await db
+      .select()
+      .from(programPerformers)
+      .where(eq(programPerformers.programId, program.id));
+    expect(performers).toHaveLength(1);
+  });
+
+  it("他イベントの programId は更新できない", async () => {
+    const { event, organizerMemberId } = await setupOrganizer();
+    const otherEvent = await createEvent({ status: "published" });
+    const otherProgram = await addProgram({
+      eventId: otherEvent.id,
+      sortOrder: 1,
+    });
+
+    const result = await updateProgram(event.id, otherProgram.id, {
+      ...baseInput,
+      performerIds: [organizerMemberId],
+    });
+    expect(result?.error).toMatch(/見つかりません/);
+  });
+
+  it("finished イベントでは更新不可", async () => {
+    const { event, organizerMemberId } = await setupOrganizer({
+      status: "finished",
+    });
+    const program = await addProgram({
+      eventId: event.id,
+      sortOrder: 1,
+      type: "performance",
+    });
+
+    const result = await updateProgram(event.id, program.id, {
+      ...baseInput,
+      performerIds: [organizerMemberId],
+    });
+    expect(result?.error).toMatch(/終了/);
+  });
+});
