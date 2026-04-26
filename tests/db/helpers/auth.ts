@@ -4,7 +4,7 @@
 
 type MockUser = { id: string; name?: string | null };
 type MockSession = {
-  user: { id: string; name?: string | null };
+  user: MockUser;
   session: { id: string };
 };
 
