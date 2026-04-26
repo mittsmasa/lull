@@ -49,6 +49,9 @@ storybook-static/
 *.db-wal
 *.db-shm
 
+# test db
+.test-db/
+
 # serwist
 public/sw.js
 public/sw.js.map
