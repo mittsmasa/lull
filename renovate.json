@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":pinDevDependencies",
+    ":automergePatch",
+    "monorepo:nextjs",
+    "monorepo:storybook",
+    "group:nextjs",
+    "group:storybook"
+  ],
+  "rangeStrategy": "pin",
+  "timezone": "Asia/Tokyo",
+  "packageRules": [
+    {
+      "matchDepTypes": ["devDependencies"],
+      "groupName": "devDependencies",
+      "groupSlug": "dev-dependencies"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "pinDigests": true
+    }
+  ]
+}
