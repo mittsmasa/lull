@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/db";
 import type { EventStatus, MemberRole } from "@/db/schema";
@@ -150,7 +150,13 @@ export async function getEventStats(eventId: string): Promise<EventStats> {
           ),
         })
         .from(invitations)
-        .where(eq(invitations.eventId, eventId))
+        // 無効化済み招待は管理ハブの分母・回答状況集計から除外（SeatSummaryCard と整合）
+        .where(
+          and(
+            eq(invitations.eventId, eventId),
+            isNull(invitations.invalidatedAt),
+          ),
+        )
         .get(),
       db
         .select({
@@ -164,6 +170,7 @@ export async function getEventStats(eventId: string): Promise<EventStats> {
           and(
             eq(invitations.eventId, eventId),
             eq(invitations.status, "accepted"),
+            isNull(invitations.invalidatedAt),
           ),
         )
         .get(),

@@ -10,7 +10,7 @@ import {
   Users,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useActionState, useState, useTransition } from "react";
+import { type ReactNode, useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PendingLinkIndicator } from "@/app/_components/pending-link-indicator";
 import {
@@ -403,7 +403,7 @@ function FactItem({
   value,
   sub,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   sub?: string | null;
@@ -431,7 +431,7 @@ function ManageTile({
   hint,
 }: {
   href: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   primary: string;
   hint: string;
