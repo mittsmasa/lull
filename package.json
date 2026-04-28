@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:preview": "NEXT_PUBLIC_VERCEL_ENV=preview next dev",
     "build": "next build && serwist build",
     "start": "next start",
     "lint": "biome check .",
