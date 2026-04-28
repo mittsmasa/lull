@@ -1,17 +1,31 @@
 "use client";
 
+import { Plus } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { createPerformerInvitation } from "@/app/(main)/events/[eventId]/members/_actions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { formatPerformerInvitationCopy } from "@/lib/invitation-copy";
 import { buildShareUrl } from "@/lib/share-url";
 
-export function InvitePerformerForm({ eventId }: { eventId: string }) {
+type Props = {
+  eventId: string;
+};
+
+export function InvitePerformerDialog({ eventId }: Props) {
+  const [open, setOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -39,6 +53,7 @@ export function InvitePerformerForm({ eventId }: { eventId: string }) {
           : "招待リンクをコピーしました",
       );
       formRef.current?.reset();
+      setOpen(false);
     } catch (error) {
       const message =
         error instanceof Error
@@ -51,13 +66,24 @@ export function InvitePerformerForm({ eventId }: { eventId: string }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-light tracking-wide text-lg">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          className="min-h-[44px] w-full gap-2 sm:w-auto"
+          size="lg"
+        >
+          <Plus className="size-4" aria-hidden />
           出演者を招待
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>出演者を招待</DialogTitle>
+          <DialogDescription>
+            表示名を入力してリンクを発行します。発行と同時に招待文がコピーされます。
+          </DialogDescription>
+        </DialogHeader>
         <form
           ref={formRef}
           onSubmit={handleSubmit}
@@ -72,15 +98,20 @@ export function InvitePerformerForm({ eventId }: { eventId: string }) {
               required
               maxLength={50}
               placeholder="出演者の表示名を入力"
+              className="text-base"
             />
           </div>
-          <div className="flex items-center gap-3">
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "発行中..." : "招待リンクを発行"}
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="min-h-[44px] w-full sm:w-auto"
+            >
+              {isPending ? "発行中..." : "発行してコピー"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
