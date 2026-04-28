@@ -83,4 +83,4 @@ Better Auth + Drizzle アダプタ。`/api/auth/*` を Hono 経由で Better Aut
 
 ## shadcn/ui
 
-`components.json` で設定済み。RSC 対応、アイコンは lucide-react。コンポーネント追加: `npx shadcn@latest add <component>`
+`components.json` で設定済み。RSC 対応、アイコンは @phosphor-icons/react。コンポーネント追加: `pnpm dlx shadcn@latest add <component>`（生成物は lucide-react を import するため、`@phosphor-icons/react` の対応アイコンに置換する）
