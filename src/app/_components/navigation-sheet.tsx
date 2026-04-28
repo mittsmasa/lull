@@ -170,7 +170,7 @@ function EventNavItem({
           <span className="flex items-center gap-1.5 text-[10px] tracking-wider text-muted-foreground/80">
             <span
               aria-hidden
-              className={`size-1.5 rounded-full ${statusDotClass[event.status]} ${event.status === "ongoing" ? "animate-pulse" : ""}`}
+              className={`size-1.5 rounded-full ${statusDotClass[event.status]} ${event.status === "ongoing" ? "motion-safe:animate-pulse" : ""}`}
             />
             {statusLabels[event.status]}
           </span>
