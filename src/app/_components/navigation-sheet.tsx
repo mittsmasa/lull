@@ -13,12 +13,13 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { EventStatus } from "@/db/schema";
 import { authClient } from "@/lib/auth-client";
-import { statusLabels } from "@/lib/event-status";
+import { statusDotClass, statusLabels } from "@/lib/event-status";
 
 const navItems = [
   { href: "/dashboard", label: "ホーム", icon: House },
@@ -59,6 +60,9 @@ export function NavigationSheet({
           <SheetTitle className="font-serif text-lg font-light tracking-widest text-primary">
             Lull
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            サイト内のページとマイイベントへのナビゲーション
+          </SheetDescription>
         </SheetHeader>
 
         <nav className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto">
@@ -69,6 +73,7 @@ export function NavigationSheet({
                 key={href}
                 href={href}
                 onClick={close}
+                aria-current={isActive ? "page" : undefined}
                 className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors duration-200 ${
                   isActive
                     ? "border-l-2 border-primary bg-accent/50 font-medium text-foreground"
@@ -150,6 +155,7 @@ function EventNavItem({
         <button
           type="button"
           aria-expanded={open}
+          aria-current={isWithinEvent ? "true" : undefined}
           className={`flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm transition-colors duration-200 ${
             isWithinEvent
               ? "bg-accent/40 text-foreground"
@@ -160,8 +166,12 @@ function EventNavItem({
             weight="light"
             className={`size-3 shrink-0 transition-transform duration-200 ${open ? "rotate-0" : "-rotate-90"}`}
           />
-          <span className="flex-1 truncate">{event.name}</span>
-          <span className="text-[10px] tracking-wider text-muted-foreground/80">
+          <span className="flex-1 truncate font-serif">{event.name}</span>
+          <span className="flex items-center gap-1.5 text-[10px] tracking-wider text-muted-foreground/80">
+            <span
+              aria-hidden
+              className={`size-1.5 rounded-full ${statusDotClass[event.status]} ${event.status === "ongoing" ? "motion-safe:animate-pulse" : ""}`}
+            />
             {statusLabels[event.status]}
           </span>
         </button>
@@ -171,13 +181,14 @@ function EventNavItem({
           {subItems.map((item) => {
             const isActive = pathname === item.href;
             return (
-              <li key={item.href}>
+              <li key={item.href} className="relative">
                 <Link
                   href={item.href}
                   onClick={onNavigate}
+                  aria-current={isActive ? "page" : undefined}
                   className={`flex items-center rounded-md px-3 py-2 text-xs transition-colors duration-200 ${
                     isActive
-                      ? "bg-accent/40 font-medium text-foreground"
+                      ? "bg-accent/40 font-medium text-foreground before:absolute before:-left-3 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-primary/70"
                       : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
                   }`}
                 >

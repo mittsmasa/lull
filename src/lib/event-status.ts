@@ -26,3 +26,11 @@ export const transitionLabels: Record<EventStatus, string> = {
   ongoing: "開催を開始",
   finished: "終了する",
 };
+
+/** ナビ等で使うステータス・ドットの色クラス（Tailwind） */
+export const statusDotClass: Record<EventStatus, string> = {
+  draft: "bg-muted-foreground/40",
+  published: "bg-primary",
+  ongoing: "bg-accent",
+  finished: "bg-muted-foreground/25",
+};
