@@ -16,6 +16,11 @@
       "groupSlug": "dev-dependencies"
     },
     {
+      "matchPackageNames": ["@emulators/**"],
+      "groupName": "emulators",
+      "groupSlug": "emulators"
+    },
+    {
       "matchManagers": ["github-actions"],
       "pinDigests": true
     }
