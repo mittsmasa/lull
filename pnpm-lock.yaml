@@ -16,7 +16,7 @@ importers:
         version: 0.4.1
       '@hono/zod-validator':
         specifier: 0.7.6
-        version: 0.7.6(hono@4.12.15)(zod@4.3.6)
+        version: 0.7.6(hono@4.12.16)(zod@4.3.6)
       '@libsql/client':
         specifier: 0.17.3
         version: 0.17.3
@@ -42,8 +42,8 @@ importers:
         specifier: 0.45.2
         version: 0.45.2(@libsql/client@0.17.3)(kysely@0.28.16)
       hono:
-        specifier: 4.12.15
-        version: 4.12.15
+        specifier: 4.12.16
+        version: 4.12.16
       html5-qrcode:
         specifier: 2.3.8
         version: 2.3.8
@@ -3146,8 +3146,8 @@ packages:
     resolution: {integrity: sha512-ej4AhfhfL2Q2zpMmLo7U1Uv9+PyhIZpgQLGT1F9miIGmiCJIoCgSmczFdrc97mWT4kVY72KA+WnnhJ5pghSvSg==}
     engines: {node: '>= 0.4'}
 
-  hono@4.12.15:
-    resolution: {integrity: sha512-qM0jDhFEaCBb4TxoW7f53Qrpv9RBiayUHo0S52JudprkhvpjIrGoU1mnnr29Fvd1U335ZFPZQY1wlkqgfGXyLg==}
+  hono@4.12.16:
+    resolution: {integrity: sha512-jN0ZewiNAWSe5khM3EyCmBb250+b40wWbwNILNfEvq84VREWwOIkuUsFONk/3i3nqkz7Oe1PcpM2mwQEK2L9Kg==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@2.0.2:
@@ -4508,13 +4508,13 @@ snapshots:
 
   '@emulators/core@0.4.1':
     dependencies:
-      hono: 4.12.15
+      hono: 4.12.16
       jose: 6.2.3
 
   '@emulators/google@0.4.1':
     dependencies:
       '@emulators/core': 0.4.1
-      hono: 4.12.15
+      hono: 4.12.16
       jose: 6.2.3
 
   '@esbuild-kit/core-utils@3.3.2':
@@ -4766,9 +4766,9 @@ snapshots:
 
   '@floating-ui/utils@0.2.11': {}
 
-  '@hono/zod-validator@0.7.6(hono@4.12.15)(zod@4.3.6)':
+  '@hono/zod-validator@0.7.6(hono@4.12.16)(zod@4.3.6)':
     dependencies:
-      hono: 4.12.15
+      hono: 4.12.16
       zod: 4.3.6
 
   '@img/colour@1.1.0':
@@ -6905,7 +6905,7 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
-  hono@4.12.15: {}
+  hono@4.12.16: {}
 
   html-escaper@2.0.2: {}
 
