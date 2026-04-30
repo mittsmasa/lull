@@ -23,6 +23,11 @@
     {
       "matchManagers": ["github-actions"],
       "pinDigests": true
+    },
+    {
+      "matchPackageNames": ["serwist", "@serwist/**"],
+      "allowedVersions": "<9.5.8",
+      "description": "9.5.8 breaks turbopack build (https://github.com/serwist/serwist/issues/353); 9.5.9 ships a broken @serwist/cli (https://github.com/serwist/serwist/issues/355). Pin until upstream fixes both."
     }
   ]
 }
