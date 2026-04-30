@@ -33,7 +33,7 @@
     ]
   },
   "dependencies": {
-    "@emulators/adapter-next": "0.4.1",
+    "@emulators/adapter-next": "0.5.0",
     "@emulators/google": "0.4.1",
     "@hono/zod-validator": "0.7.6",
     "@libsql/client": "0.17.3",
