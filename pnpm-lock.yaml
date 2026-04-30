@@ -12,8 +12,8 @@ importers:
         specifier: 0.4.1
         version: 0.4.1
       '@emulators/google':
-        specifier: 0.4.1
-        version: 0.4.1
+        specifier: 0.5.0
+        version: 0.5.0
       '@hono/zod-validator':
         specifier: 0.7.6
         version: 0.7.6(hono@4.12.15)(zod@4.3.6)
@@ -395,8 +395,11 @@ packages:
   '@emulators/core@0.4.1':
     resolution: {integrity: sha512-LtF0JlwNusmlY2tesBcMcwWGr1xxXdhzqhd+Il2ajuykmCaOzO3t0x4PexVCeWeZc4MafB6IpCqBHtSuHdj9Sg==}
 
-  '@emulators/google@0.4.1':
-    resolution: {integrity: sha512-9aaOCbPqexQ9ScKkD8+OR/MQWh8YC+FENT/20EFQBoO4VRA2eA2BvnbJgM2F5JRGjb6Xbw/BvJ0R6PU1N3FQLQ==}
+  '@emulators/core@0.5.0':
+    resolution: {integrity: sha512-GCWKlCJCso4ZlVtnfLHY+k2M+SOhtE8NyZ+fkb51N2ZBhniH046tw46vJXCRQE9YjYGoaSrrpzAatcpov35wnQ==}
+
+  '@emulators/google@0.5.0':
+    resolution: {integrity: sha512-fJ3SrWr8E/GcpFPgsecxMCGhi3jW7jA+j2u+3iTTEugjBndfWFnpPG3fuKbh4jFVG8Db7rmJPvMf8+SVyMi4Tw==}
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
@@ -4511,9 +4514,14 @@ snapshots:
       hono: 4.12.15
       jose: 6.2.3
 
-  '@emulators/google@0.4.1':
+  '@emulators/core@0.5.0':
     dependencies:
-      '@emulators/core': 0.4.1
+      hono: 4.12.15
+      jose: 6.2.3
+
+  '@emulators/google@0.5.0':
+    dependencies:
+      '@emulators/core': 0.5.0
       hono: 4.12.15
       jose: 6.2.3
 
