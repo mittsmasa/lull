@@ -526,7 +526,6 @@ function RemoveMemberDialog({
         toast.error(result.error);
       } else {
         toast.success("メンバーを削除しました");
-        onOpenChange(false);
       }
     });
   };
@@ -544,13 +543,10 @@ function RemoveMemberDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>キャンセル</AlertDialogCancel>
           <AlertDialogAction
-            onClick={(e) => {
-              e.preventDefault();
-              handleConfirm();
-            }}
+            onClick={() => handleConfirm()}
             disabled={isPending}
           >
-            {isPending ? "削除中..." : "削除する"}
+            削除する
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

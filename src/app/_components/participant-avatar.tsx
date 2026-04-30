@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 export type ParticipantAvatarVariant =
   | "organizer"
   | "performer"
+  | "accepted"
   | "pending"
   | "invalidated";
 
@@ -15,6 +16,7 @@ type Props = {
 const variantClass: Record<ParticipantAvatarVariant, string> = {
   organizer: "bg-primary/12 text-primary",
   performer: "bg-muted text-foreground",
+  accepted: "bg-foreground/8 text-foreground",
   pending:
     "border border-dashed border-border bg-background/40 text-muted-foreground",
   invalidated:

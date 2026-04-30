@@ -1,23 +1,36 @@
 "use client";
 
+import { Plus } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { createGuestInvitation } from "@/app/(main)/events/[eventId]/invitations/_actions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { formatGuestInvitationCopy } from "@/lib/invitation-copy";
 import { buildShareUrl } from "@/lib/share-url";
 
-export function CreateInvitationButton({ eventId }: { eventId: string }) {
+type Props = {
+  eventId: string;
+};
+
+export function CreateInvitationDialog({ eventId }: Props) {
+  const [open, setOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // iOS Safari のクリップボードは user gesture 直下で呼ばないと失敗するため、
-  // form action は使わず、preventDefault() した onSubmit ハンドラ内で
-  // copyTextFromPromise を呼び出して user gesture を維持する。
+  // iOS Safari のクリップボードは user gesture 直下での呼び出しを要求するため、
+  // onSubmit から直接 copyTextFromPromise を呼んで gesture を維持する。
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -25,7 +38,6 @@ export function CreateInvitationButton({ eventId }: { eventId: string }) {
     const guestName = (formData.get("guestName") as string | null) || undefined;
 
     setIsPending(true);
-    let successName: string | null | undefined;
     try {
       await copyTextFromPromise(async () => {
         const result = await createGuestInvitation(eventId, guestName);
@@ -33,19 +45,15 @@ export function CreateInvitationButton({ eventId }: { eventId: string }) {
           throw new Error(result.error);
         }
         const url = buildShareUrl(`/i/${result.token}`);
-        successName = guestName ?? null;
         return formatGuestInvitationCopy({
           url,
           guestName: guestName ?? null,
           status: "pending",
         });
       });
-      toast.success(
-        successName
-          ? `${successName} さんの招待リンクをコピーしました`
-          : "招待リンクをコピーしました",
-      );
+      toast.success("招待リンクをコピーしました");
       formRef.current?.reset();
+      setOpen(false);
     } catch (error) {
       const message =
         error instanceof Error
@@ -58,13 +66,24 @@ export function CreateInvitationButton({ eventId }: { eventId: string }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-light tracking-wide">
-          ゲスト招待リンクを発行
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          className="min-h-[44px] w-full gap-2 sm:w-auto"
+          size="lg"
+        >
+          <Plus className="size-4" aria-hidden />
+          ゲストを招待
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>ゲストを招待</DialogTitle>
+          <DialogDescription>
+            名前未設定でも発行できます。発行と同時に招待文がコピーされます。
+          </DialogDescription>
+        </DialogHeader>
         <form
           ref={formRef}
           onSubmit={handleSubmit}
@@ -77,16 +96,21 @@ export function CreateInvitationButton({ eventId }: { eventId: string }) {
               id="inviteGuestName"
               name="guestName"
               maxLength={100}
-              placeholder="ゲスト名を入力（空でもOK）"
+              placeholder="ゲスト名（任意）"
+              className="text-base"
             />
           </div>
-          <div className="flex items-center gap-3">
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "発行中..." : "招待リンクを発行"}
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="min-h-[44px] w-full sm:w-auto"
+            >
+              {isPending ? "発行中..." : "発行してコピー"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
