@@ -2358,14 +2358,6 @@ packages:
       browserslist:
         optional: true
 
-  '@serwist/utils@9.5.9':
-    resolution: {integrity: sha512-WUsxogHrW9DBVIJZOYxrQmQ3SBRaMugCi7daFumHPU1KOfBJIuJpXZQ/yJItz58h8g9572skfoZwrIYv4rxbPQ==}
-    peerDependencies:
-      browserslist: '>=4'
-    peerDependenciesMeta:
-      browserslist:
-        optional: true
-
   '@serwist/webpack-plugin@9.5.8':
     resolution: {integrity: sha512-9LiQoJ0cpzecy95xz3G8w+qLxIKrNosDA6/f/FBsg6gAHRiYY4i9/zb//33zsm4eEKHi2YQEuPqor8DPTJm1og==}
     engines: {node: '>=18.0.0'}
@@ -6426,10 +6418,6 @@ snapshots:
       - webpack
 
   '@serwist/utils@9.5.8(browserslist@4.28.2)':
-    optionalDependencies:
-      browserslist: 4.28.2
-
-  '@serwist/utils@9.5.9(browserslist@4.28.2)':
     optionalDependencies:
       browserslist: 4.28.2
 
