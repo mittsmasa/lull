@@ -64,8 +64,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.13",
-    "@serwist/build": "9.5.8",
-    "@serwist/cli": "9.5.8",
+    "@serwist/build": "9.5.9",
+    "@serwist/cli": "9.5.9",
     "@storybook/addon-a11y": "10.3.6",
     "@storybook/addon-docs": "10.3.6",
     "@storybook/addon-vitest": "10.3.6",
