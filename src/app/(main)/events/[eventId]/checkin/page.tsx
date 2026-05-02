@@ -25,9 +25,9 @@ export default async function CheckInPage(
   const checkInList = await getCheckInList(eventId);
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
+    <>
       <HeaderConfig showBackButton />
       <CheckInView event={event} summary={summary} initialList={checkInList} />
-    </div>
+    </>
   );
 }

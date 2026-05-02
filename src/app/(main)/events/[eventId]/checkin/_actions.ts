@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, exists, like, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { companions, eventMembers, events, invitations } from "@/db/schema";
@@ -24,96 +24,7 @@ export type LookupInvitation = {
   }[];
 };
 
-export type SearchInvitationResult = LookupInvitation & {
-  /** ゲスト名が検索クエリにマッチしたか */
-  guestNameMatched: boolean;
-  /** 検索クエリにマッチした同伴者 id のリスト */
-  matchedCompanionIds: string[];
-};
-
 export type LookupResult = { error: string } | { invitation: LookupInvitation };
-
-/** 名前検索によるチェックイン用招待情報検索 */
-export async function searchInvitationByName(
-  eventId: string,
-  query: string,
-): Promise<{ error: string } | { invitations: SearchInvitationResult[] }> {
-  const session = await requireSession();
-
-  // メンバー権限チェック
-  const member = await db.query.eventMembers.findFirst({
-    where: and(
-      eq(eventMembers.eventId, eventId),
-      eq(eventMembers.userId, session.user.id),
-    ),
-  });
-  if (!member) return { error: "権限がありません" };
-
-  // イベントステータスチェック（ongoing のみ）
-  const event = await db.query.events.findFirst({
-    where: eq(events.id, eventId),
-  });
-  if (!event || event.status !== "ongoing") {
-    return { error: "チェックインは開催中のイベントでのみ利用できます" };
-  }
-
-  const trimmed = query.trim();
-  if (!trimmed) return { invitations: [] };
-
-  // DB 側で guestName / 同伴者名の LIKE 検索
-  const pattern = `%${trimmed}%`;
-  const rows = await db.query.invitations.findMany({
-    where: and(
-      eq(invitations.eventId, eventId),
-      eq(invitations.status, "accepted"),
-      or(
-        like(invitations.guestName, pattern),
-        exists(
-          db
-            .select({ id: companions.id })
-            .from(companions)
-            .where(
-              and(
-                eq(companions.invitationId, invitations.id),
-                like(companions.name, pattern),
-              ),
-            ),
-        ),
-      ),
-    ),
-    with: {
-      companions: {
-        columns: {
-          id: true,
-          name: true,
-          checkedIn: true,
-          checkedInAt: true,
-        },
-      },
-    },
-  });
-
-  const lower = trimmed.toLowerCase();
-  return {
-    invitations: rows.map((r) => {
-      const guestNameMatched =
-        r.guestName?.toLowerCase().includes(lower) ?? false;
-      const matchedCompanionIds = r.companions
-        .filter((c) => c.name.toLowerCase().includes(lower))
-        .map((c) => c.id);
-      return {
-        id: r.id,
-        guestName: r.guestName,
-        guestEmail: r.guestEmail,
-        checkedIn: r.checkedIn,
-        checkedInAt: r.checkedInAt,
-        companions: r.companions,
-        guestNameMatched,
-        matchedCompanionIds,
-      };
-    }),
-  };
-}
 
 /** QR コード読み取り後、トークンから招待情報を検索 */
 export async function lookupInvitationByToken(
@@ -372,4 +283,95 @@ export async function undoCheckIn(
   revalidatePath(`/i/${inv.token}`);
 
   return { summary: await getCheckInSummary(eventId) };
+}
+
+export type BulkCheckInResult =
+  | { error: string }
+  | {
+      summary: CheckInSummary;
+      checkedInAt: number;
+      guest: { updated: boolean };
+      companions: { id: string; updated: boolean }[];
+    };
+
+/** 招待単位で本人 + 全同伴者の未チェックインをまとめて更新 */
+export async function performBulkCheckIn(
+  eventId: string,
+  invitationId: string,
+): Promise<BulkCheckInResult> {
+  const session = await requireSession();
+
+  const member = await db.query.eventMembers.findFirst({
+    where: and(
+      eq(eventMembers.eventId, eventId),
+      eq(eventMembers.userId, session.user.id),
+    ),
+  });
+  if (!member) return { error: "権限がありません" };
+
+  const event = await db.query.events.findFirst({
+    where: eq(events.id, eventId),
+  });
+  if (!event || event.status !== "ongoing") {
+    return { error: "チェックインは開催中のイベントでのみ利用できます" };
+  }
+
+  const now = Date.now();
+
+  const invitation = await db.query.invitations.findFirst({
+    where: and(
+      eq(invitations.id, invitationId),
+      eq(invitations.eventId, eventId),
+    ),
+    with: {
+      companions: {
+        columns: { id: true, checkedIn: true },
+      },
+    },
+  });
+  if (!invitation) return { error: "招待が見つかりません" };
+  if (invitation.status !== "accepted") {
+    return { error: "出席が確定していない招待にはチェックインできません" };
+  }
+  if (invitation.invalidatedAt) {
+    return { error: "この招待は無効化されています" };
+  }
+
+  const guestUpdated = !invitation.checkedIn;
+  if (guestUpdated) {
+    await db
+      .update(invitations)
+      .set({ checkedIn: true, checkedInAt: now })
+      .where(
+        and(eq(invitations.id, invitationId), eq(invitations.eventId, eventId)),
+      );
+  }
+
+  const companionResults: { id: string; updated: boolean }[] = [];
+  for (const comp of invitation.companions) {
+    if (comp.checkedIn) {
+      companionResults.push({ id: comp.id, updated: false });
+      continue;
+    }
+    await db
+      .update(companions)
+      .set({ checkedIn: true, checkedInAt: now })
+      .where(
+        and(
+          eq(companions.id, comp.id),
+          eq(companions.invitationId, invitationId),
+        ),
+      );
+    companionResults.push({ id: comp.id, updated: true });
+  }
+
+  revalidatePath(`/events/${eventId}/checkin`);
+  revalidatePath(`/i/${invitation.token}`);
+
+  return {
+    summary: await getCheckInSummary(eventId),
+    checkedInAt: now,
+    guest: { updated: guestUpdated },
+    companions: companionResults,
+  };
 }

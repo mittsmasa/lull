@@ -97,10 +97,24 @@ export function QrScanner({ onScan }: QrScannerProps) {
           </Button>
         </div>
       )}
-      <div
-        id={elementId}
-        className="w-full max-w-sm overflow-hidden rounded-lg"
-      />
+      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-black/85">
+        <div id={elementId} className="w-full" />
+        {status === "scanning" && (
+          <div className="pointer-events-none absolute inset-[14%]">
+            <span className="absolute top-0 left-0 size-7 rounded-tl-md border-t-[2.5px] border-l-[2.5px] border-white/85 [filter:drop-shadow(0_2px_6px_rgba(0,0,0,0.6))]" />
+            <span className="absolute top-0 right-0 size-7 rounded-tr-md border-t-[2.5px] border-r-[2.5px] border-white/85 [filter:drop-shadow(0_2px_6px_rgba(0,0,0,0.6))]" />
+            <span className="absolute bottom-0 left-0 size-7 rounded-bl-md border-b-[2.5px] border-l-[2.5px] border-white/85 [filter:drop-shadow(0_2px_6px_rgba(0,0,0,0.6))]" />
+            <span className="absolute bottom-0 right-0 size-7 rounded-br-md border-b-[2.5px] border-r-[2.5px] border-white/85 [filter:drop-shadow(0_2px_6px_rgba(0,0,0,0.6))]" />
+            <span
+              className="absolute inset-x-[6%] top-1/2 h-[1.5px] animate-[scan_2.6s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_12px_rgba(16,185,129,0.5)]"
+              style={{
+                animationName: "qr-scan",
+              }}
+            />
+            <style>{`@keyframes qr-scan{0%,100%{transform:translateY(-44px);opacity:.4}50%{transform:translateY(44px);opacity:1}}`}</style>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
