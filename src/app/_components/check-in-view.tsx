@@ -264,7 +264,8 @@ export function CheckInView({
       if (viewState.mode === "found") {
         const updated = { ...viewState.invitation };
         updated.checkedIn = true;
-        updated.checkedInAt = ts;
+        // 本人が既済だった場合は DB の既存時刻を保持（bulk の now で上書きしない）
+        updated.checkedInAt = result.guest.updated ? ts : updated.checkedInAt;
         updated.companions = updated.companions.map((c) => ({
           ...c,
           checkedIn: true,
@@ -356,13 +357,13 @@ export function CheckInView({
           guestNameMatched || matchedCompanions.length > 0,
       )
       .map(({ item, guestNameMatched, matchedCompanions }) => {
-        // 表示する子行: クエリありなら matchedCompanions、なしなら全員
+        // 表示する子行: クエリなし or guest 名マッチ → 同伴者全員、companion 名のみマッチ → マッチした子行のみ
         const displayCompanions =
-          q === "" ? item.companions : matchedCompanions;
+          q === "" || guestNameMatched ? item.companions : matchedCompanions;
         return { item, guestNameMatched, displayCompanions };
       })
       .filter(({ item, displayCompanions }) => {
-        // 未来場 / 来場済 切替
+        // 未来場 / 来場済 切替（招待全体（本人 + 表示中の同伴者）の状態で判定）
         if (isDoneFilter) {
           return item.checkedIn || displayCompanions.some((c) => c.checkedIn);
         }
@@ -423,7 +424,7 @@ export function CheckInView({
   return (
     <div className="mx-auto max-w-md px-4 pb-32">
       {/* Sticky top: イベント名 + ステータス */}
-      <div className="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 -mx-4 mb-2 border-b px-4 py-3 backdrop-blur-md">
+      <div className="bg-background/80 supports-[backdrop-filter]:bg-background/60 sticky top-14 z-10 -mx-4 mb-2 border-b px-4 py-3 backdrop-blur-md">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-muted-foreground text-[10px] font-medium tracking-[0.2em] uppercase">
@@ -710,6 +711,19 @@ function RosterSection({
         )}
         {filteredList.map(({ item, displayCompanions }) => {
           const totalCompanions = item.companions.length;
+          // 招待全体（本人 + 全同伴者）の状態で判定
+          const allCheckedIn =
+            item.checkedIn && item.companions.every((c) => c.checkedIn);
+          const someCheckedIn =
+            item.checkedIn || item.companions.some((c) => c.checkedIn);
+          const partial = someCheckedIn && !allCheckedIn;
+          // 全員済の場合に表示する最終 checkedInAt（本人 + 同伴者の最大値）
+          const finalCheckedInAt = allCheckedIn
+            ? Math.max(
+                item.checkedInAt ?? 0,
+                ...item.companions.map((c) => c.checkedInAt ?? 0),
+              )
+            : 0;
           return (
             <li key={item.id}>
               <button
@@ -717,10 +731,15 @@ function RosterSection({
                 onClick={() => onSelect(item)}
                 className="hover:bg-muted/40 flex w-full items-center gap-3 px-1 py-3 text-left transition-colors"
               >
-                {item.checkedIn ? (
+                {allCheckedIn ? (
                   <CheckCircle
                     className="size-4 shrink-0 text-emerald-700"
                     weight="fill"
+                  />
+                ) : partial ? (
+                  <CheckCircle
+                    className="size-4 shrink-0 text-emerald-700/60"
+                    weight="duotone"
                   />
                 ) : (
                   <Circle className="text-muted-foreground/60 size-4 shrink-0" />
@@ -728,7 +747,7 @@ function RosterSection({
                 <div className="min-w-0 flex-1">
                   <div
                     className={`flex items-center gap-2 text-sm ${
-                      item.checkedIn ? "text-muted-foreground" : ""
+                      allCheckedIn ? "text-muted-foreground" : ""
                     }`}
                   >
                     <span className="truncate">
@@ -746,9 +765,9 @@ function RosterSection({
                     </div>
                   )}
                 </div>
-                {item.checkedIn && item.checkedInAt && (
+                {allCheckedIn && finalCheckedInAt > 0 && (
                   <span className="text-muted-foreground text-xs tabular-nums">
-                    {formatTimestamp(item.checkedInAt)}
+                    {formatTimestamp(finalCheckedInAt)}
                   </span>
                 )}
               </button>

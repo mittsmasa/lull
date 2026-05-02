@@ -338,32 +338,38 @@ export async function performBulkCheckIn(
   }
 
   const guestUpdated = !invitation.checkedIn;
-  if (guestUpdated) {
-    await db
-      .update(invitations)
-      .set({ checkedIn: true, checkedInAt: now })
-      .where(
-        and(eq(invitations.id, invitationId), eq(invitations.eventId, eventId)),
-      );
-  }
-
   const companionResults: { id: string; updated: boolean }[] = [];
-  for (const comp of invitation.companions) {
-    if (comp.checkedIn) {
-      companionResults.push({ id: comp.id, updated: false });
-      continue;
+
+  // 本人 + 同伴者の更新は同一トランザクションで（途中失敗時は全ロールバック）
+  await db.transaction(async (tx) => {
+    if (guestUpdated) {
+      await tx
+        .update(invitations)
+        .set({ checkedIn: true, checkedInAt: now })
+        .where(
+          and(
+            eq(invitations.id, invitationId),
+            eq(invitations.eventId, eventId),
+          ),
+        );
     }
-    await db
-      .update(companions)
-      .set({ checkedIn: true, checkedInAt: now })
-      .where(
-        and(
-          eq(companions.id, comp.id),
-          eq(companions.invitationId, invitationId),
-        ),
-      );
-    companionResults.push({ id: comp.id, updated: true });
-  }
+    for (const comp of invitation.companions) {
+      if (comp.checkedIn) {
+        companionResults.push({ id: comp.id, updated: false });
+        continue;
+      }
+      await tx
+        .update(companions)
+        .set({ checkedIn: true, checkedInAt: now })
+        .where(
+          and(
+            eq(companions.id, comp.id),
+            eq(companions.invitationId, invitationId),
+          ),
+        );
+      companionResults.push({ id: comp.id, updated: true });
+    }
+  });
 
   revalidatePath(`/events/${eventId}/checkin`);
   revalidatePath(`/i/${invitation.token}`);
