@@ -57,7 +57,7 @@ export function NavigationSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-72 flex-col font-sans">
         <SheetHeader>
-          <SheetTitle className="font-serif text-lg font-light tracking-widest text-primary">
+          <SheetTitle className="font-serif text-lg font-light tracking-widest text-brand">
             Lull
           </SheetTitle>
           <SheetDescription className="sr-only">
