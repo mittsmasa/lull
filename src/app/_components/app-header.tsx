@@ -43,7 +43,7 @@ export function AppHeader({ events = [] }: AppHeaderProps) {
           <Link
             href="/dashboard"
             aria-label="ホームへ"
-            className="font-serif text-lg font-light tracking-widest text-primary"
+            className="font-serif text-lg font-light tracking-widest text-brand"
           >
             Lull
           </Link>
