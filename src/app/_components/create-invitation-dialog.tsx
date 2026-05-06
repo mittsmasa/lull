@@ -5,17 +5,17 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { createGuestInvitation } from "@/app/(main)/events/[eventId]/invitations/_actions";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalDescription,
+  ResponsiveModalFooter,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+  ResponsiveModalTrigger,
+} from "@/components/ui/responsive-modal";
 import { copyTextFromPromise } from "@/lib/clipboard";
 import { formatGuestInvitationCopy } from "@/lib/invitation-copy";
 import { buildShareUrl } from "@/lib/share-url";
@@ -66,8 +66,8 @@ export function CreateInvitationDialog({ eventId }: Props) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <ResponsiveModal open={open} onOpenChange={setOpen} size="sm">
+      <ResponsiveModalTrigger asChild>
         <Button
           type="button"
           className="min-h-[44px] w-full gap-2 sm:w-auto"
@@ -76,14 +76,14 @@ export function CreateInvitationDialog({ eventId }: Props) {
           <Plus className="size-4" aria-hidden />
           ゲストを招待
         </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>ゲストを招待</DialogTitle>
-          <DialogDescription>
+      </ResponsiveModalTrigger>
+      <ResponsiveModalContent>
+        <ResponsiveModalHeader>
+          <ResponsiveModalTitle>ゲストを招待</ResponsiveModalTitle>
+          <ResponsiveModalDescription>
             名前未設定でも発行できます。発行と同時に招待文がコピーされます。
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveModalDescription>
+        </ResponsiveModalHeader>
         <form
           ref={formRef}
           onSubmit={handleSubmit}
@@ -100,7 +100,7 @@ export function CreateInvitationDialog({ eventId }: Props) {
               className="text-base"
             />
           </div>
-          <DialogFooter>
+          <ResponsiveModalFooter>
             <Button
               type="submit"
               disabled={isPending}
@@ -108,9 +108,9 @@ export function CreateInvitationDialog({ eventId }: Props) {
             >
               {isPending ? "発行中..." : "発行してコピー"}
             </Button>
-          </DialogFooter>
+          </ResponsiveModalFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveModalContent>
+    </ResponsiveModal>
   );
 }

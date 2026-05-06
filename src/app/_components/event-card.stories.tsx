@@ -10,7 +10,7 @@ type Story = StoryObj<typeof meta>;
 
 const baseEvent = {
   id: "event-1",
-  name: "春のピアノ発表会",
+  name: "春の発表会",
   startDatetime: "2026-04-15T14:00",
   venue: "○○市民ホール",
   status: "draft" as const,
@@ -37,7 +37,7 @@ export const LongName: Story = {
   args: {
     event: {
       ...baseEvent,
-      name: "第25回 全日本ピアノコンクール入賞者記念ガラコンサート 〜春の調べ〜",
+      name: "第25回 全日本音楽コンクール入賞者記念ガラコンサート 〜春の調べ〜",
     },
   },
 };
