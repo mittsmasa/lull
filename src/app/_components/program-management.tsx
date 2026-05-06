@@ -5,11 +5,11 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+} from "@/components/ui/responsive-modal";
 import type { EventStatus, MemberRole } from "@/db/schema";
 import { statusLabels, statusVariants } from "@/lib/event-status";
 import type {
@@ -87,20 +87,20 @@ export function ProgramManagement({
         onAdd={canModify ? openAdd : undefined}
       />
 
-      <Dialog
+      <ResponsiveModal
         open={dialog !== null}
         onOpenChange={(open) => {
           if (!open) close();
         }}
       >
-        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
+        <ResponsiveModalContent>
+          <ResponsiveModalHeader>
+            <ResponsiveModalTitle>
               {dialog?.mode === "edit"
                 ? "プログラムを編集"
                 : "プログラムを追加"}
-            </DialogTitle>
-          </DialogHeader>
+            </ResponsiveModalTitle>
+          </ResponsiveModalHeader>
           {dialog?.mode === "add" && (
             <ProgramForm
               eventId={event.id}
@@ -128,8 +128,8 @@ export function ProgramManagement({
               onSuccess={close}
             />
           )}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveModalContent>
+      </ResponsiveModal>
     </div>
   );
 }

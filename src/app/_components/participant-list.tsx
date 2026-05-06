@@ -28,13 +28,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -42,6 +35,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalFooter,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+} from "@/components/ui/responsive-modal";
 import type { EventStatus } from "@/db/schema";
 import { copyText } from "@/lib/clipboard";
 import { formatPerformerInvitationCopy } from "@/lib/invitation-copy";
@@ -467,11 +467,11 @@ function EditDisplayNameDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>表示名を変更</DialogTitle>
-        </DialogHeader>
+    <ResponsiveModal open={open} onOpenChange={onOpenChange}>
+      <ResponsiveModalContent className="sm:max-w-md">
+        <ResponsiveModalHeader>
+          <ResponsiveModalTitle>表示名を変更</ResponsiveModalTitle>
+        </ResponsiveModalHeader>
         <form action={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="editDisplayName">表示名</Label>
@@ -485,7 +485,7 @@ function EditDisplayNameDialog({
               className="text-base"
             />
           </div>
-          <DialogFooter>
+          <ResponsiveModalFooter>
             <Button
               type="submit"
               disabled={isPending}
@@ -493,10 +493,10 @@ function EditDisplayNameDialog({
             >
               {isPending ? "変更中..." : "変更"}
             </Button>
-          </DialogFooter>
+          </ResponsiveModalFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveModalContent>
+    </ResponsiveModal>
   );
 }
 

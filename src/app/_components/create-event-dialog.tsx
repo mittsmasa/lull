@@ -9,18 +9,18 @@ import {
 } from "@/app/(main)/events/_actions";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  ResponsiveModal,
+  ResponsiveModalClose,
+  ResponsiveModalContent,
+  ResponsiveModalDescription,
+  ResponsiveModalFooter,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+  ResponsiveModalTrigger,
+} from "@/components/ui/responsive-modal";
 
 export function CreateEventDialog() {
   const [open, setOpen] = useState(false);
@@ -63,20 +63,20 @@ export function CreateEventDialog() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+    <ResponsiveModal open={open} onOpenChange={handleOpenChange}>
+      <ResponsiveModalTrigger asChild>
         <Button type="button" className="gap-2 tracking-wider">
           <Plus className="size-4" aria-hidden />
           イベントを作成
         </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>イベントを作成</DialogTitle>
-          <DialogDescription>
+      </ResponsiveModalTrigger>
+      <ResponsiveModalContent className="sm:max-w-lg">
+        <ResponsiveModalHeader>
+          <ResponsiveModalTitle>イベントを作成</ResponsiveModalTitle>
+          <ResponsiveModalDescription>
             ピアノ発表会の基本情報を入力します。あとから編集できます。
-          </DialogDescription>
-        </DialogHeader>
+          </ResponsiveModalDescription>
+        </ResponsiveModalHeader>
         <form ref={formRef} action={formAction} className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
             <Label htmlFor={nameId}>イベント名</Label>
@@ -199,8 +199,8 @@ export function CreateEventDialog() {
             )}
           </div>
 
-          <DialogFooter>
-            <DialogClose asChild>
+          <ResponsiveModalFooter>
+            <ResponsiveModalClose asChild>
               <Button
                 type="button"
                 variant="outline"
@@ -208,7 +208,7 @@ export function CreateEventDialog() {
               >
                 キャンセル
               </Button>
-            </DialogClose>
+            </ResponsiveModalClose>
             <Button
               type="submit"
               disabled={isPending}
@@ -216,9 +216,9 @@ export function CreateEventDialog() {
             >
               {isPending ? "作成中..." : "作成"}
             </Button>
-          </DialogFooter>
+          </ResponsiveModalFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveModalContent>
+    </ResponsiveModal>
   );
 }
