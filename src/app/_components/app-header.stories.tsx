@@ -45,7 +45,7 @@ export const WithBackButton: Story = {
   parameters: {
     nextjs: {
       navigation: {
-        pathname: "/events/new",
+        pathname: "/events/evt-sample/programs",
       },
     },
   },

@@ -35,16 +35,6 @@ export const Default: Story = {
   },
 };
 
-export const EventsNewActive: Story = {
-  parameters: {
-    nextjs: {
-      navigation: {
-        pathname: "/events/new",
-      },
-    },
-  },
-};
-
 export const AllStatuses: Story = {
   args: {
     events: allStatusEvents,

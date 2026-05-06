@@ -70,10 +70,16 @@ type CreateEventFields = {
   totalSeats: string;
 };
 
-export type CreateEventState = {
-  error: string;
-  fields: CreateEventFields;
-} | null;
+type CreateEventFieldErrors = Partial<Record<keyof CreateEventFields, string>>;
+
+export type CreateEventState =
+  | {
+      error?: string;
+      fieldErrors?: CreateEventFieldErrors;
+      fields: CreateEventFields;
+    }
+  | { event: typeof events.$inferSelect }
+  | null;
 
 function extractFields(formData: FormData): CreateEventFields {
   return {
@@ -89,7 +95,7 @@ function extractFields(formData: FormData): CreateEventFields {
 export async function createEvent(
   _prevState: CreateEventState,
   formData: FormData,
-) {
+): Promise<CreateEventState> {
   const session = await requireSession();
   const fields = extractFields(formData);
 
@@ -103,7 +109,15 @@ export async function createEvent(
   });
 
   if (!parsed.success) {
-    return { error: "入力内容を確認してください", fields };
+    const flat = z.flattenError(parsed.error).fieldErrors;
+    const fieldErrors: CreateEventFieldErrors = {};
+    for (const key of Object.keys(flat) as (keyof CreateEventFields)[]) {
+      const messages = flat[key as keyof typeof flat];
+      if (messages && messages.length > 0) {
+        fieldErrors[key] = messages[0];
+      }
+    }
+    return { error: "入力内容を確認してください", fieldErrors, fields };
   }
 
   const { date, startTime, openTime, ...rest } = parsed.data;
@@ -117,12 +131,18 @@ export async function createEvent(
   const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const today = jstNow.toISOString().split("T")[0];
   if (date < today) {
-    return { error: "開催日は当日以降にしてください", fields };
+    return {
+      fieldErrors: { date: "開催日は当日以降にしてください" },
+      fields,
+    };
   }
 
   // openTime バリデーション（startTime 以前であること）
   if (openDatetime && openDatetime > startDatetime) {
-    return { error: "開場時刻は開演時刻以前にしてください", fields };
+    return {
+      fieldErrors: { openTime: "開場時刻は開演時刻以前にしてください" },
+      fields,
+    };
   }
 
   const [newEvent] = await db
@@ -143,10 +163,9 @@ export async function createEvent(
     displayName: (session.user.name || "名称未設定").slice(0, 50),
   });
 
-  const event = newEvent;
-
   revalidatePath("/dashboard");
-  redirect(`/events/${event.id}`);
+
+  return { event: newEvent };
 }
 
 export async function updateEvent(
