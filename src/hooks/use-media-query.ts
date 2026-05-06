@@ -2,7 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
-export function useMediaQuery(query: string): boolean {
+export function useMediaQuery(query: string, defaultValue = false): boolean {
   const subscribe = useCallback(
     (onChange: () => void) => {
       const mql = window.matchMedia(query);
@@ -17,5 +17,5 @@ export function useMediaQuery(query: string): boolean {
     [query],
   );
 
-  return useSyncExternalStore(subscribe, getSnapshot, () => true);
+  return useSyncExternalStore(subscribe, getSnapshot, () => defaultValue);
 }

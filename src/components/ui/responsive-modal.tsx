@@ -57,7 +57,7 @@ function ResponsiveModal({
 }: React.ComponentProps<typeof Dialog> & {
   size?: ResponsiveModalSize;
 }) {
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isDesktop = useMediaQuery("(min-width: 768px)", true);
   const Root = isDesktop ? Dialog : Sheet;
   return (
     <ResponsiveModalContext.Provider value={{ isDesktop, size }}>
@@ -133,7 +133,7 @@ function ResponsiveModalHeader(
 }
 
 function ResponsiveModalFooter(
-  props: WithoutClassName<React.ComponentProps<typeof DialogFooter>>,
+  props: WithoutClassName<React.ComponentProps<"div">>,
 ) {
   const { isDesktop } = useResponsiveModalContext();
   if (isDesktop) {
