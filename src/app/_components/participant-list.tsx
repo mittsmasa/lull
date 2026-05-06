@@ -467,8 +467,8 @@ function EditDisplayNameDialog({
   };
 
   return (
-    <ResponsiveModal open={open} onOpenChange={onOpenChange}>
-      <ResponsiveModalContent className="sm:max-w-md">
+    <ResponsiveModal open={open} onOpenChange={onOpenChange} size="sm">
+      <ResponsiveModalContent>
         <ResponsiveModalHeader>
           <ResponsiveModalTitle>表示名を変更</ResponsiveModalTitle>
         </ResponsiveModalHeader>

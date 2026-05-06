@@ -66,7 +66,7 @@ export function InvitePerformerDialog({ eventId }: Props) {
   };
 
   return (
-    <ResponsiveModal open={open} onOpenChange={setOpen}>
+    <ResponsiveModal open={open} onOpenChange={setOpen} size="sm">
       <ResponsiveModalTrigger asChild>
         <Button
           type="button"
@@ -77,7 +77,7 @@ export function InvitePerformerDialog({ eventId }: Props) {
           出演者を招待
         </Button>
       </ResponsiveModalTrigger>
-      <ResponsiveModalContent className="sm:max-w-md">
+      <ResponsiveModalContent>
         <ResponsiveModalHeader>
           <ResponsiveModalTitle>出演者を招待</ResponsiveModalTitle>
           <ResponsiveModalDescription>

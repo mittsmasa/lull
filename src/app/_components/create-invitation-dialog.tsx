@@ -66,7 +66,7 @@ export function CreateInvitationDialog({ eventId }: Props) {
   };
 
   return (
-    <ResponsiveModal open={open} onOpenChange={setOpen}>
+    <ResponsiveModal open={open} onOpenChange={setOpen} size="sm">
       <ResponsiveModalTrigger asChild>
         <Button
           type="button"
@@ -77,7 +77,7 @@ export function CreateInvitationDialog({ eventId }: Props) {
           ゲストを招待
         </Button>
       </ResponsiveModalTrigger>
-      <ResponsiveModalContent className="sm:max-w-md">
+      <ResponsiveModalContent>
         <ResponsiveModalHeader>
           <ResponsiveModalTitle>ゲストを招待</ResponsiveModalTitle>
           <ResponsiveModalDescription>

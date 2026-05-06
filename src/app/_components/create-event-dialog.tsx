@@ -70,7 +70,7 @@ export function CreateEventDialog() {
           イベントを作成
         </Button>
       </ResponsiveModalTrigger>
-      <ResponsiveModalContent className="sm:max-w-lg">
+      <ResponsiveModalContent>
         <ResponsiveModalHeader>
           <ResponsiveModalTitle>イベントを作成</ResponsiveModalTitle>
           <ResponsiveModalDescription>
