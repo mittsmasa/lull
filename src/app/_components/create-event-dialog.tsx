@@ -74,7 +74,7 @@ export function CreateEventDialog() {
         <ResponsiveModalHeader>
           <ResponsiveModalTitle>イベントを作成</ResponsiveModalTitle>
           <ResponsiveModalDescription>
-            ピアノ発表会の基本情報を入力します。あとから編集できます。
+            発表会の基本情報を入力します。あとから編集できます。
           </ResponsiveModalDescription>
         </ResponsiveModalHeader>
         <form ref={formRef} action={formAction} className="flex flex-col gap-5">
