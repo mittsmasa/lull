@@ -44,13 +44,12 @@ describe("createEvent", () => {
     vi.useRealTimers();
   });
 
-  it("events INSERT + organizer eventMembers INSERT し、詳細へ redirect", async () => {
+  it("events INSERT + organizer eventMembers INSERT し、event を返す", async () => {
     const user = await createUser({ name: "主催者" });
     loginAs(user);
 
-    await expect(createEventAction(null, buildCreateForm())).rejects.toThrow(
-      /^REDIRECT:\/events\//,
-    );
+    const result = await createEventAction(null, buildCreateForm());
+    expect(result).toMatchObject({ event: expect.any(Object) });
 
     const all = await db.select().from(events);
     expect(all).toHaveLength(1);
@@ -80,9 +79,11 @@ describe("createEvent", () => {
     const user = await createUser();
     loginAs(user);
 
-    await expect(
-      createEventAction(null, buildCreateForm({ date: "2030-04-26" })),
-    ).rejects.toThrow(/^REDIRECT:/);
+    const result = await createEventAction(
+      null,
+      buildCreateForm({ date: "2030-04-26" }),
+    );
+    expect(result).toMatchObject({ event: expect.any(Object) });
   });
 
   it("JST 過去日はエラー", async () => {
@@ -94,7 +95,7 @@ describe("createEvent", () => {
       buildCreateForm({ date: "2030-04-25" }),
     );
     expect(result).toMatchObject({
-      error: expect.stringContaining("当日以降"),
+      fieldErrors: { date: expect.stringContaining("当日以降") },
     });
     const all = await db.select().from(events);
     expect(all).toHaveLength(0);
@@ -111,12 +112,16 @@ describe("createEvent", () => {
       null,
       buildCreateForm({ date: "2030-04-26" }),
     );
-    expect(ng).toMatchObject({ error: expect.stringContaining("当日以降") });
+    expect(ng).toMatchObject({
+      fieldErrors: { date: expect.stringContaining("当日以降") },
+    });
 
     // 4/27 は OK
-    await expect(
-      createEventAction(null, buildCreateForm({ date: "2030-04-27" })),
-    ).rejects.toThrow(/^REDIRECT:/);
+    const ok = await createEventAction(
+      null,
+      buildCreateForm({ date: "2030-04-27" }),
+    );
+    expect(ok).toMatchObject({ event: expect.any(Object) });
   });
 
   it("openTime が startTime より後だとエラー", async () => {
@@ -127,7 +132,9 @@ describe("createEvent", () => {
       null,
       buildCreateForm({ startTime: "13:00", openTime: "14:00" }),
     );
-    expect(result).toMatchObject({ error: expect.stringContaining("開場") });
+    expect(result).toMatchObject({
+      fieldErrors: { openTime: expect.stringContaining("開場") },
+    });
   });
 });
 

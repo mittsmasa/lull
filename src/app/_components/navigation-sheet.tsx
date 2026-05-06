@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretDown, House, Plus, SignOut } from "@phosphor-icons/react";
+import { CaretDown, House, SignOut } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -23,7 +23,6 @@ import { statusDotClass, statusLabels } from "@/lib/event-status";
 
 const navItems = [
   { href: "/dashboard", label: "ホーム", icon: House },
-  { href: "/events/new", label: "イベントを作成", icon: Plus },
 ] as const;
 
 export type NavigationEvent = {

@@ -1,6 +1,5 @@
-import Link from "next/link";
+import { CreateEventDialog } from "@/app/_components/create-event-dialog";
 import { EventCard } from "@/app/_components/event-card";
-import { Button } from "@/components/ui/button";
 import { getEventsByUserId } from "@/lib/queries/events";
 import { requireSession } from "@/lib/session";
 
@@ -12,9 +11,7 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-4xl px-6 py-12">
       <div className="mb-10 flex items-center justify-between">
         <h1 className="text-2xl font-light tracking-wide">マイイベント</h1>
-        <Button asChild className="tracking-wider">
-          <Link href="/events/new">イベントを作成</Link>
-        </Button>
+        <CreateEventDialog />
       </div>
 
       {events.length === 0 ? (
