@@ -69,12 +69,9 @@ export function ProgramList({
     setPrograms(initialPrograms);
   }
 
-  // 削除や props 更新で対象が消えたら選択を解除
-  useEffect(() => {
-    if (selectedId && !programs.some((p) => p.id === selectedId)) {
-      setSelectedId(null);
-    }
-  }, [programs, selectedId]);
+  if (selectedId && !programs.some((p) => p.id === selectedId)) {
+    setSelectedId(null);
+  }
 
   // 選択中の Escape と外側クリックで閉じる
   useEffect(() => {
@@ -278,6 +275,9 @@ function ProgramRow({
       }}
     >
       <div
+        // interactive のときだけ role/tabIndex/handler を載せる。
+        // 通常の prop 渡しだと biome の noStaticElementInteractions /
+        // useAriaPropsSupportedByRole が誤検知するため spread で回避。
         {...(interactive
           ? {
               role: "button" as const,
