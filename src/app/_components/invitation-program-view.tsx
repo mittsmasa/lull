@@ -53,17 +53,11 @@ export function InvitationProgramView({
                       !isPerformance && "bg-muted/30",
                     )}
                   >
-                    <span className="w-12 shrink-0">
-                      {isPerformance ? (
-                        <span className="mt-0.5 block text-sm font-medium tabular-nums text-muted-foreground">
-                          {performanceIndex}.
-                        </span>
-                      ) : program.type === "other" ? null : (
-                        <span className="mt-1 block text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                          {PROGRAM_TYPE_LABELS[program.type]}
-                        </span>
-                      )}
-                    </span>
+                    {isPerformance && (
+                      <span className="mt-0.5 w-7 shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
+                        {performanceIndex}.
+                      </span>
+                    )}
 
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       {isPerformance ? (
@@ -75,19 +69,18 @@ export function InvitationProgramView({
                                 .join("、")}
                             </span>
                           )}
-                          {program.pieces.map((piece) => (
-                            <div
-                              key={piece.id}
-                              className="flex items-baseline gap-2 text-sm text-muted-foreground"
-                            >
-                              <span>{piece.title}</span>
-                              {piece.composer && (
-                                <span className="text-muted-foreground/60">
-                                  {piece.composer}
-                                </span>
-                              )}
-                            </div>
-                          ))}
+                          <div className="mt-0.5 flex flex-col gap-1 border-l border-border/50 pl-2.5">
+                            {program.pieces.map((piece) => (
+                              <div key={piece.id} className="flex flex-col">
+                                <span className="text-sm">{piece.title}</span>
+                                {piece.composer && (
+                                  <span className="text-xs text-muted-foreground/70">
+                                    {piece.composer}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </>
                       ) : (
                         <span className="text-sm text-muted-foreground">

@@ -6,8 +6,13 @@ import {
   Plus,
   Trash,
 } from "@phosphor-icons/react";
-import { Reorder, useDragControls } from "motion/react";
-import { useRef, useState, useTransition } from "react";
+import {
+  AnimatePresence,
+  motion,
+  Reorder,
+  useDragControls,
+} from "motion/react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -21,9 +26,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { PROGRAM_TYPE_LABELS } from "@/db/schema";
 import type { ProgramWithPerformers } from "@/lib/queries/programs";
 import { cn } from "@/lib/utils";
+
+type ListMode = "view" | "reorder";
 
 type ProgramListProps = {
   eventId: string;
@@ -52,13 +58,44 @@ export function ProgramList({
 }: ProgramListProps) {
   const [programs, setPrograms] =
     useState<ProgramWithPerformers[]>(initialPrograms);
+  const [mode, setMode] = useState<ListMode>("view");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const previousOrderRef = useRef<ProgramWithPerformers[]>(initialPrograms);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   if (initialPrograms !== previousOrderRef.current) {
     previousOrderRef.current = initialPrograms;
     setPrograms(initialPrograms);
   }
+
+  // 削除や props 更新で対象が消えたら選択を解除
+  useEffect(() => {
+    if (selectedId && !programs.some((p) => p.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [programs, selectedId]);
+
+  // 選択中の Escape と外側クリックで閉じる
+  useEffect(() => {
+    if (!selectedId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedId(null);
+    };
+    const onClick = (e: MouseEvent) => {
+      const list = listRef.current;
+      if (!list) return;
+      if (!list.contains(e.target as Node)) {
+        setSelectedId(null);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [selectedId]);
 
   const handleReorder = (newOrder: ProgramWithPerformers[]) => {
     const prevOrder = [...programs];
@@ -92,6 +129,16 @@ export function ProgramList({
     });
   };
 
+  const toggleReorderMode = () => {
+    setMode((m) => (m === "reorder" ? "view" : "reorder"));
+    setSelectedId(null);
+  };
+
+  const handleSelect = (id: string) => {
+    if (mode !== "view") return;
+    setSelectedId((curr) => (curr === id ? null : id));
+  };
+
   if (programs.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4 rounded-md border border-dashed border-border/60 bg-card/40 px-6 py-12 text-center">
@@ -106,31 +153,52 @@ export function ProgramList({
     );
   }
 
+  const showReorderToggle = canModify && programs.length >= 2;
+
   return (
-    <Reorder.Group
-      axis="y"
-      values={programs}
-      onReorder={handleReorder}
-      className="flex flex-col divide-y divide-border/60 rounded-md border border-border/60 bg-card/40"
-    >
-      {(() => {
-        let performanceCounter = 0;
-        return programs.map((program) => {
-          const performanceNumber =
-            program.type === "performance" ? ++performanceCounter : null;
-          return (
-            <ProgramRow
-              key={program.id}
-              program={program}
-              performanceNumber={performanceNumber}
-              canModify={canModify}
-              onEdit={onEdit}
-              onDelete={handleDelete}
-            />
-          );
-        });
-      })()}
-    </Reorder.Group>
+    <div ref={listRef} className="flex flex-col gap-3">
+      {showReorderToggle && (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant={mode === "reorder" ? "default" : "outline"}
+            size="sm"
+            onClick={toggleReorderMode}
+            className="tracking-wider"
+          >
+            {mode === "reorder" ? "完了" : "並べ替え"}
+          </Button>
+        </div>
+      )}
+
+      <Reorder.Group
+        axis="y"
+        values={programs}
+        onReorder={handleReorder}
+        className="flex flex-col divide-y divide-border/60 rounded-md border border-border/60 bg-card/40"
+      >
+        {(() => {
+          let performanceCounter = 0;
+          return programs.map((program) => {
+            const performanceNumber =
+              program.type === "performance" ? ++performanceCounter : null;
+            return (
+              <ProgramRow
+                key={program.id}
+                program={program}
+                performanceNumber={performanceNumber}
+                canModify={canModify}
+                mode={mode}
+                selected={selectedId === program.id}
+                onSelect={handleSelect}
+                onEdit={onEdit}
+                onDelete={handleDelete}
+              />
+            );
+          });
+        })()}
+      </Reorder.Group>
+    </div>
   );
 }
 
@@ -138,6 +206,9 @@ type ProgramRowProps = {
   program: ProgramWithPerformers;
   performanceNumber: number | null;
   canModify: boolean;
+  mode: ListMode;
+  selected: boolean;
+  onSelect: (id: string) => void;
   onEdit: (program: ProgramWithPerformers) => void;
   onDelete: (programId: string) => void;
 };
@@ -146,6 +217,9 @@ function ProgramRow({
   program,
   performanceNumber,
   canModify,
+  mode,
+  selected,
+  onSelect,
   onEdit,
   onDelete,
 }: ProgramRowProps) {
@@ -165,120 +239,166 @@ function ProgramRow({
           .join(" · ")
       : null;
 
+  const isReorder = mode === "reorder";
+  const interactive = canModify && mode === "view";
+  const showGrip = canModify && isReorder;
+
+  const handleRowClick = () => {
+    if (!interactive) return;
+    onSelect(program.id);
+  };
+
+  const handleRowKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!interactive) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onSelect(program.id);
+    }
+  };
+
   return (
     <Reorder.Item
       value={program}
       dragListener={false}
       dragControls={dragControls}
+      transition={{ duration: 0.18, ease: "easeOut" }}
       className={cn(
-        "group flex items-start gap-3 px-3 py-3 transition-colors first:rounded-t-md last:rounded-b-md",
-        "hover:bg-muted/40 focus-within:bg-muted/40",
+        "transition-colors first:rounded-t-md last:rounded-b-md",
         program.type !== "performance" && "bg-muted/30",
+        selected && "bg-muted/50",
       )}
       whileDrag={{
         scale: 1.01,
         boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
       }}
     >
-      {canModify && (
-        <button
-          type="button"
-          aria-label="並び替え"
-          className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground/60 transition-colors hover:text-muted-foreground active:cursor-grabbing"
-          onPointerDown={(e) => dragControls.start(e)}
-        >
-          <DotsSixVertical size={16} />
-        </button>
-      )}
+      <div
+        {...(interactive
+          ? {
+              role: "button" as const,
+              tabIndex: 0,
+              "aria-expanded": selected,
+              onClick: handleRowClick,
+              onKeyDown: handleRowKeyDown,
+            }
+          : {})}
+        className={cn(
+          "flex items-start gap-2 px-3 py-3 outline-none",
+          interactive &&
+            "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+        )}
+      >
+        {showGrip && (
+          <button
+            type="button"
+            aria-label="並び替え"
+            className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground/60 transition-colors hover:text-muted-foreground active:cursor-grabbing"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              dragControls.start(e);
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DotsSixVertical size={16} />
+          </button>
+        )}
 
-      <span className="w-12 shrink-0">
-        {program.type === "performance" ? (
-          <span className="mt-0.5 block text-sm font-medium tabular-nums text-muted-foreground">
+        {program.type === "performance" && (
+          <span className="mt-0.5 w-7 shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
             {performanceNumber}.
           </span>
-        ) : program.type === "other" ? null : (
-          <span className="mt-1 block text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            {PROGRAM_TYPE_LABELS[program.type]}
-          </span>
         )}
-      </span>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        {program.type === "performance" ? (
-          <>
-            {program.performers.length > 0 && (
-              <span className="min-w-0 font-medium">
-                {program.performers.map((p) => p.displayName).join(", ")}
-              </span>
-            )}
-            {program.pieces.map((piece) => (
-              <div
-                key={piece.id}
-                className="flex items-baseline gap-2 text-sm text-muted-foreground"
-              >
-                <span>{piece.title}</span>
-                {piece.composer && (
-                  <span className="text-muted-foreground/60">
-                    {piece.composer}
-                  </span>
-                )}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {program.type === "performance" ? (
+            <>
+              {program.performers.length > 0 && (
+                <span className="min-w-0 font-medium">
+                  {program.performers.map((p) => p.displayName).join(", ")}
+                </span>
+              )}
+              <div className="mt-0.5 flex flex-col gap-1 border-l border-border/50 pl-2.5">
+                {program.pieces.map((piece) => (
+                  <div key={piece.id} className="flex flex-col">
+                    <span className="text-sm">{piece.title}</span>
+                    {piece.composer && (
+                      <span className="text-xs text-muted-foreground/70">
+                        {piece.composer}
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </>
-        ) : (
-          <span className="text-sm text-muted-foreground">
-            {program.pieces[0]?.title}
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              {program.pieces[0]?.title}
+            </span>
+          )}
+        </div>
+
+        {timeLabel && (
+          <span className="mt-0.5 shrink-0 text-xs tabular-nums text-muted-foreground">
+            {timeLabel}
           </span>
         )}
       </div>
 
-      {timeLabel && (
-        <span className="mt-0.5 shrink-0 text-xs tabular-nums text-muted-foreground">
-          {timeLabel}
-        </span>
-      )}
-
-      {canModify && (
-        <div className="flex shrink-0 items-start gap-0.5 opacity-60 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7"
-            aria-label="編集"
-            onClick={() => onEdit(program)}
+      <AnimatePresence initial={false}>
+        {interactive && selected && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            style={{ overflow: "hidden" }}
           >
-            <PencilSimple size={14} />
-          </Button>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+            <div className="flex items-center justify-end gap-1 border-t border-border/40 bg-background/40 px-3 py-2">
               <Button
                 variant="ghost"
-                size="icon"
-                aria-label="削除"
-                className="size-7 text-muted-foreground hover:text-destructive"
+                size="sm"
+                className="gap-1.5"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(program);
+                }}
               >
-                <Trash size={14} />
+                <PencilSimple size={14} />
+                編集
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>プログラムを削除</AlertDialogTitle>
-                <AlertDialogDescription>
-                  「{deleteTargetLabel}
-                  」を削除してもよろしいですか？この操作は取り消せません。
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDelete(program.id)}>
-                  削除する
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      )}
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Trash size={14} />
+                    削除
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>プログラムを削除</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      「{deleteTargetLabel}
+                      」を削除してもよろしいですか？この操作は取り消せません。
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(program.id)}>
+                      削除する
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Reorder.Item>
   );
 }
