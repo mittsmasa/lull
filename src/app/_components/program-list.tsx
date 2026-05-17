@@ -85,9 +85,14 @@ export function ProgramList({
     const onClick = (e: MouseEvent) => {
       const list = listRef.current;
       if (!list) return;
-      if (!list.contains(e.target as Node)) {
-        setSelectedId(null);
-      }
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      if (list.contains(target)) return;
+      // Radix の Portal で描画される Dialog 内のクリックは外側扱いにしない
+      // （削除確認ダイアログ内のボタン押下中に selectedId をクリアして
+      // ダイアログをアンマウントしてしまうのを防ぐ）
+      if (target.closest('[role="alertdialog"], [role="dialog"]')) return;
+      setSelectedId(null);
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onClick);
