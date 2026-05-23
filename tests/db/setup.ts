@@ -35,6 +35,23 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+// Server Action 内で next/server の `after` を使うが、テストはリクエスト
+// スコープを持たないため本物を呼ぶと throw する。コールバックを安全に
+// 実行できる no-op 相当に差し替える
+vi.mock("next/server", () => ({
+  after: (fn: () => unknown | Promise<unknown>) => {
+    Promise.resolve()
+      .then(() => fn())
+      .catch(() => {});
+  },
+}));
+
+// メール送信ユーティリティはテスト中は no-op で十分（送信の有無や引数を
+// 検証したいケースが出てきたら vi.fn().mockResolvedValue(...) に差し替える）
+vi.mock("@/lib/mailer", () => ({
+  sendMail: async () => {},
+}));
+
 vi.mock("@/lib/session", () => ({
   getSession: async () => {
     return (globalThis as { __mockSession?: unknown }).__mockSession ?? null;
