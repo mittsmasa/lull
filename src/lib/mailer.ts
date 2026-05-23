@@ -28,8 +28,14 @@ export async function sendMail({
   const from = process.env.MAIL_FROM ?? DEFAULT_FROM;
 
   if (!apiKey) {
+    // 本番では設定漏れに即時気付くよう fail-fast し、PII を含む本文を
+    // ログに残さない。dev / test では fallback として宛先と件名のみ出す
+    // （本文は出さない）
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("[mailer] RESEND_API_KEY is required in production");
+    }
     console.info(
-      `[mailer] would send (RESEND_API_KEY not set)\nfrom: ${from}\nto: ${to}\nsubject: ${subject}\n---\n${text}`,
+      `[mailer] would send (RESEND_API_KEY not set) to=${to} subject=${subject}`,
     );
     return;
   }

@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import * as z from "zod";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
@@ -104,6 +105,20 @@ export async function respondToInvitation(
     return { error: "入力内容を確認してください", fieldErrors };
   }
 
+  // 編集時の guestEmail 改ざん防止
+  // 初回回答後は宛先メールアドレスを変更不可とし、招待トークンを使った
+  // 任意宛先への通知メール送信（spam relay）を防ぐ
+  if (
+    invitation.status !== "pending" &&
+    invitation.guestEmail !== null &&
+    invitation.guestEmail !== parsed.data.guestEmail
+  ) {
+    return {
+      error: "入力内容を確認してください",
+      fieldErrors: { guestEmail: "メールアドレスは変更できません" },
+    };
+  }
+
   const { attendance, companions: companionNames, ...guestInfo } = parsed.data;
   const prevStatus = invitation.status;
 
@@ -167,8 +182,14 @@ export async function respondToInvitation(
     companionNames: attendance === "accepted" ? companionNames : [],
     invitationUrl: `${getBaseUrl()}/i/${token}`,
   });
-  void sendMail({ to: guestInfo.guestEmail, ...mail }).catch((err) => {
-    console.error("[respondToInvitation] failed to send mail", err);
+  // レスポンス返却後に走らせる（serverless 環境で fire-and-forget が
+  // 切られる挙動を避ける）
+  after(async () => {
+    try {
+      await sendMail({ to: guestInfo.guestEmail, ...mail });
+    } catch (err) {
+      console.error("[respondToInvitation] failed to send mail", err);
+    }
   });
 
   revalidatePath(`/i/${token}`);
