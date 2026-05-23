@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { JoinEventForm } from "@/app/_components/join-event-form";
+import { VenueMap } from "@/app/_components/venue-map";
 import { formatDatetime, formatTime } from "@/lib/format";
 import { getEventMembership } from "@/lib/queries/events";
 import { getPerformerInvitationByToken } from "@/lib/queries/members";
@@ -49,6 +50,9 @@ function PerformerInvitationHeader({
   event: {
     name: string;
     venue: string;
+    address: string | null;
+    latitude: number | null;
+    longitude: number | null;
     startDatetime: string;
     openDatetime: string | null;
   };
@@ -87,8 +91,25 @@ function PerformerInvitationHeader({
         <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           会場
         </dt>
-        <dd className="text-sm">{event.venue}</dd>
+        <dd className="flex flex-col gap-1 text-sm">
+          <span>{event.venue}</span>
+          {event.address && (
+            <span className="text-muted-foreground text-xs tracking-wider">
+              {event.address}
+            </span>
+          )}
+        </dd>
       </dl>
+      {event.latitude !== null && event.longitude !== null && (
+        <div className="animate-in fade-in slide-in-from-bottom-1 duration-500 delay-200 fill-mode-both motion-reduce:animate-none motion-reduce:delay-0">
+          <VenueMap
+            venue={event.venue}
+            address={event.address}
+            latitude={event.latitude}
+            longitude={event.longitude}
+          />
+        </div>
+      )}
     </header>
   );
 }
