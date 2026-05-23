@@ -5,7 +5,17 @@ import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
+import { buildInvitationResponseMail } from "@/lib/emails/invitation-response";
+import { sendMail } from "@/lib/mailer";
 import { getConsumedSeats } from "@/lib/queries/invitations";
+
+function getBaseUrl(): string {
+  return (
+    process.env.APP_PUBLIC_URL ??
+    process.env.BETTER_AUTH_URL ??
+    "http://localhost:3000"
+  );
+}
 
 // NOTE: 成功時は undefined を返す（既存パターンに統一）
 export type ResponseActionState =
@@ -95,6 +105,7 @@ export async function respondToInvitation(
   }
 
   const { attendance, companions: companionNames, ...guestInfo } = parsed.data;
+  const prevStatus = invitation.status;
 
   // DB 更新（トランザクションで座席競合を防止）
   const txError = await db.transaction(async (tx) => {
@@ -146,6 +157,19 @@ export async function respondToInvitation(
   if (txError) {
     return { error: txError };
   }
+
+  const mail = buildInvitationResponseMail({
+    eventName: event.name,
+    guestName: guestInfo.guestName,
+    guestEmail: guestInfo.guestEmail,
+    attendance,
+    prevStatus,
+    companionNames: attendance === "accepted" ? companionNames : [],
+    invitationUrl: `${getBaseUrl()}/i/${token}`,
+  });
+  void sendMail({ to: guestInfo.guestEmail, ...mail }).catch((err) => {
+    console.error("[respondToInvitation] failed to send mail", err);
+  });
 
   revalidatePath(`/i/${token}`);
   revalidatePath(`/events/${event.id}/invitations`);
