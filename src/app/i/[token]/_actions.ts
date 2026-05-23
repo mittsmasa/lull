@@ -7,15 +7,19 @@ import * as z from "zod";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
 import { buildInvitationResponseMail } from "@/lib/emails/invitation-response";
-import { sendMail } from "@/lib/mailer";
+import { MailerConfigError, sendMail } from "@/lib/mailer";
 import { getConsumedSeats } from "@/lib/queries/invitations";
 
 function getBaseUrl(): string {
-  return (
-    process.env.APP_PUBLIC_URL ??
-    process.env.BETTER_AUTH_URL ??
-    "http://localhost:3000"
-  );
+  // 明示設定（trim 後の非空）が最優先
+  const explicit =
+    process.env.APP_PUBLIC_URL?.trim() || process.env.BETTER_AUTH_URL?.trim();
+  if (explicit) return explicit;
+  // Vercel の preview deploy 等では VERCEL_BRANCH_URL / VERCEL_URL を使う
+  // （src/lib/auth.ts の組み立て方と揃える）
+  const vercelHost = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
+  if (vercelHost) return `https://${vercelHost}`;
+  return "http://localhost:3000";
 }
 
 // NOTE: 成功時は undefined を返す（既存パターンに統一）
@@ -107,10 +111,11 @@ export async function respondToInvitation(
 
   // 編集時の guestEmail 改ざん防止
   // 初回回答後は宛先メールアドレスを変更不可とし、招待トークンを使った
-  // 任意宛先への通知メール送信（spam relay）を防ぐ
+  // 任意宛先への通知メール送信（spam relay）を防ぐ。
+  // 既存値が null のケース（admin 代理操作などで status だけ進められた場合）
+  // でも変更不可とする
   if (
     invitation.status !== "pending" &&
-    invitation.guestEmail !== null &&
     invitation.guestEmail !== parsed.data.guestEmail
   ) {
     return {
@@ -189,6 +194,10 @@ export async function respondToInvitation(
       await sendMail({ to: guestInfo.guestEmail, ...mail });
     } catch (err) {
       console.error("[respondToInvitation] failed to send mail", err);
+      // 設定漏れ系は監視で拾えるよう Next.js runtime に伝播させる
+      if (err instanceof MailerConfigError) {
+        throw err;
+      }
     }
   });
 

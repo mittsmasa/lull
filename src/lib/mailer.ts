@@ -4,13 +4,13 @@ import { Resend } from "resend";
 
 const DEFAULT_FROM = "Lull <invitation@lull.live>";
 
-let cachedClient: Resend | null = null;
-
-function getClient(apiKey: string): Resend {
-  if (!cachedClient) {
-    cachedClient = new Resend(apiKey);
+// 設定漏れを呼び出し側で型分岐するための専用エラー（transient な送信失敗と
+// 区別したい）
+export class MailerConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MailerConfigError";
   }
-  return cachedClient;
 }
 
 export type SendMailInput = {
@@ -24,15 +24,17 @@ export async function sendMail({
   subject,
   text,
 }: SendMailInput): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.MAIL_FROM ?? DEFAULT_FROM;
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  // 空文字 / 空白のみを「未設定」として扱うため `||` を使う
+  const from = process.env.MAIL_FROM?.trim() || DEFAULT_FROM;
 
   if (!apiKey) {
-    // 本番では設定漏れに即時気付くよう fail-fast し、PII を含む本文を
-    // ログに残さない。dev / test では fallback として宛先と件名のみ出す
-    // （本文は出さない）
+    // 本番では設定漏れに fail-fast、PII を含む本文をログに残さない。
+    // dev / test では宛先と件名のみ出す（本文は出さない）
     if (process.env.NODE_ENV === "production") {
-      throw new Error("[mailer] RESEND_API_KEY is required in production");
+      throw new MailerConfigError(
+        "[mailer] RESEND_API_KEY is required in production",
+      );
     }
     console.info(
       `[mailer] would send (RESEND_API_KEY not set) to=${to} subject=${subject}`,
@@ -40,7 +42,9 @@ export async function sendMail({
     return;
   }
 
-  const client = getClient(apiKey);
+  // Resend のインスタンス化は安価。シングルトンにすると key ローテーション
+  // 時に古いインスタンスが残るため都度生成する
+  const client = new Resend(apiKey);
   const result = await client.emails.send({
     from,
     to,

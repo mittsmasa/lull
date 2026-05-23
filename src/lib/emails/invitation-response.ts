@@ -28,9 +28,8 @@ export function buildInvitationResponseMail(
     invitationUrl,
   } = input;
 
-  // RFC 5322 上 subject ヘッダに CR/LF を入れられないため、event 名に
-  // 紛れ込んだ改行や制御文字をスペースに置換してヘッダーインジェクションと
-  // Resend API 拒否を防ぐ
+  // subject ヘッダのヘッダーインジェクション対策と、本文中の表示崩れ防止を
+  // 兼ねて event 名から CR/LF/Tab を除去する
   const safeEventName = eventName.replace(/[\r\n\t]+/g, " ").trim();
 
   const subject =
@@ -40,8 +39,8 @@ export function buildInvitationResponseMail(
 
   const lead =
     prevStatus === "pending"
-      ? `「${eventName}」へのご回答を承りました。`
-      : `「${eventName}」への回答内容を更新しました。`;
+      ? `「${safeEventName}」へのご回答を承りました。`
+      : `「${safeEventName}」への回答内容を更新しました。`;
 
   const responseLines = [
     `- 出欠: ${attendance === "accepted" ? "出席" : "辞退"}`,

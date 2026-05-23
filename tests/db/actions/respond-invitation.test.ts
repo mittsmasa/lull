@@ -152,6 +152,7 @@ describe("respondToInvitation - 受諾", () => {
       eventId: event.id,
       memberId,
       status: "accepted",
+      guestEmail: baseGuestInfo.guestEmail,
     });
     await addCompanion({ invitationId: target.id, name: "旧同伴" });
 
@@ -188,6 +189,7 @@ describe("respondToInvitation - 辞退", () => {
       status: "accepted",
       checkedIn: true,
       checkedInAt: 100,
+      guestEmail: baseGuestInfo.guestEmail,
     });
     await addCompanion({ invitationId: target.id });
 
