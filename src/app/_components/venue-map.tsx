@@ -18,10 +18,11 @@ export function VenueMap({
   className,
 }: Props) {
   const delta = 0.005;
-  const minLng = longitude - delta;
-  const minLat = latitude - delta;
-  const maxLng = longitude + delta;
-  const maxLat = latitude + delta;
+  // 経度は ±180、緯度は ±90 でクランプ。日付変更線/極地でも範囲外にしない。
+  const minLng = Math.max(-180, longitude - delta);
+  const minLat = Math.max(-90, latitude - delta);
+  const maxLng = Math.min(180, longitude + delta);
+  const maxLat = Math.min(90, latitude + delta);
   const bbox = `${minLng},${minLat},${maxLng},${maxLat}`;
   const embedSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude},${longitude}`;
   const openUrl = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=17/${latitude}/${longitude}`;
@@ -55,6 +56,8 @@ export function VenueMap({
           height={height}
           loading="lazy"
           referrerPolicy="no-referrer"
+          // OpenStreetMap embed が動く範囲で第三者コンテンツの権限を絞る
+          sandbox="allow-scripts allow-same-origin allow-popups"
           className="block w-full"
         />
       </div>

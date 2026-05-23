@@ -247,6 +247,7 @@ export function EventDetail({
               />
             </div>
             <VenueField
+              mode="update"
               defaultVenue={event.venue}
               defaultAddress={event.address}
               defaultLatitude={event.latitude}

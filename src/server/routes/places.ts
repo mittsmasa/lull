@@ -83,13 +83,29 @@ const app = new Hono().get("/search", async (c) => {
     return c.json({ error: "upstream error", status: res.status }, 502);
   }
 
-  const items = (await res.json()) as NominatimItem[];
-  const suggestions: PlaceSuggestion[] = items.map((item) => ({
-    name: extractName(item),
-    address: formatAddress(item),
-    latitude: Number(item.lat),
-    longitude: Number(item.lon),
-  }));
+  const raw = (await res.json()) as unknown;
+  if (!Array.isArray(raw)) {
+    // Nominatim はレート制限超過などで配列以外を返すことがある
+    return c.json({ error: "upstream invalid response" }, 502);
+  }
+
+  const suggestions: PlaceSuggestion[] = (raw as NominatimItem[])
+    .map((item) => ({
+      name: extractName(item),
+      address: formatAddress(item),
+      latitude: Number(item.lat),
+      longitude: Number(item.lon),
+    }))
+    // 緯度経度が数値として復元できないアイテムは除外
+    .filter(
+      (s) =>
+        Number.isFinite(s.latitude) &&
+        Number.isFinite(s.longitude) &&
+        s.latitude >= -90 &&
+        s.latitude <= 90 &&
+        s.longitude >= -180 &&
+        s.longitude <= 180,
+    );
 
   return c.json(suggestions);
 });

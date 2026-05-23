@@ -1,6 +1,6 @@
 "use client";
 
-import { MagnifyingGlass, MapPin, X } from "@phosphor-icons/react";
+import { Info, MagnifyingGlass, MapPin, X } from "@phosphor-icons/react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,15 @@ type Props = {
   defaultLatitude?: number | null;
   defaultLongitude?: number | null;
   venueError?: string;
+  addressError?: string;
+  latitudeError?: string;
+  longitudeError?: string;
+  /**
+   * "update" のときは初期値から変更があったフィールドだけ hidden input に
+   * name を付ける。変更されていないフィールドは form に乗らないので、
+   * Server Action 側で他者が並行更新した値を上書きしない。
+   */
+  mode?: "create" | "update";
 };
 
 export function VenueField({
@@ -28,11 +37,21 @@ export function VenueField({
   defaultLatitude = null,
   defaultLongitude = null,
   venueError,
+  addressError,
+  latitudeError,
+  longitudeError,
+  mode = "create",
 }: Props) {
   const [venue, setVenue] = useState(defaultVenue);
   const [address, setAddress] = useState<string | null>(defaultAddress);
   const [latitude, setLatitude] = useState<number | null>(defaultLatitude);
   const [longitude, setLongitude] = useState<number | null>(defaultLongitude);
+
+  // サジェストから選んだ会場名を保持。venue と一致しているときだけ
+  // 「地図と整合した状態」とみなす。
+  const [selectedName, setSelectedName] = useState<string | null>(
+    defaultLatitude !== null && defaultLongitude !== null ? defaultVenue : null,
+  );
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -44,12 +63,31 @@ export function VenueField({
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasCoordinates = latitude !== null && longitude !== null;
+  const isMapMatchingVenue = hasCoordinates && venue === selectedName;
   const showSuggestions =
-    isFocused && suggestions.length > 0 && !hasCoordinates;
+    isFocused && suggestions.length > 0 && !isMapMatchingVenue;
+
+  // 初期値スナップショット — update モードでの dirty 判定に使う
+  const initial = useRef({
+    venue: defaultVenue,
+    address: defaultAddress,
+    latitude: defaultLatitude,
+    longitude: defaultLongitude,
+  });
+  const shouldSend = (changed: boolean) => mode !== "update" || changed;
+
+  const clearBlurTimer = () => {
+    if (blurTimerRef.current) {
+      clearTimeout(blurTimerRef.current);
+      blurTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     const trimmed = venue.trim();
-    if (trimmed.length < 2 || hasCoordinates) {
+    // 地図と venue が一致しているときだけ検索をスキップ。
+    // ユーザーが会場名を編集して selectedName と乖離したら再検索が走る。
+    if (trimmed.length < 2 || isMapMatchingVenue) {
       setSuggestions([]);
       setIsSearching(false);
       return;
@@ -72,7 +110,11 @@ export function VenueField({
           return;
         }
         const data = (await res.json()) as Suggestion[];
-        if (!cancelled) setSuggestions(data);
+        // 上流が NaN を返したアイテムは除外（lat/lon が壊れたケース）
+        const safe = data.filter(
+          (s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude),
+        );
+        if (!cancelled) setSuggestions(safe);
       } catch {
         if (!cancelled) {
           setHasError(true);
@@ -87,11 +129,15 @@ export function VenueField({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [venue, hasCoordinates]);
+  }, [venue, isMapMatchingVenue]);
 
   useEffect(() => {
+    // unmount 時のタイマー解放
     return () => {
-      if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current);
+        blurTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -100,14 +146,17 @@ export function VenueField({
     setAddress(s.address);
     setLatitude(s.latitude);
     setLongitude(s.longitude);
+    setSelectedName(s.name);
     setSuggestions([]);
     setIsFocused(false);
+    clearBlurTimer();
   };
 
   const handleClearLocation = () => {
     setAddress(null);
     setLatitude(null);
     setLongitude(null);
+    setSelectedName(null);
   };
 
   return (
@@ -120,10 +169,16 @@ export function VenueField({
             id={venueId}
             value={venue}
             onChange={(e) => setVenue(e.target.value)}
-            onFocus={() => setIsFocused(true)}
+            onFocus={() => {
+              clearBlurTimer();
+              setIsFocused(true);
+            }}
             onBlur={() => {
-              // クリック判定のため少し遅延
-              blurTimerRef.current = setTimeout(() => setIsFocused(false), 150);
+              clearBlurTimer();
+              blurTimerRef.current = setTimeout(() => {
+                setIsFocused(false);
+                blurTimerRef.current = null;
+              }, 150);
             }}
             required
             maxLength={200}
@@ -190,6 +245,13 @@ export function VenueField({
 
       {hasCoordinates && latitude !== null && longitude !== null && (
         <div className="flex flex-col gap-2">
+          {!isMapMatchingVenue && (
+            <p className="flex items-start gap-2 rounded-sm border border-amber-500/40 bg-amber-50/60 px-3 py-2 text-[11px] text-amber-900 tracking-wider dark:bg-amber-950/30 dark:text-amber-200">
+              <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              会場名を変更しました。地図と一致しない場合は、サジェストから選び直すか「クリア」してください。
+            </p>
+          )}
+
           <div className="flex flex-col gap-2">
             <Label htmlFor={addressId}>住所</Label>
             <Input
@@ -199,7 +261,11 @@ export function VenueField({
               onChange={(e) => setAddress(e.target.value || null)}
               maxLength={300}
               placeholder="任意。サジェストから取得した住所が入ります"
+              aria-invalid={addressError ? true : undefined}
             />
+            {addressError && (
+              <p className="text-destructive text-xs">{addressError}</p>
+            )}
           </div>
 
           <VenueMap
@@ -221,17 +287,45 @@ export function VenueField({
         </div>
       )}
 
-      {/* hidden inputs for form submission */}
-      <input type="hidden" name="venue" value={venue} />
-      <input type="hidden" name="address" value={address ?? ""} />
+      {(latitudeError || longitudeError) && (
+        <p className="text-destructive text-xs">
+          {latitudeError ?? longitudeError}
+        </p>
+      )}
+
+      {/*
+        hidden inputs for form submission.
+        update モードでは初期値から変更があったフィールドのみ name を付与する。
+        name 無しの hidden input は formData に乗らないので、Server Action 側で
+        formData.has(...) が false → updateData にセットされず、他者の並行更新を
+        上書きしない。
+      */}
       <input
         type="hidden"
-        name="latitude"
+        {...(shouldSend(venue !== initial.current.venue)
+          ? { name: "venue" }
+          : {})}
+        value={venue}
+      />
+      <input
+        type="hidden"
+        {...(shouldSend(address !== initial.current.address)
+          ? { name: "address" }
+          : {})}
+        value={address ?? ""}
+      />
+      <input
+        type="hidden"
+        {...(shouldSend(latitude !== initial.current.latitude)
+          ? { name: "latitude" }
+          : {})}
         value={latitude !== null ? String(latitude) : ""}
       />
       <input
         type="hidden"
-        name="longitude"
+        {...(shouldSend(longitude !== initial.current.longitude)
+          ? { name: "longitude" }
+          : {})}
         value={longitude !== null ? String(longitude) : ""}
       />
     </div>
