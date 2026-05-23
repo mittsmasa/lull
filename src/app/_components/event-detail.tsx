@@ -47,12 +47,17 @@ import {
 } from "@/lib/event-status";
 import { formatDatetime } from "@/lib/format";
 import type { EventStats } from "@/lib/queries/events";
+import { VenueField } from "./venue-field";
+import { VenueMap } from "./venue-map";
 
 type EventDetailProps = {
   event: {
     id: string;
     name: string;
     venue: string;
+    address: string | null;
+    latitude: number | null;
+    longitude: number | null;
     startDatetime: string;
     openDatetime: string | null;
     status: EventStatus;
@@ -151,30 +156,43 @@ export function EventDetail({
         </div>
 
         {!isEditing && (
-          <dl className="grid gap-6 border-border/60 border-y py-6 md:grid-cols-3">
-            <FactItem
-              icon={<CalendarBlank className="h-4 w-4" aria-hidden />}
-              label="開演"
-              value={formatDatetime(event.startDatetime)}
-              sub={
-                event.openDatetime
-                  ? `開場 ${formatDatetime(event.openDatetime)}`
-                  : null
-              }
-            />
-            <FactItem
-              icon={<MapPin className="h-4 w-4" aria-hidden />}
-              label="会場"
-              value={event.venue}
-            />
-            <FactItem
-              icon={<IdentificationCard className="h-4 w-4" aria-hidden />}
-              label="座席"
-              value={
-                event.totalSeats === 0 ? "無制限" : `${event.totalSeats} 席`
-              }
-            />
-          </dl>
+          <>
+            <dl className="grid gap-6 border-border/60 border-y py-6 md:grid-cols-3">
+              <FactItem
+                icon={<CalendarBlank className="h-4 w-4" aria-hidden />}
+                label="開演"
+                value={formatDatetime(event.startDatetime)}
+                sub={
+                  event.openDatetime
+                    ? `開場 ${formatDatetime(event.openDatetime)}`
+                    : null
+                }
+              />
+              <FactItem
+                icon={<MapPin className="h-4 w-4" aria-hidden />}
+                label="会場"
+                value={event.venue}
+                sub={event.address ?? null}
+              />
+              <FactItem
+                icon={<IdentificationCard className="h-4 w-4" aria-hidden />}
+                label="座席"
+                value={
+                  event.totalSeats === 0 ? "無制限" : `${event.totalSeats} 席`
+                }
+              />
+            </dl>
+            {event.latitude !== null && event.longitude !== null && (
+              <div className="pt-6">
+                <VenueMap
+                  venue={event.venue}
+                  address={event.address}
+                  latitude={event.latitude}
+                  longitude={event.longitude}
+                />
+              </div>
+            )}
+          </>
         )}
       </header>
 
@@ -228,17 +246,13 @@ export function EventDetail({
                 defaultValue={event.openDatetime?.split("T")[1] ?? ""}
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="venue">会場</Label>
-              <Input
-                type="text"
-                id="venue"
-                name="venue"
-                required
-                maxLength={200}
-                defaultValue={event.venue}
-              />
-            </div>
+            <VenueField
+              mode="update"
+              defaultVenue={event.venue}
+              defaultAddress={event.address}
+              defaultLatitude={event.latitude}
+              defaultLongitude={event.longitude}
+            />
             <div className="flex flex-col gap-2">
               <Label htmlFor="totalSeats">座席数（0 = 無制限）</Label>
               <Input

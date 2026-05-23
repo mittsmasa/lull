@@ -21,6 +21,7 @@ import {
   ResponsiveModalTitle,
   ResponsiveModalTrigger,
 } from "@/components/ui/responsive-modal";
+import { VenueField } from "./venue-field";
 
 export function CreateEventDialog() {
   const [open, setOpen] = useState(false);
@@ -30,7 +31,6 @@ export function CreateEventDialog() {
   const dateId = useId();
   const startTimeId = useId();
   const openTimeId = useId();
-  const venueId = useId();
   const totalSeatsId = useId();
   const unlimitedId = useId();
 
@@ -94,21 +94,25 @@ export function CreateEventDialog() {
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={venueId}>会場</Label>
-            <Input
-              type="text"
-              id={venueId}
-              name="venue"
-              required
-              maxLength={200}
-              defaultValue={stateFields?.venue}
-              aria-invalid={fieldErrors?.venue ? true : undefined}
-            />
-            {fieldErrors?.venue && (
-              <p className="text-destructive text-xs">{fieldErrors.venue}</p>
-            )}
-          </div>
+          <VenueField
+            defaultVenue={stateFields?.venue}
+            defaultAddress={stateFields?.address || null}
+            defaultLatitude={
+              stateFields?.latitude !== undefined && stateFields.latitude !== ""
+                ? Number(stateFields.latitude)
+                : null
+            }
+            defaultLongitude={
+              stateFields?.longitude !== undefined &&
+              stateFields.longitude !== ""
+                ? Number(stateFields.longitude)
+                : null
+            }
+            venueError={fieldErrors?.venue}
+            addressError={fieldErrors?.address}
+            latitudeError={fieldErrors?.latitude}
+            longitudeError={fieldErrors?.longitude}
+          />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">

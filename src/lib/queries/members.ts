@@ -51,6 +51,9 @@ export type PerformerInvitationForJoin = {
     id: string;
     name: string;
     venue: string;
+    address: string | null;
+    latitude: number | null;
+    longitude: number | null;
     startDatetime: string;
     openDatetime: string | null;
     status: EventStatus;
@@ -133,6 +136,9 @@ export async function getPerformerInvitationByToken(
           id: true,
           name: true,
           venue: true,
+          address: true,
+          latitude: true,
+          longitude: true,
           startDatetime: true,
           openDatetime: true,
           status: true,

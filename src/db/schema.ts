@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   index,
   integer,
+  real,
   sqliteTable,
   text,
   unique,
@@ -142,6 +143,9 @@ export const events = sqliteTable("events", {
     .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   venue: text("venue").notNull(),
+  address: text("address"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
   startDatetime: text("start_datetime").notNull(),
   openDatetime: text("open_datetime"),
   status: text("status", { enum: EVENT_STATUSES }).notNull().default("draft"),
