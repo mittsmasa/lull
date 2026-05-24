@@ -17,8 +17,6 @@ export type EventWithRole = {
   name: string;
   venue: string;
   address: string | null;
-  latitude: number | null;
-  longitude: number | null;
   startDatetime: string;
   openDatetime: string | null;
   status: EventStatus;
@@ -46,8 +44,6 @@ export const getEventsByUserId = cache(
         name: events.name,
         venue: events.venue,
         address: events.address,
-        latitude: events.latitude,
-        longitude: events.longitude,
         startDatetime: events.startDatetime,
         openDatetime: events.openDatetime,
         status: events.status,
@@ -71,8 +67,6 @@ export const getEventsByUserId = cache(
         name: events.name,
         venue: events.venue,
         address: events.address,
-        latitude: events.latitude,
-        longitude: events.longitude,
         startDatetime: events.startDatetime,
         openDatetime: events.openDatetime,
         status: events.status,

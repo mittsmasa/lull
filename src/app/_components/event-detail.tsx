@@ -48,7 +48,7 @@ import {
 import { formatDatetime } from "@/lib/format";
 import type { EventStats } from "@/lib/queries/events";
 import { VenueField } from "./venue-field";
-import { VenueMap } from "./venue-map";
+import { VenueLink } from "./venue-link";
 
 type EventDetailProps = {
   event: {
@@ -56,8 +56,6 @@ type EventDetailProps = {
     name: string;
     venue: string;
     address: string | null;
-    latitude: number | null;
-    longitude: number | null;
     startDatetime: string;
     openDatetime: string | null;
     status: EventStatus;
@@ -182,16 +180,9 @@ export function EventDetail({
                 }
               />
             </dl>
-            {event.latitude !== null && event.longitude !== null && (
-              <div className="pt-6">
-                <VenueMap
-                  venue={event.venue}
-                  address={event.address}
-                  latitude={event.latitude}
-                  longitude={event.longitude}
-                />
-              </div>
-            )}
+            <div className="pt-2">
+              <VenueLink venue={event.venue} address={event.address} />
+            </div>
           </>
         )}
       </header>
@@ -250,8 +241,6 @@ export function EventDetail({
               mode="update"
               defaultVenue={event.venue}
               defaultAddress={event.address}
-              defaultLatitude={event.latitude}
-              defaultLongitude={event.longitude}
             />
             <div className="flex flex-col gap-2">
               <Label htmlFor="totalSeats">座席数（0 = 無制限）</Label>

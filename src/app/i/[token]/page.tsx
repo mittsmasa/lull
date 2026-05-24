@@ -7,7 +7,7 @@ import {
 import { InvitationProgramView } from "@/app/_components/invitation-program-view";
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
 import { QrCode } from "@/app/_components/qr-code";
-import { VenueMap } from "@/app/_components/venue-map";
+import { VenueLink } from "@/app/_components/venue-link";
 import type { EventStatus } from "@/db/schema";
 import { formatDate, formatDatetime, formatTime } from "@/lib/format";
 import { getInvitationByToken } from "@/lib/queries/invitations";
@@ -59,8 +59,6 @@ function EventInfoHeader({
     name: string;
     venue: string;
     address: string | null;
-    latitude: number | null;
-    longitude: number | null;
     startDatetime: string;
     openDatetime: string | null;
   };
@@ -115,16 +113,9 @@ function EventInfoHeader({
           {formatTime(event.startDatetime)}
         </dd>
       </dl>
-      {event.latitude !== null && event.longitude !== null && (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-300 motion-reduce:animate-none motion-reduce:delay-0">
-          <VenueMap
-            venue={event.venue}
-            address={event.address}
-            latitude={event.latitude}
-            longitude={event.longitude}
-          />
-        </div>
-      )}
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-300 motion-reduce:animate-none motion-reduce:delay-0">
+        <VenueLink venue={event.venue} address={event.address} />
+      </div>
     </header>
   );
 }

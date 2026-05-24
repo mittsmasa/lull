@@ -15,6 +15,13 @@
       "when": 1779497191296,
       "tag": "0001_swift_famine",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779591886576,
+      "tag": "0002_jittery_human_cannonball",
+      "breakpoints": true
     }
   ]
 }

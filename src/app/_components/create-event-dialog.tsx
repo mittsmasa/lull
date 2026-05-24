@@ -97,21 +97,8 @@ export function CreateEventDialog() {
           <VenueField
             defaultVenue={stateFields?.venue}
             defaultAddress={stateFields?.address || null}
-            defaultLatitude={
-              stateFields?.latitude !== undefined && stateFields.latitude !== ""
-                ? Number(stateFields.latitude)
-                : null
-            }
-            defaultLongitude={
-              stateFields?.longitude !== undefined &&
-              stateFields.longitude !== ""
-                ? Number(stateFields.longitude)
-                : null
-            }
             venueError={fieldErrors?.venue}
             addressError={fieldErrors?.address}
-            latitudeError={fieldErrors?.latitude}
-            longitudeError={fieldErrors?.longitude}
           />
 
           <div className="grid gap-4 sm:grid-cols-2">
