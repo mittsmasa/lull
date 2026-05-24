@@ -96,21 +96,14 @@ function EventInfoHeader({
             </span>
           )}
         </dd>
-        {event.openDatetime && (
-          <>
-            <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-              開場
-            </dt>
-            <dd className="text-sm tabular-nums">
-              {formatTime(event.openDatetime)}
-            </dd>
-          </>
-        )}
         <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          開演
+          日時
         </dt>
-        <dd className="text-sm tabular-nums">
-          {formatTime(event.startDatetime)}
+        <dd className="flex flex-col gap-1 text-sm tabular-nums">
+          {event.openDatetime && (
+            <span>開場 {formatTime(event.openDatetime)}</span>
+          )}
+          <span>開演 {formatTime(event.startDatetime)}</span>
         </dd>
       </dl>
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-300 motion-reduce:animate-none motion-reduce:delay-0">

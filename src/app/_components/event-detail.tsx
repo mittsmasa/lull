@@ -158,12 +158,14 @@ export function EventDetail({
             <dl className="grid gap-6 border-border/60 border-y py-6 md:grid-cols-3">
               <FactItem
                 icon={<CalendarBlank className="h-4 w-4" aria-hidden />}
-                label="開演"
-                value={formatDatetime(event.startDatetime)}
-                sub={
-                  event.openDatetime
-                    ? `開場 ${formatDatetime(event.openDatetime)}`
-                    : null
+                label="日時"
+                value={
+                  <div className="flex flex-col gap-1">
+                    {event.openDatetime && (
+                      <span>開場 {formatDatetime(event.openDatetime)}</span>
+                    )}
+                    <span>開演 {formatDatetime(event.startDatetime)}</span>
+                  </div>
                 }
               />
               <FactItem
@@ -348,8 +350,8 @@ function FactItem({
 }: {
   icon: ReactNode;
   label: string;
-  value: string;
-  sub?: string | null;
+  value: ReactNode;
+  sub?: ReactNode | null;
 }) {
   return (
     // biome-ignore lint/a11y/useSemanticElements: <dl> の子として <fieldset> は使えないため、name-value group のラッパとして div + role="group" を採用
