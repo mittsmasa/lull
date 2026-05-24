@@ -28,8 +28,6 @@ const createEventSchema = z.object({
     .optional(),
   venue: z.string().min(1).max(200),
   address: z.string().max(300).optional(),
-  latitude: z.coerce.number().min(-90).max(90).optional(),
-  longitude: z.coerce.number().min(-180).max(180).optional(),
   totalSeats: z.number().int().min(0).max(9999),
 });
 
@@ -50,8 +48,6 @@ const updateEventSchema = z.object({
     .optional(),
   venue: z.string().min(1).max(200).optional(),
   address: z.string().max(300).nullable().optional(),
-  latitude: z.coerce.number().min(-90).max(90).nullable().optional(),
-  longitude: z.coerce.number().min(-180).max(180).nullable().optional(),
   totalSeats: z.number().int().min(0).max(9999).optional(),
 });
 
@@ -74,8 +70,6 @@ type CreateEventFields = {
   openTime: string;
   venue: string;
   address: string;
-  latitude: string;
-  longitude: string;
   totalSeats: string;
 };
 
@@ -98,8 +92,6 @@ function extractFields(formData: FormData): CreateEventFields {
     openTime: (formData.get("openTime") as string) ?? "",
     venue: (formData.get("venue") as string) ?? "",
     address: (formData.get("address") as string) ?? "",
-    latitude: (formData.get("latitude") as string) ?? "",
-    longitude: (formData.get("longitude") as string) ?? "",
     totalSeats: (formData.get("totalSeats") as string) ?? "",
   };
 }
@@ -118,8 +110,6 @@ export async function createEvent(
     openTime: formData.get("openTime") || undefined,
     venue: formData.get("venue"),
     address: formData.get("address") || undefined,
-    latitude: formData.get("latitude") || undefined,
-    longitude: formData.get("longitude") || undefined,
     totalSeats: Number(formData.get("totalSeats")),
   });
 
@@ -166,8 +156,6 @@ export async function createEvent(
       name: rest.name,
       venue: rest.venue,
       address: rest.address ?? null,
-      latitude: rest.latitude ?? null,
-      longitude: rest.longitude ?? null,
       startDatetime,
       openDatetime,
       totalSeats: rest.totalSeats,
@@ -229,12 +217,6 @@ export async function updateEvent(
     address: formData.has("address")
       ? formData.get("address") || null
       : undefined,
-    latitude: formData.has("latitude")
-      ? formData.get("latitude") || null
-      : undefined,
-    longitude: formData.has("longitude")
-      ? formData.get("longitude") || null
-      : undefined,
     totalSeats: formData.has("totalSeats")
       ? Number(formData.get("totalSeats"))
       : undefined,
@@ -252,8 +234,6 @@ export async function updateEvent(
   if (rest.name !== undefined) updateData.name = rest.name;
   if (rest.venue !== undefined) updateData.venue = rest.venue;
   if (rest.address !== undefined) updateData.address = rest.address;
-  if (rest.latitude !== undefined) updateData.latitude = rest.latitude;
-  if (rest.longitude !== undefined) updateData.longitude = rest.longitude;
   if (rest.totalSeats !== undefined) {
     if (rest.totalSeats > 0) {
       const consumed = await getConsumedSeats(eventId);

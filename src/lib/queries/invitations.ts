@@ -59,8 +59,6 @@ export type InvitationForResponse = {
     name: string;
     venue: string;
     address: string | null;
-    latitude: number | null;
-    longitude: number | null;
     startDatetime: string;
     openDatetime: string | null;
     status: EventStatus;
@@ -138,8 +136,6 @@ export async function getInvitationByToken(
           name: true,
           venue: true,
           address: true,
-          latitude: true,
-          longitude: true,
           startDatetime: true,
           openDatetime: true,
           status: true,

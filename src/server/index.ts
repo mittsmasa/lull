@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "@/lib/auth";
 import { healthRoute } from "./routes/health";
-import { placesRoute } from "./routes/places";
 
 const app = new Hono().basePath("/api");
 
@@ -20,7 +19,7 @@ app.on(["POST", "GET"], "/auth/*", (c) => {
   return auth.handler(c.req.raw);
 });
 
-const routes = app.route("/health", healthRoute).route("/places", placesRoute);
+const routes = app.route("/health", healthRoute);
 
 export type AppType = typeof routes;
 export default app;

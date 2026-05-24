@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { JoinEventForm } from "@/app/_components/join-event-form";
-import { VenueMap } from "@/app/_components/venue-map";
+import { VenueLink } from "@/app/_components/venue-link";
 import { formatDatetime, formatTime } from "@/lib/format";
 import { getEventMembership } from "@/lib/queries/events";
 import { getPerformerInvitationByToken } from "@/lib/queries/members";
@@ -51,8 +51,6 @@ function PerformerInvitationHeader({
     name: string;
     venue: string;
     address: string | null;
-    latitude: number | null;
-    longitude: number | null;
     startDatetime: string;
     openDatetime: string | null;
   };
@@ -100,16 +98,9 @@ function PerformerInvitationHeader({
           )}
         </dd>
       </dl>
-      {event.latitude !== null && event.longitude !== null && (
-        <div className="animate-in fade-in slide-in-from-bottom-1 duration-500 delay-200 fill-mode-both motion-reduce:animate-none motion-reduce:delay-0">
-          <VenueMap
-            venue={event.venue}
-            address={event.address}
-            latitude={event.latitude}
-            longitude={event.longitude}
-          />
-        </div>
-      )}
+      <div className="animate-in fade-in slide-in-from-bottom-1 duration-500 delay-200 fill-mode-both motion-reduce:animate-none motion-reduce:delay-0">
+        <VenueLink venue={event.venue} address={event.address} />
+      </div>
     </header>
   );
 }
