@@ -16,7 +16,7 @@ importers:
         version: 0.6.0
       '@hono/zod-validator':
         specifier: 0.8.0
-        version: 0.8.0(hono@4.12.24)(zod@4.4.3)
+        version: 0.8.0(hono@4.12.25)(zod@4.4.3)
       '@libsql/client':
         specifier: 0.17.3
         version: 0.17.3
@@ -42,8 +42,8 @@ importers:
         specifier: 0.45.2
         version: 0.45.2(@libsql/client@0.17.3)(kysely@0.28.17)
       hono:
-        specifier: 4.12.24
-        version: 4.12.24
+        specifier: 4.12.25
+        version: 4.12.25
       html5-qrcode:
         specifier: 2.3.8
         version: 2.3.8
@@ -3421,8 +3421,8 @@ packages:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
 
-  hono@4.12.24:
-    resolution: {integrity: sha512-I36D1s+HgQc55KbhEr4iybfxv/9o1zdpw+XEM6dJa91LqQD0HCoSGdxpRJCZE+aavs87j4V3Ls2OJzq8C/U4iw==}
+  hono@4.12.25:
+    resolution: {integrity: sha512-2NFaIyNVgJmBs/ecmtGzlmluTFs5cHEWGTdu0t1HBwYzoGXOL5nUQBRMXsXWla5i4KkG//QMzVP88m1+I3fdAQ==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@2.0.2:
@@ -5079,9 +5079,9 @@ snapshots:
 
   '@floating-ui/utils@0.2.10': {}
 
-  '@hono/zod-validator@0.8.0(hono@4.12.24)(zod@4.4.3)':
+  '@hono/zod-validator@0.8.0(hono@4.12.25)(zod@4.4.3)':
     dependencies:
-      hono: 4.12.24
+      hono: 4.12.25
       zod: 4.4.3
 
   '@img/colour@1.0.0':
@@ -7372,7 +7372,7 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
-  hono@4.12.24: {}
+  hono@4.12.25: {}
 
   html-escaper@2.0.2: {}
 
