@@ -20,6 +20,7 @@ import {
   deleteProgram,
   reorderPrograms,
 } from "../(main)/events/[eventId]/programs/_actions";
+import { ProgramDetail } from "./program-detail";
 import { ProgramForm } from "./program-form";
 import { ProgramList } from "./program-list";
 
@@ -37,6 +38,7 @@ type ProgramManagementProps = {
 type DialogState =
   | { mode: "add" }
   | { mode: "edit"; program: ProgramWithPerformers }
+  | { mode: "detail"; program: ProgramWithPerformers }
   | null;
 
 export function ProgramManagement({
@@ -84,6 +86,7 @@ export function ProgramManagement({
         onReorder={reorderPrograms}
         onDelete={deleteProgram}
         onEdit={(program) => setDialog({ mode: "edit", program })}
+        onShowDetail={(program) => setDialog({ mode: "detail", program })}
         onAdd={canModify ? openAdd : undefined}
       />
 
@@ -92,15 +95,21 @@ export function ProgramManagement({
         onOpenChange={(open) => {
           if (!open) close();
         }}
+        size={dialog?.mode === "detail" ? "sm" : "md"}
       >
         <ResponsiveModalContent>
           <ResponsiveModalHeader>
             <ResponsiveModalTitle>
               {dialog?.mode === "edit"
                 ? "プログラムを編集"
-                : "プログラムを追加"}
+                : dialog?.mode === "detail"
+                  ? "プログラムの詳細"
+                  : "プログラムを追加"}
             </ResponsiveModalTitle>
           </ResponsiveModalHeader>
+          {dialog?.mode === "detail" && (
+            <ProgramDetail program={dialog.program} />
+          )}
           {dialog?.mode === "add" && (
             <ProgramForm
               eventId={event.id}

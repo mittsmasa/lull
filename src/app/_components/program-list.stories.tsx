@@ -9,6 +9,7 @@ const meta = {
     onReorder: fn(async () => null),
     onDelete: fn(async () => null),
     onEdit: fn(),
+    onShowDetail: fn(),
     onAdd: fn(),
   },
 } satisfies Meta<typeof ProgramList>;
@@ -85,7 +86,7 @@ const samplePrograms: ProgramWithPerformers[] = [
     type: "performance",
     scheduledTime: "14:40",
     estimatedDuration: 15,
-    note: null,
+    note: "ピアノは事前に調律済み。\n転換に1分ほしいです。",
     performers: [
       { id: "pp3", memberId: "m1", displayName: "田中太郎" },
       { id: "pp4", memberId: "m2", displayName: "鈴木花子" },
