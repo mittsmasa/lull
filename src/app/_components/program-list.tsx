@@ -2,6 +2,7 @@
 
 import {
   DotsSixVertical,
+  Note,
   PencilSimple,
   Plus,
   Trash,
@@ -44,6 +45,7 @@ type ProgramListProps = {
     programId: string,
   ) => Promise<{ error: string } | null>;
   onEdit: (program: ProgramWithPerformers) => void;
+  onShowDetail: (program: ProgramWithPerformers) => void;
   onAdd?: () => void;
 };
 
@@ -54,6 +56,7 @@ export function ProgramList({
   onReorder,
   onDelete,
   onEdit,
+  onShowDetail,
   onAdd,
 }: ProgramListProps) {
   const [programs, setPrograms] =
@@ -194,6 +197,7 @@ export function ProgramList({
                 selected={selectedId === program.id}
                 onSelect={handleSelect}
                 onEdit={onEdit}
+                onShowDetail={onShowDetail}
                 onDelete={handleDelete}
               />
             );
@@ -212,6 +216,7 @@ type ProgramRowProps = {
   selected: boolean;
   onSelect: (id: string) => void;
   onEdit: (program: ProgramWithPerformers) => void;
+  onShowDetail: (program: ProgramWithPerformers) => void;
   onDelete: (programId: string) => void;
 };
 
@@ -223,6 +228,7 @@ function ProgramRow({
   selected,
   onSelect,
   onEdit,
+  onShowDetail,
   onDelete,
 }: ProgramRowProps) {
   const dragControls = useDragControls();
@@ -240,6 +246,8 @@ function ProgramRow({
           .filter(Boolean)
           .join(" · ")
       : null;
+
+  const hasNote = Boolean(program.note?.trim());
 
   const isReorder = mode === "reorder";
   const interactive = canModify && mode === "view";
@@ -359,6 +367,21 @@ function ProgramRow({
             style={{ overflow: "hidden" }}
           >
             <div className="flex items-center justify-end gap-1 border-t border-border/40 bg-background/40 px-3 py-2">
+              {hasNote && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShowDetail(program);
+                  }}
+                >
+                  <Note size={14} />
+                  詳細
+                </Button>
+              )}
+
               <Button
                 variant="ghost"
                 size="sm"
