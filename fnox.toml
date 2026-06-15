@@ -1,0 +1,8 @@
+# fnox secrets config
+# secret 値は age 公開鍵で暗号化された暗号文（git コミット可）。
+# 復号鍵は macOS keychain (service=fnox, account=age-key) から auth_command で取得。
+
+[providers]
+age = { type = "age", recipients = ["age1rvnrau0swu4tds583lrzgurxpv20ylvku5tgr2tg3jnqxe3gndfs0m6jp0"], auth_command = "security find-generic-password -s fnox -a age-key -w" }
+
+[secrets]
