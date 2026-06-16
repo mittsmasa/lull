@@ -1,4 +1,9 @@
 minimumReleaseAge: 4320
+# storybook-addon-vrt の追加が pnpm 11.5.3 の supply-chain 検証パスの非決定バグ
+# （frozen install 時に lockfile エントリを取りこぼし MISSING_DEPENDENCY となる）を
+# 誘発するため、この dev 専用 addon を年齢チェック対象から除外する
+minimumReleaseAgeExclude:
+  - storybook-addon-vrt
 allowBuilds:
   lefthook: true
   better-sqlite3: true
