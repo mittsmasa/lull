@@ -1,0 +1,235 @@
+name: vrt
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: vrt-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  # 撮影 + 比較。PR クローズ時は不要なのでスキップする
+  vrt:
+    name: Capture & Compare
+    if: github.event_name == 'push' || github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: package.json
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: npx playwright install chromium --with-deps
+      - name: Capture story screenshots
+        run: pnpm test:vrt
+
+      # main: 撮影結果を次回 PR 比較用ベースラインとして保存する
+      - name: Upload baseline
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vrt-baseline
+          path: .vrt/actual
+          retention-days: 30
+          # .vrt は隠しディレクトリのため明示しないと中身が除外される
+          include-hidden-files: true
+
+      # PR: main の最新成功 run からベースラインを取得する（無ければ比較スキップ）
+      - name: Download baseline from main
+        if: github.event_name == 'pull_request'
+        id: baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          run_id=$(gh api "repos/$REPO/actions/workflows/vrt.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].id // empty')
+          if [ -n "$run_id" ] && gh run download "$run_id" --name vrt-baseline --dir .vrt/expected --repo "$REPO"; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare against baseline
+        if: github.event_name == 'pull_request' && steps.baseline.outputs.found == 'true'
+        id: compare
+        continue-on-error: true
+        run: pnpm exec svrt compare # report.json/report.html を .vrt/ に生成
+
+      - name: Upload report
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vrt-report
+          path: .vrt
+          retention-days: 14
+          # .vrt は隠しディレクトリのため明示しないと中身が除外される
+          include-hidden-files: true
+
+      - name: Warn when differences exist
+        if: github.event_name == 'pull_request' && steps.compare.outcome == 'failure'
+        run: echo '::warning::視覚的な差分があります。PR コメントと Pages レポートを確認してください。'
+
+  # PR(クローズ以外): gh-pages の pr-<番号>/ に report を公開しコメントする
+  deploy:
+    name: Publish to GitHub Pages
+    needs: vrt
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    # gh-pages への force push を全 PR 横断で直列化し競合を防ぐ
+    concurrency:
+      group: vrt-gh-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: vrt-report
+          # repo 作業ツリー外に展開し、gh-pages へ誤って混入させない
+          path: ${{ runner.temp }}/vrt-report
+
+      - name: Deploy to gh-pages (amend, force)
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPORT_DIR: ${{ runner.temp }}/vrt-report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages --depth=1 || true
+          if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
+            git checkout -B gh-pages origin/gh-pages
+            # 過去に誤って混入したルート成果物を一掃（無ければ no-op）
+            git rm -r --cached --ignore-unmatch vrt-out >/dev/null 2>&1 || true
+            rm -rf vrt-out
+          else
+            git checkout --orphan gh-pages
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+          rm -rf "pr-$PR_NUMBER"
+          mkdir -p "pr-$PR_NUMBER"
+          cp -r "$REPORT_DIR/." "pr-$PR_NUMBER/"
+          touch .nojekyll
+          git add -A
+          # amend で常に単一コミットに保ち、画像で history を膨らませない
+          if git rev-parse --verify HEAD >/dev/null 2>&1; then
+            git commit --amend --no-edit --allow-empty -m "deploy vrt reports"
+          else
+            git commit -m "deploy vrt reports"
+          fi
+          git push --force origin gh-pages
+
+      - name: Sticky comment on PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PAGES_URL: https://mittsmasa.github.io/lull/pr-${{ github.event.pull_request.number }}/report.html
+          REPORT_DIR: ${{ runner.temp }}/vrt-report
+        run: |
+          # report.json から PR コメント本文を生成（スクリプトは inline で持つ）
+          cat > vrt-comment.mjs <<'SCRIPT'
+          import { existsSync, readFileSync } from "node:fs";
+          const reportPath = process.argv[2];
+          const url = process.argv[3] ?? "";
+          const runUrl = process.env.RUN_URL ?? "";
+          const MAX_ITEMS = 30;
+          const lines = ["<!-- vrt-report -->", "## 📸 Visual Regression Test", ""];
+          if (!reportPath || !existsSync(reportPath)) {
+            lines.push(
+              "ベースラインがまだありません。main へのマージ後の実行でベースラインが作成され、次の PR から差分が表示されます。",
+            );
+            console.log(lines.join("\n"));
+            process.exit(0);
+          }
+          const report = JSON.parse(readFileSync(reportPath, "utf8"));
+          const s = report.summary;
+          lines.push(
+            s.failed
+              ? "⚠️ **視覚的な差分があります。** 内容を確認し、意図した変更ならそのままマージしてください（マージ後の main 実行が新しいベースラインになります）。"
+              : "✅ **差分はありません。**",
+            "",
+            "| passed | changed | added | deleted | report |",
+            "| ---: | ---: | ---: | ---: | --- |",
+            `| ${s.passed} | ${s.changed} | ${s.added} | ${s.deleted} | ${url === "" ? "—" : `[開く](${url})`} |`,
+          );
+          for (const status of ["changed", "added", "deleted"]) {
+            const items = report.items.filter((item) => item.status === status);
+            if (items.length === 0) continue;
+            lines.push("", `### ${status}`);
+            for (const item of items.slice(0, MAX_ITEMS)) {
+              const metrics =
+                item.mismatchedPixels === undefined
+                  ? ""
+                  : ` (${item.mismatchedPixels.toLocaleString()}px, ${(item.mismatchRatio * 100).toFixed(2)}%)`;
+              lines.push(`- \`${item.key}\`${metrics}`);
+            }
+            if (items.length > MAX_ITEMS) {
+              lines.push(`- …他 ${items.length - MAX_ITEMS} 件`);
+            }
+          }
+          if (url === "" && runUrl !== "") {
+            lines.push(
+              "",
+              `📦 差分画像つきレポート: [Actions run](${runUrl}) の \`vrt-report\` artifact をダウンロードし、\`report.html\` をブラウザで開く`,
+            );
+          }
+          console.log(lines.join("\n"));
+          SCRIPT
+          node vrt-comment.mjs "$REPORT_DIR/report.json" "$PAGES_URL" > comment.md
+          rm -f vrt-comment.mjs
+          marker='<!-- vrt-report -->'
+          comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n1)
+          # sticky comment: 既存があれば PATCH 更新し、無ければ新規投稿（push のたびに増殖させない）
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$comment_id" -F body=@comment.md > /dev/null
+          else
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@comment.md > /dev/null
+          fi
+
+  # PR クローズ: gh-pages から pr-<番号>/ を削除する
+  cleanup:
+    name: Remove PR report from gh-pages
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # deploy と同じグループで直列化し gh-pages の force push 競合を防ぐ
+    concurrency:
+      group: vrt-gh-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Remove pr directory
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "gh-pages ブランチが無いため何もしない"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages --depth=1
+          git checkout -B gh-pages origin/gh-pages
+          if [ ! -d "pr-$PR_NUMBER" ]; then
+            echo "pr-$PR_NUMBER が無いため何もしない"; exit 0
+          fi
+          rm -rf "pr-$PR_NUMBER"
+          git add -A
+          # amend + force push で単一コミットを維持
+          git commit --amend --no-edit --allow-empty -m "deploy vrt reports"
+          git push --force origin gh-pages
