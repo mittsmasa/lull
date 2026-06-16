@@ -1,9 +1,4 @@
 minimumReleaseAge: 4320
-# pnpm 11.5.3 の supply-chain 検証パスが frozen install 時に lockfile エントリを
-# 非決定的に取りこぼし ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY で落ちる不具合があるため、
-# レビュー済みロックファイルの再検証パスをスキップする。新規 dep 解決時の
-# minimumReleaseAge 判定は引き続き有効。
-trustLockfile: true
 allowBuilds:
   lefthook: true
   better-sqlite3: true
