@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { playwright } from "@vitest/browser-playwright";
+import { vrt } from "storybook-addon-vrt/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
 const dirname =
@@ -58,13 +59,16 @@ export default defineConfig({
         extends: true,
         plugins: [
           storybookTest({ configDir: path.join(dirname, ".storybook") }),
+          vrt(),
         ],
         test: {
           name: "storybook",
           browser: {
             enabled: true,
             headless: true,
-            provider: playwright({}),
+            provider: playwright({
+              contextOptions: { reducedMotion: "reduce" },
+            }),
             instances: [{ browser: "chromium" }],
           },
           setupFiles: [".storybook/vitest.setup.ts"],

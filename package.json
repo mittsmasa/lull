@@ -18,6 +18,7 @@
     "test": "vitest",
     "test:unit": "vitest run --project unit",
     "test:db": "vitest run --project db",
+    "test:vrt": "VRT=1 vitest run --project storybook",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -76,6 +77,7 @@
     "lefthook": "2.1.9",
     "playwright": "1.60.0",
     "storybook": "10.4.4",
+    "storybook-addon-vrt": "^0.1.0",
     "typescript": "6.0.3",
     "vite": "8.0.16",
     "vitest": "4.1.8"

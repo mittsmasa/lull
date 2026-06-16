@@ -1,5 +1,6 @@
 import type { Preview } from "@storybook/nextjs-vite";
 import { useEffect } from "react";
+import vrtPreview from "storybook-addon-vrt/preview";
 import "../src/app/globals.css";
 import { notoSerifJP, shipporiMincho } from "../src/lib/fonts";
 
@@ -19,6 +20,7 @@ const WithFontVariables = ({ children }: { children: React.ReactNode }) => {
 
 const preview: Preview = {
   decorators: [
+    ...vrtPreview.decorators,
     (Story) => (
       <WithFontVariables>
         <div className="font-sans">
