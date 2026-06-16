@@ -1,0 +1,944 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>VRT Report</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    /* ArteOdyssey palette: gray h235 / teal h180 / red h25 / yellow h90 / green h150 */
+    --surface: light-dark(oklch(0.975 0.001 235), oklch(0.25 0.0015 235));
+    --canvas: light-dark(oklch(1 0 0), oklch(0.3 0.002 235));
+    --well: light-dark(oklch(0.975 0.001 235), oklch(0.25 0.0015 235));
+    --fg: light-dark(oklch(0.25 0.0015 235), oklch(0.975 0.001 235));
+    --fg-mute: light-dark(oklch(0.52 0.006 235), oklch(0.75 0.005 235));
+    --fg-subtle: light-dark(oklch(0.66 0.006 235), oklch(0.66 0.006 235));
+    --line: light-dark(oklch(0.9 0.003 235), oklch(0.42 0.003 235));
+    --line-subtle: light-dark(oklch(0.945 0.0015 235), oklch(0.36 0.0025 235));
+    --hover: light-dark(oklch(0.945 0.0015 235), oklch(0.34 0.0025 235));
+    --primary: light-dark(oklch(0.575 0.145 180), oklch(0.84 0.16 180));
+    --selected-bg: light-dark(oklch(0.945 0.058 180), oklch(0.37 0.078 180));
+    --selected-fg: light-dark(oklch(0.41 0.098 180), oklch(0.9 0.11 180));
+    /* Search-match highlight: a yellow that reads on the plain sidebar
+       surface and on the teal selected row alike, so it never collides
+       with the selection tokens above. */
+    --mark-bg: light-dark(oklch(0.9 0.13 95), oklch(0.84 0.16 95));
+    --mark-fg: light-dark(oklch(0.32 0.07 80), oklch(0.28 0.07 80));
+    --changed-fg: light-dark(oklch(0.49 0.22 25), oklch(0.84 0.15 25));
+    --changed-bg: light-dark(oklch(0.975 0.016 25), oklch(0.37 0.14 25));
+    --changed-bd: light-dark(oklch(0.9 0.084 25), oklch(0.49 0.22 25));
+    --changed-dot: light-dark(oklch(0.66 0.27 25), oklch(0.75 0.225 25));
+    --added-fg: light-dark(oklch(0.49 0.12 180), oklch(0.84 0.16 180));
+    --added-bg: light-dark(oklch(0.975 0.02 180), oklch(0.37 0.078 180));
+    --added-bd: light-dark(oklch(0.9 0.11 180), oklch(0.49 0.12 180));
+    --added-dot: light-dark(oklch(0.66 0.165 180), oklch(0.75 0.175 180));
+    --removed-fg: light-dark(oklch(0.49 0.135 90), oklch(0.84 0.2 90));
+    --removed-bg: light-dark(oklch(0.975 0.03 90), oklch(0.37 0.085 90));
+    --removed-bd: light-dark(oklch(0.9 0.148 90), oklch(0.49 0.135 90));
+    --removed-dot: light-dark(oklch(0.66 0.18 90), oklch(0.75 0.2 90));
+    --skipped-fg: light-dark(oklch(0.55 0.02 280), oklch(0.78 0.03 280));
+    --skipped-bg: light-dark(oklch(0.965 0.008 280), oklch(0.34 0.02 280));
+    --skipped-bd: light-dark(oklch(0.88 0.02 280), oklch(0.46 0.03 280));
+    --skipped-dot: light-dark(oklch(0.68 0.03 280), oklch(0.7 0.04 280));
+    --carried-fg: light-dark(oklch(0.55 0.008 250), oklch(0.76 0.012 250));
+    --carried-bg: light-dark(oklch(0.965 0.004 250), oklch(0.33 0.008 250));
+    --carried-bd: light-dark(oklch(0.88 0.008 250), oklch(0.45 0.012 250));
+    --carried-dot: light-dark(oklch(0.7 0.012 250), oklch(0.66 0.014 250));
+    --passed-fg: light-dark(oklch(0.49 0.18 150), oklch(0.84 0.175 150));
+    --passed-bg: light-dark(oklch(0.975 0.02 150), oklch(0.37 0.108 150));
+    --passed-bd: light-dark(oklch(0.9 0.1 150), oklch(0.49 0.18 150));
+    --passed-dot: light-dark(oklch(0.66 0.245 150), oklch(0.75 0.21 150));
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    accent-color: var(--primary);
+  }
+  .changed { --c-fg: var(--changed-fg); --c-bg: var(--changed-bg); --c-bd: var(--changed-bd); --c-dot: var(--changed-dot); }
+  .added { --c-fg: var(--added-fg); --c-bg: var(--added-bg); --c-bd: var(--added-bd); --c-dot: var(--added-dot); }
+  .removed { --c-fg: var(--removed-fg); --c-bg: var(--removed-bg); --c-bd: var(--removed-bd); --c-dot: var(--removed-dot); }
+  .skipped { --c-fg: var(--skipped-fg); --c-bg: var(--skipped-bg); --c-bd: var(--skipped-bd); --c-dot: var(--skipped-dot); }
+  .carried { --c-fg: var(--carried-fg); --c-bg: var(--carried-bg); --c-bd: var(--carried-bd); --c-dot: var(--carried-dot); }
+  .passed { --c-fg: var(--passed-fg); --c-bg: var(--passed-bg); --c-bd: var(--passed-bd); --c-dot: var(--passed-dot); }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--surface);
+    color: var(--fg);
+    font-family: 'Noto Sans JP', ui-sans-serif, system-ui, 'Hiragino Sans', sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.625;
+  }
+  a { color: inherit; }
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+    border-radius: var(--radius-sm);
+  }
+  .mono { font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace; }
+
+  .app {
+    display: grid;
+    grid-template-columns: 19rem 1fr;
+    height: 100dvh;
+  }
+
+  /* ---- sidebar ---- */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--line-subtle);
+    min-height: 0;
+  }
+  .side-head { padding: 1.75rem 1.5rem 1.25rem; }
+  .eyebrow {
+    font-size: 0.6875rem;
+    color: var(--fg-subtle);
+    margin: 0 0 0.875rem;
+  }
+  .verdict {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+    margin: 0 0 1rem;
+  }
+  .verdict .num { font-size: 1.75rem; margin-right: 0.25rem; font-variant-numeric: tabular-nums; }
+  .verdict.ok { color: var(--passed-fg); }
+  .ratio {
+    display: flex;
+    gap: 2px;
+    height: 0.375rem;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+  }
+  .ratio span { background: var(--c-dot); }
+  .meta {
+    color: var(--fg-subtle);
+    font-size: 0.6875rem;
+    line-height: 1.7;
+  }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    padding: 0 1.5rem 0.75rem;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.1875rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--fg-subtle);
+    font-size: 0.71875rem;
+    font-weight: 450;
+    transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+  }
+  .chip .count { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .chip:hover { border-color: var(--c-bd); }
+  .chip[aria-pressed='true'] {
+    background: var(--c-bg);
+    border-color: var(--c-bd);
+    color: var(--c-fg);
+  }
+
+  .search {
+    padding: 0 1.5rem 1rem;
+    border-bottom: 1px solid var(--line-subtle);
+  }
+  .search-box { position: relative; display: flex; align-items: center; }
+  .search-icon {
+    position: absolute;
+    left: 0.625rem;
+    color: var(--fg-subtle);
+    pointer-events: none;
+  }
+  .search input {
+    width: 100%;
+    padding: 0.4375rem 0.75rem 0.4375rem 2rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line);
+    background: var(--canvas);
+    color: var(--fg);
+    font: inherit;
+    font-size: 0.8125rem;
+    transition: border-color 150ms ease-out;
+  }
+  .search input::placeholder { color: var(--fg-subtle); }
+  .search input:hover { border-color: var(--fg-subtle); }
+  /* The native clear affordance is unstyled OS chrome; Escape clears the
+     query instead, so suppress it to keep the input on-palette. */
+  .search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+  .list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem 0.875rem 1.25rem;
+    min-height: 0;
+  }
+  .file-label {
+    font-size: 0.6875rem;
+    color: var(--fg-subtle);
+    padding: 1rem 0.625rem 0.25rem;
+    overflow-wrap: anywhere;
+  }
+  .file-label:first-child { padding-top: 0.25rem; }
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.375rem 0.625rem;
+    border-radius: var(--radius-md);
+    color: var(--fg-mute);
+    font-size: 0.8125rem;
+    transition: background-color 150ms ease-out, color 150ms ease-out;
+  }
+  .item:hover { background: var(--hover); }
+  .item[aria-selected='true'] {
+    background: var(--selected-bg);
+    color: var(--selected-fg);
+    font-weight: 450;
+  }
+  .item .dot {
+    flex: none;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    border-radius: 999px;
+    background: var(--c-dot);
+  }
+  .item .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  mark {
+    background: var(--mark-bg);
+    color: var(--mark-fg);
+    border-radius: 0.25rem;
+    /* No horizontal padding: it would change a name's advance width and
+       shift where an ellipsized row truncates as matches come and go. */
+    padding: 0;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  .list-empty {
+    padding: 1.5rem 0.625rem;
+    color: var(--fg-subtle);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+  }
+
+  .side-foot {
+    padding: 0.875rem 1.5rem;
+    border-top: 1px solid var(--line-subtle);
+    color: var(--fg-subtle);
+    font-size: 0.6875rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  kbd {
+    font-family: inherit;
+    font-size: 0.625rem;
+    border: 1px solid var(--line);
+    border-radius: 0.25rem;
+    padding: 0 0.3125rem;
+    color: var(--fg-mute);
+  }
+
+  /* ---- detail ---- */
+  .detail {
+    background: var(--canvas);
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .detail-head {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--line-subtle);
+  }
+  .title-block { min-width: 0; }
+  .title-row { display: flex; align-items: center; gap: 0.625rem; }
+  .detail h2 {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .badge {
+    flex: none;
+    font-size: 0.6875rem;
+    font-weight: 450;
+    line-height: 1.5;
+    padding: 0.0625rem 0.625rem;
+    border-radius: 999px;
+    background: var(--c-bg);
+    border: 1px solid var(--c-bd);
+    color: var(--c-fg);
+  }
+  .path {
+    font-size: 0.71875rem;
+    color: var(--fg-subtle);
+    overflow-wrap: anywhere;
+  }
+  .head-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    flex-wrap: wrap;
+  }
+  .metrics {
+    color: var(--fg-mute);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .modes {
+    display: inline-flex;
+    gap: 0.125rem;
+    padding: 0.1875rem;
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+  .modes button {
+    padding: 0.1875rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 450;
+    color: var(--fg-mute);
+    transition: background-color 150ms ease-out, color 150ms ease-out;
+  }
+  .modes button[aria-pressed='true'] {
+    background: var(--canvas);
+    color: var(--fg);
+    box-shadow: var(--shadow-xs);
+  }
+  .pager { display: inline-flex; gap: 0.25rem; }
+  .pager button {
+    width: 1.75rem;
+    height: 1.75rem;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--fg-mute);
+    transition: background-color 150ms ease-out;
+  }
+  .pager button:hover { background: var(--hover); }
+  .pager button:disabled { opacity: 0.4; cursor: default; }
+  .pager button:disabled:hover { background: none; }
+
+  .stage {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+  }
+  .columns { display: flex; gap: 1.25rem; align-items: flex-start; }
+  .columns figure { margin: 0; flex: 1; min-width: 0; }
+  figcaption {
+    font-size: 0.6875rem;
+    font-weight: 450;
+    color: var(--fg-subtle);
+    margin-bottom: 0.375rem;
+  }
+  .shot {
+    display: flex;
+    justify-content: center;
+    /* The mat keeps screenshot pixels away from the rounded corners so
+       story content at the viewport edges is never clipped. */
+    padding: 0.625rem;
+    border: 1px solid var(--line-subtle);
+    border-radius: var(--radius-lg);
+    background:
+      repeating-conic-gradient(light-dark(oklch(0.945 0.0015 235), oklch(0.34 0.0025 235)) 0% 25%, transparent 0% 50%)
+      0 0 / 14px 14px var(--well);
+    overflow: hidden;
+  }
+  .shot img {
+    display: block;
+    max-width: 100%;
+    max-height: min(40rem, calc(100dvh - 17.25rem));
+    object-fit: contain;
+    box-shadow: 0 0 0 1px var(--line-subtle);
+  }
+  a.shot-link { display: block; border-radius: var(--radius-lg); }
+
+  .overlay { position: relative; display: inline-block; max-width: 100%; }
+  .overlay .shot + .shot {
+    position: absolute;
+    inset: 0;
+    clip-path: inset(0 0 0 var(--clip, 50%));
+  }
+  .overlay .divider {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--clip, 50%);
+    width: 2px;
+    background: var(--primary);
+    pointer-events: none;
+  }
+  .overlay .divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 999px;
+    background: var(--primary);
+    box-shadow: var(--shadow-sm);
+  }
+  .overlay-wrap input[type='range'] {
+    width: 100%;
+    display: block;
+    margin-top: 0.875rem;
+  }
+
+  .empty {
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--fg-subtle);
+  }
+
+  @media (max-width: 56rem) {
+    .app { grid-template-columns: 1fr; height: auto; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--line-subtle); }
+    .list { max-height: 18rem; }
+    .detail-head { padding: 1.25rem 1.25rem; }
+    .stage { padding: 1.25rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: 0s !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="side-head">
+      <p class="eyebrow mono">storybook-addon-vrt</p>
+      <p class="verdict" id="verdict"></p>
+      <div class="ratio" id="ratio" aria-hidden="true"></div>
+      <div class="meta" id="meta"></div>
+    </div>
+    <div class="filters" id="filters" role="group" aria-label="Filter by status"></div>
+    <div class="search" role="search">
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="7" cy="7" r="4.5" />
+          <path d="M10.5 10.5 14 14" stroke-linecap="round" />
+        </svg>
+        <input id="search" type="search" placeholder="Filter files and stories…" aria-label="Filter files and stories" role="combobox" aria-expanded="true" aria-controls="list" aria-autocomplete="list" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" />
+      </div>
+    </div>
+    <p class="sr-only" id="search-status" role="status" aria-live="polite"></p>
+    <nav class="list" id="list" role="listbox" aria-label="Screenshots"></nav>
+    <div class="side-foot">
+      <span><kbd>↑</kbd> <kbd>↓</kbd> navigate · <kbd>1</kbd>–<kbd>3</kbd> mode · <kbd>/</kbd> search</span>
+    </div>
+  </aside>
+  <main class="detail" id="detail"></main>
+</div>
+<script type="application/json" id="report-data">{"version":2,"createdAt":"2026-07-23T17:02:06.242Z","run":{"mode":"full","ref":null,"escalation":null},"options":{"threshold":0.1,"failOn":["changed","added","removed"]},"dirs":{"expected":"expected","actual":"actual","diff":"diff"},"summary":{"total":19,"passed":19,"changed":0,"added":0,"removed":0,"skipped":0,"carried":0,"failed":false},"items":[{"key":"src/app/_components/app-header.stories.tsx/Default.png","status":"passed","paths":{"expected":"expected/src/app/_components/app-header.stories.tsx/Default.png","actual":"actual/src/app/_components/app-header.stories.tsx/Default.png","diff":null}},{"key":"src/app/_components/app-header.stories.tsx/With-Back-Button.png","status":"passed","paths":{"expected":"expected/src/app/_components/app-header.stories.tsx/With-Back-Button.png","actual":"actual/src/app/_components/app-header.stories.tsx/With-Back-Button.png","diff":null}},{"key":"src/app/_components/event-card.stories.tsx/Default.png","status":"passed","paths":{"expected":"expected/src/app/_components/event-card.stories.tsx/Default.png","actual":"actual/src/app/_components/event-card.stories.tsx/Default.png","diff":null}},{"key":"src/app/_components/event-card.stories.tsx/Finished.png","status":"passed","paths":{"expected":"expected/src/app/_components/event-card.stories.tsx/Finished.png","actual":"actual/src/app/_components/event-card.stories.tsx/Finished.png","diff":null}},{"key":"src/app/_components/event-card.stories.tsx/Long-Name.png","status":"passed","paths":{"expected":"expected/src/app/_components/event-card.stories.tsx/Long-Name.png","actual":"actual/src/app/_components/event-card.stories.tsx/Long-Name.png","diff":null}},{"key":"src/app/_components/event-card.stories.tsx/Ongoing.png","status":"passed","paths":{"expected":"expected/src/app/_components/event-card.stories.tsx/Ongoing.png","actual":"actual/src/app/_components/event-card.stories.tsx/Ongoing.png","diff":null}},{"key":"src/app/_components/event-card.stories.tsx/Published.png","status":"passed","paths":{"expected":"expected/src/app/_components/event-card.stories.tsx/Published.png","actual":"actual/src/app/_components/event-card.stories.tsx/Published.png","diff":null}},{"key":"src/app/_components/ExampleButton.stories.tsx/Primary.png","status":"passed","paths":{"expected":"expected/src/app/_components/ExampleButton.stories.tsx/Primary.png","actual":"actual/src/app/_components/ExampleButton.stories.tsx/Primary.png","diff":null}},{"key":"src/app/_components/ExampleButton.stories.tsx/Secondary.png","status":"passed","paths":{"expected":"expected/src/app/_components/ExampleButton.stories.tsx/Secondary.png","actual":"actual/src/app/_components/ExampleButton.stories.tsx/Secondary.png","diff":null}},{"key":"src/app/_components/navigation-sheet.stories.tsx/All-Statuses.png","status":"passed","paths":{"expected":"expected/src/app/_components/navigation-sheet.stories.tsx/All-Statuses.png","actual":"actual/src/app/_components/navigation-sheet.stories.tsx/All-Statuses.png","diff":null}},{"key":"src/app/_components/navigation-sheet.stories.tsx/Default.png","status":"passed","paths":{"expected":"expected/src/app/_components/navigation-sheet.stories.tsx/Default.png","actual":"actual/src/app/_components/navigation-sheet.stories.tsx/Default.png","diff":null}},{"key":"src/app/_components/navigation-sheet.stories.tsx/Sub-Page-Active.png","status":"passed","paths":{"expected":"expected/src/app/_components/navigation-sheet.stories.tsx/Sub-Page-Active.png","actual":"actual/src/app/_components/navigation-sheet.stories.tsx/Sub-Page-Active.png","diff":null}},{"key":"src/app/_components/program-detail.stories.tsx/Non-Performance.png","status":"passed","paths":{"expected":"expected/src/app/_components/program-detail.stories.tsx/Non-Performance.png","actual":"actual/src/app/_components/program-detail.stories.tsx/Non-Performance.png","diff":null}},{"key":"src/app/_components/program-detail.stories.tsx/Performance.png","status":"passed","paths":{"expected":"expected/src/app/_components/program-detail.stories.tsx/Performance.png","actual":"actual/src/app/_components/program-detail.stories.tsx/Performance.png","diff":null}},{"key":"src/app/_components/program-list.stories.tsx/Default.png","status":"passed","paths":{"expected":"expected/src/app/_components/program-list.stories.tsx/Default.png","actual":"actual/src/app/_components/program-list.stories.tsx/Default.png","diff":null}},{"key":"src/app/_components/program-list.stories.tsx/Empty.png","status":"passed","paths":{"expected":"expected/src/app/_components/program-list.stories.tsx/Empty.png","actual":"actual/src/app/_components/program-list.stories.tsx/Empty.png","diff":null}},{"key":"src/app/_components/program-list.stories.tsx/Read-Only.png","status":"passed","paths":{"expected":"expected/src/app/_components/program-list.stories.tsx/Read-Only.png","actual":"actual/src/app/_components/program-list.stories.tsx/Read-Only.png","diff":null}},{"key":"src/app/_components/program-list.stories.tsx/Single-Item.png","status":"passed","paths":{"expected":"expected/src/app/_components/program-list.stories.tsx/Single-Item.png","actual":"actual/src/app/_components/program-list.stories.tsx/Single-Item.png","diff":null}},{"key":"src/app/_components/sign-in-button.stories.tsx/Default.png","status":"passed","paths":{"expected":"expected/src/app/_components/sign-in-button.stories.tsx/Default.png","actual":"actual/src/app/_components/sign-in-button.stories.tsx/Default.png","diff":null}}]}</script>
+<script>
+(() => {
+  const report = JSON.parse(document.getElementById('report-data').textContent);
+  const STATUSES = ['changed', 'added', 'removed', 'skipped', 'carried', 'passed'];
+  const REVIEW = ['changed', 'added', 'removed'];
+  const MODES = ['side-by-side', 'slider', 'blink'];
+  const ORDER = { changed: 0, added: 1, removed: 2, skipped: 3, carried: 4, passed: 5 };
+  const reviewCount = REVIEW.reduce((sum, s) => sum + report.summary[s], 0);
+
+  const state = {
+    // When there are findings, show only those; a clean run shows everything
+    // (passed plus any carried/skipped) so nothing looks hidden.
+    visible: new Set(reviewCount > 0 ? REVIEW : STATUSES),
+    selected: null,
+    mode: 'side-by-side',
+    query: '',
+  };
+
+  const items = report.items.map((item) => {
+    const slash = item.key.lastIndexOf('/');
+    return {
+      ...item,
+      file: slash === -1 ? '(root)' : item.key.slice(0, slash),
+      name: (slash === -1 ? item.key : item.key.slice(slash + 1)).replace(/\.png$/, ''),
+    };
+  });
+
+  // Whitespace-separated terms are matched as a conjunction against the
+  // full "file/story" path, so "button primary" narrows to Primary inside
+  // any button file.
+  const queryTerms = () =>
+    state.query.toLowerCase().split(/\s+/).filter(Boolean);
+
+  const matchesTerms = (item, terms) => {
+    if (terms.length === 0) return true;
+    const haystack = (item.file + '/' + item.name).toLowerCase();
+    return terms.every((term) => haystack.includes(term));
+  };
+
+  function visibleItems() {
+    const terms = queryTerms();
+    const filtered = items.filter(
+      (item) => state.visible.has(item.status) && matchesTerms(item, terms),
+    );
+    const groups = new Map();
+    for (const item of filtered) {
+      if (!groups.has(item.file)) groups.set(item.file, []);
+      groups.get(item.file).push(item);
+    }
+    const flat = [];
+    for (const [, group] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
+      group.sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.name.localeCompare(b.name));
+      flat.push(...group);
+    }
+    return flat;
+  }
+
+  /* ---- sidebar head ---- */
+  const verdict = document.getElementById('verdict');
+  const review = reviewCount;
+  const notVerified = report.summary.skipped + report.summary.carried;
+  if (review > 0) {
+    const num = document.createElement('span');
+    num.className = 'num';
+    num.textContent = String(review);
+    verdict.append(
+      num,
+      document.createTextNode('screenshot' + (review === 1 ? '' : 's') + ' to review'),
+    );
+  } else {
+    verdict.classList.add('ok');
+    // Never claim "all passed" when part of the suite was not verified.
+    const verified = report.summary.passed;
+    verdict.textContent =
+      notVerified > 0
+        ? verified + ' passed · ' + notVerified + ' not verified'
+        : 'All ' + report.summary.total + ' passed';
+  }
+
+  const ratio = document.getElementById('ratio');
+  for (const status of STATUSES) {
+    const count = report.summary[status];
+    if (count === 0) continue;
+    const segment = document.createElement('span');
+    segment.className = status;
+    segment.style.flexGrow = String(count);
+    ratio.append(segment);
+  }
+
+  const meta = document.getElementById('meta');
+  const runLine =
+    report.run && report.run.mode === 'changed'
+      ? report.run.escalation
+        ? 'full run (escalated: ' + report.run.escalation.file + ')'
+        : 'incremental run' + (report.run.ref ? ' vs ' + report.run.ref : '')
+      : 'full run';
+  for (const text of [
+    new Date(report.createdAt).toLocaleString(),
+    runLine,
+    'threshold ' + report.options.threshold + ' · fail on ' + report.options.failOn.join(', '),
+  ]) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    meta.append(div);
+  }
+
+  /* ---- filters ---- */
+  const filters = document.getElementById('filters');
+  for (const status of STATUSES) {
+    const button = document.createElement('button');
+    button.className = 'chip ' + status;
+    const count = document.createElement('span');
+    count.className = 'count';
+    count.textContent = String(report.summary[status]);
+    button.append(count, document.createTextNode(status));
+    button.setAttribute('aria-pressed', String(state.visible.has(status)));
+    button.addEventListener('click', () => {
+      state.visible.has(status) ? state.visible.delete(status) : state.visible.add(status);
+      button.setAttribute('aria-pressed', String(state.visible.has(status)));
+      const flat = visibleItems();
+      if (!flat.some((item) => item.key === state.selected)) {
+        state.selected = flat[0]?.key ?? null;
+      }
+      render();
+    });
+    filters.append(button);
+  }
+
+  /* ---- search ---- */
+  const search = document.getElementById('search');
+  function applyQuery(value) {
+    state.query = value;
+    const flat = visibleItems();
+    if (!flat.some((item) => item.key === state.selected)) {
+      state.selected = flat[0]?.key ?? null;
+    }
+    render();
+  }
+  search.addEventListener('input', () => applyQuery(search.value));
+  search.addEventListener('keydown', (event) => {
+    // Arrow keys move through results without leaving the field; Escape
+    // clears a query, then blurs on a second press.
+    if (event.key === 'ArrowDown') { event.preventDefault(); move(1); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); move(-1); }
+    if (event.key === 'Escape') {
+      if (search.value) {
+        search.value = '';
+        applyQuery('');
+      } else {
+        search.blur();
+      }
+    }
+  });
+
+  /* ---- viewers ---- */
+  const shot = (src) => {
+    const frame = document.createElement('span');
+    frame.className = 'shot';
+    const img = document.createElement('img');
+    img.src = src;
+    frame.append(img);
+    return frame;
+  };
+
+  const figure = (src, caption) => {
+    const element = document.createElement('figure');
+    const figcaption = document.createElement('figcaption');
+    figcaption.textContent = caption;
+    const link = document.createElement('a');
+    link.className = 'shot-link';
+    link.href = src;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.title = 'Open full size';
+    link.append(shot(src));
+    element.append(figcaption, link);
+    return element;
+  };
+
+  const viewers = {
+    'side-by-side'(item) {
+      const columns = document.createElement('div');
+      columns.className = 'columns';
+      if (item.paths.expected) columns.append(figure(item.paths.expected, 'expected'));
+      if (item.paths.actual) columns.append(figure(item.paths.actual, 'actual'));
+      if (item.paths.diff) columns.append(figure(item.paths.diff, 'diff'));
+      return columns;
+    },
+    slider(item) {
+      const overlay = document.createElement('div');
+      overlay.className = 'overlay';
+      const divider = document.createElement('span');
+      divider.className = 'divider';
+      overlay.append(shot(item.paths.expected), shot(item.paths.actual), divider);
+      const range = document.createElement('input');
+      range.type = 'range';
+      range.min = '0';
+      range.max = '100';
+      range.value = '50';
+      range.setAttribute('aria-label', 'Reveal actual screenshot');
+      range.addEventListener('input', () => {
+        overlay.style.setProperty('--clip', range.value + '%');
+      });
+      const wrap = document.createElement('div');
+      wrap.className = 'overlay-wrap';
+      wrap.append(overlay, range);
+      return wrap;
+    },
+    blink(item) {
+      const frame = shot(item.paths.expected);
+      const img = frame.querySelector('img');
+      let showActual = false;
+      const timer = setInterval(() => {
+        if (!img.isConnected) { clearInterval(timer); return; }
+        showActual = !showActual;
+        img.src = showActual ? item.paths.actual : item.paths.expected;
+      }, 700);
+      const element = document.createElement('figure');
+      element.style.margin = '0';
+      element.append(frame);
+      return element;
+    },
+  };
+
+  /* ---- render ---- */
+  // Wrap matched substrings in <mark> via text nodes only, so report keys
+  // never reach the DOM as markup.
+  function highlight(text, terms) {
+    const fragment = document.createDocumentFragment();
+    if (terms.length === 0) {
+      fragment.append(text);
+      return fragment;
+    }
+    const lower = text.toLowerCase();
+    let cursor = 0;
+    while (cursor < text.length) {
+      let at = -1;
+      let length = 0;
+      for (const term of terms) {
+        // Skipping empty terms keeps the cursor advancing; an empty match
+        // would leave length 0 and spin the loop forever.
+        if (term.length === 0) continue;
+        const index = lower.indexOf(term, cursor);
+        // On a tie, prefer the longer term so overlapping matches merge
+        // into one <mark> instead of fragmenting.
+        if (
+          index !== -1 &&
+          (at === -1 || index < at || (index === at && term.length > length))
+        ) {
+          at = index;
+          length = term.length;
+        }
+      }
+      if (at === -1 || length === 0) {
+        fragment.append(text.slice(cursor));
+        break;
+      }
+      if (at > cursor) fragment.append(text.slice(cursor, at));
+      const mark = document.createElement('mark');
+      mark.textContent = text.slice(at, at + length);
+      fragment.append(mark);
+      cursor = at + length;
+    }
+    return fragment;
+  }
+
+  // Attribute an empty list to the right cause: the query only when items
+  // survive the status filter, otherwise the status chips.
+  function emptyMessage() {
+    const statusOnly = items.filter((item) => state.visible.has(item.status));
+    return queryTerms().length > 0 && statusOnly.length > 0
+      ? 'No files or stories match “' + state.query + '”.'
+      : 'Nothing to show for the selected statuses.';
+  }
+
+  // Announce the result-set size politely so screen-reader users hear the
+  // list update. Guarded so navigating within a fixed set stays silent.
+  function syncStatus(count) {
+    const status = document.getElementById('search-status');
+    const message =
+      count === 0
+        ? emptyMessage()
+        : count + (count === 1 ? ' result' : ' results');
+    if (status.textContent !== message) status.textContent = message;
+  }
+
+  function renderList() {
+    const list = document.getElementById('list');
+    list.replaceChildren();
+    const terms = queryTerms();
+    const flat = visibleItems();
+    syncStatus(flat.length);
+    if (flat.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'list-empty';
+      empty.textContent = emptyMessage();
+      list.append(empty);
+      search.removeAttribute('aria-activedescendant');
+      return;
+    }
+    let currentFile = null;
+    let activeId = '';
+    flat.forEach((item, index) => {
+      if (item.file !== currentFile) {
+        currentFile = item.file;
+        const label = document.createElement('div');
+        label.className = 'file-label mono';
+        label.setAttribute('role', 'presentation');
+        label.append(highlight(item.file, terms));
+        list.append(label);
+      }
+      const button = document.createElement('button');
+      button.className = 'item ' + item.status;
+      button.id = 'opt-' + index;
+      button.setAttribute('role', 'option');
+      const selected = item.key === state.selected;
+      button.setAttribute('aria-selected', String(selected));
+      if (selected) activeId = button.id;
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.append(highlight(item.name, terms));
+      name.title = item.name;
+      button.append(dot, name);
+      button.addEventListener('click', () => {
+        state.selected = item.key;
+        render();
+      });
+      list.append(button);
+    });
+    // Point the combobox at the active option so arrow-key moves from the
+    // search box are announced.
+    if (activeId) {
+      search.setAttribute('aria-activedescendant', activeId);
+    } else {
+      search.removeAttribute('aria-activedescendant');
+    }
+  }
+
+  function renderDetail() {
+    const detail = document.getElementById('detail');
+    detail.replaceChildren();
+    const flat = visibleItems();
+    const item = flat.find((candidate) => candidate.key === state.selected);
+    if (!item) {
+      const empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.textContent =
+        flat.length !== 0 ? 'Select a screenshot from the list.' : emptyMessage();
+      detail.append(empty);
+      return;
+    }
+    const index = flat.indexOf(item);
+
+    const head = document.createElement('header');
+    head.className = 'detail-head';
+
+    const titleBlock = document.createElement('div');
+    titleBlock.className = 'title-block';
+    const titleRow = document.createElement('div');
+    titleRow.className = 'title-row';
+    const title = document.createElement('h2');
+    title.textContent = item.name;
+    const badge = document.createElement('span');
+    badge.className = 'badge ' + item.status;
+    badge.textContent = item.status;
+    titleRow.append(title, badge);
+    const filePath = document.createElement('div');
+    filePath.className = 'path mono';
+    filePath.textContent = item.file;
+    titleBlock.append(titleRow, filePath);
+
+    const actions = document.createElement('div');
+    actions.className = 'head-actions';
+    if (item.mismatchedPixels !== undefined) {
+      const metrics = document.createElement('span');
+      metrics.className = 'metrics';
+      metrics.textContent =
+        item.mismatchedPixels.toLocaleString() + 'px (' + (item.mismatchRatio * 100).toFixed(2) + '%)' +
+        (item.dimensions
+          ? ' — ' + item.dimensions.expected.join('×') + ' → ' + item.dimensions.actual.join('×')
+          : '');
+      actions.append(metrics);
+    }
+    const comparable = item.paths.expected && item.paths.actual;
+    if (comparable) {
+      const modes = document.createElement('span');
+      modes.className = 'modes';
+      modes.setAttribute('role', 'group');
+      modes.setAttribute('aria-label', 'Comparison mode');
+      for (const mode of MODES) {
+        const button = document.createElement('button');
+        button.textContent = mode;
+        button.setAttribute('aria-pressed', String(mode === state.mode));
+        button.addEventListener('click', () => {
+          state.mode = mode;
+          renderDetail();
+        });
+        modes.append(button);
+      }
+      actions.append(modes);
+    }
+    const pager = document.createElement('span');
+    pager.className = 'pager';
+    for (const [glyph, delta, label] of [['↑', -1, 'Previous'], ['↓', 1, 'Next']]) {
+      const button = document.createElement('button');
+      button.textContent = glyph;
+      button.setAttribute('aria-label', label + ' screenshot');
+      button.disabled = index + delta < 0 || index + delta >= flat.length;
+      button.addEventListener('click', () => move(delta));
+      pager.append(button);
+    }
+    actions.append(pager);
+
+    head.append(titleBlock, actions);
+
+    const stage = document.createElement('div');
+    stage.className = 'stage';
+    const mode = comparable ? state.mode : 'side-by-side';
+    stage.append(viewers[mode](item));
+
+    detail.append(head, stage);
+  }
+
+  function render() {
+    renderList();
+    renderDetail();
+  }
+
+  function move(delta) {
+    const flat = visibleItems();
+    if (flat.length === 0) return;
+    const index = flat.findIndex((item) => item.key === state.selected);
+    const next = index === -1 ? 0 : Math.min(Math.max(index + delta, 0), flat.length - 1);
+    state.selected = flat[next].key;
+    render();
+    document.querySelector('.item[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key === '/' && !(event.target instanceof HTMLInputElement)) {
+      event.preventDefault();
+      search.focus();
+      search.select();
+      return;
+    }
+    if (event.target instanceof HTMLInputElement) return;
+    if (event.key === 'ArrowDown') { event.preventDefault(); move(1); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); move(-1); }
+    const modeIndex = ['1', '2', '3'].indexOf(event.key);
+    if (modeIndex !== -1) {
+      state.mode = MODES[modeIndex];
+      renderDetail();
+    }
+  });
+
+  state.selected = visibleItems()[0]?.key ?? null;
+  render();
+})();
+</script>
+</body>
+</html>
