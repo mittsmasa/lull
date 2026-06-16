@@ -1,0 +1,220 @@
+{
+  "version": 2,
+  "createdAt": "2026-08-13T02:18:01.419Z",
+  "run": {
+    "mode": "full",
+    "ref": null,
+    "escalation": null
+  },
+  "options": {
+    "threshold": 0.1,
+    "failOn": [
+      "changed",
+      "added",
+      "removed"
+    ]
+  },
+  "dirs": {
+    "expected": "expected",
+    "actual": "actual",
+    "diff": "diff"
+  },
+  "summary": {
+    "total": 19,
+    "passed": 14,
+    "changed": 5,
+    "added": 0,
+    "removed": 0,
+    "skipped": 0,
+    "carried": 0,
+    "failed": true
+  },
+  "items": [
+    {
+      "key": "src/app/_components/app-header.stories.tsx/Default.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/app-header.stories.tsx/Default.png",
+        "actual": "actual/src/app/_components/app-header.stories.tsx/Default.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/app-header.stories.tsx/With-Back-Button.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/app-header.stories.tsx/With-Back-Button.png",
+        "actual": "actual/src/app/_components/app-header.stories.tsx/With-Back-Button.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/event-card.stories.tsx/Default.png",
+      "status": "changed",
+      "reason": "pixel-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/event-card.stories.tsx/Default.png",
+        "actual": "actual/src/app/_components/event-card.stories.tsx/Default.png",
+        "diff": "diff/src/app/_components/event-card.stories.tsx/Default.png"
+      },
+      "mismatchedPixels": 66079,
+      "mismatchRatio": 0.09560040509259259
+    },
+    {
+      "key": "src/app/_components/event-card.stories.tsx/Finished.png",
+      "status": "changed",
+      "reason": "pixel-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/event-card.stories.tsx/Finished.png",
+        "actual": "actual/src/app/_components/event-card.stories.tsx/Finished.png",
+        "diff": "diff/src/app/_components/event-card.stories.tsx/Finished.png"
+      },
+      "mismatchedPixels": 66114,
+      "mismatchRatio": 0.09565104166666667
+    },
+    {
+      "key": "src/app/_components/event-card.stories.tsx/Long-Name.png",
+      "status": "changed",
+      "reason": "pixel-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/event-card.stories.tsx/Long-Name.png",
+        "actual": "actual/src/app/_components/event-card.stories.tsx/Long-Name.png",
+        "diff": "diff/src/app/_components/event-card.stories.tsx/Long-Name.png"
+      },
+      "mismatchedPixels": 64883,
+      "mismatchRatio": 0.09387008101851851
+    },
+    {
+      "key": "src/app/_components/event-card.stories.tsx/Ongoing.png",
+      "status": "changed",
+      "reason": "pixel-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/event-card.stories.tsx/Ongoing.png",
+        "actual": "actual/src/app/_components/event-card.stories.tsx/Ongoing.png",
+        "diff": "diff/src/app/_components/event-card.stories.tsx/Ongoing.png"
+      },
+      "mismatchedPixels": 65744,
+      "mismatchRatio": 0.09511574074074074
+    },
+    {
+      "key": "src/app/_components/event-card.stories.tsx/Published.png",
+      "status": "changed",
+      "reason": "pixel-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/event-card.stories.tsx/Published.png",
+        "actual": "actual/src/app/_components/event-card.stories.tsx/Published.png",
+        "diff": "diff/src/app/_components/event-card.stories.tsx/Published.png"
+      },
+      "mismatchedPixels": 65777,
+      "mismatchRatio": 0.0951634837962963
+    },
+    {
+      "key": "src/app/_components/ExampleButton.stories.tsx/Primary.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/ExampleButton.stories.tsx/Primary.png",
+        "actual": "actual/src/app/_components/ExampleButton.stories.tsx/Primary.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/ExampleButton.stories.tsx/Secondary.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/ExampleButton.stories.tsx/Secondary.png",
+        "actual": "actual/src/app/_components/ExampleButton.stories.tsx/Secondary.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/navigation-sheet.stories.tsx/All-Statuses.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/navigation-sheet.stories.tsx/All-Statuses.png",
+        "actual": "actual/src/app/_components/navigation-sheet.stories.tsx/All-Statuses.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/navigation-sheet.stories.tsx/Default.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/navigation-sheet.stories.tsx/Default.png",
+        "actual": "actual/src/app/_components/navigation-sheet.stories.tsx/Default.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/navigation-sheet.stories.tsx/Sub-Page-Active.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/navigation-sheet.stories.tsx/Sub-Page-Active.png",
+        "actual": "actual/src/app/_components/navigation-sheet.stories.tsx/Sub-Page-Active.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/program-detail.stories.tsx/Non-Performance.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/program-detail.stories.tsx/Non-Performance.png",
+        "actual": "actual/src/app/_components/program-detail.stories.tsx/Non-Performance.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/program-detail.stories.tsx/Performance.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/program-detail.stories.tsx/Performance.png",
+        "actual": "actual/src/app/_components/program-detail.stories.tsx/Performance.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/program-list.stories.tsx/Default.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/program-list.stories.tsx/Default.png",
+        "actual": "actual/src/app/_components/program-list.stories.tsx/Default.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/program-list.stories.tsx/Empty.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/program-list.stories.tsx/Empty.png",
+        "actual": "actual/src/app/_components/program-list.stories.tsx/Empty.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/program-list.stories.tsx/Read-Only.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/program-list.stories.tsx/Read-Only.png",
+        "actual": "actual/src/app/_components/program-list.stories.tsx/Read-Only.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/program-list.stories.tsx/Single-Item.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/program-list.stories.tsx/Single-Item.png",
+        "actual": "actual/src/app/_components/program-list.stories.tsx/Single-Item.png",
+        "diff": null
+      }
+    },
+    {
+      "key": "src/app/_components/sign-in-button.stories.tsx/Default.png",
+      "status": "passed",
+      "paths": {
+        "expected": "expected/src/app/_components/sign-in-button.stories.tsx/Default.png",
+        "actual": "actual/src/app/_components/sign-in-button.stories.tsx/Default.png",
+        "diff": null
+      }
+    }
+  ]
+}
