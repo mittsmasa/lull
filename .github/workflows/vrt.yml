@@ -43,6 +43,8 @@ jobs:
           name: vrt-baseline
           path: .vrt/actual
           retention-days: 30
+          # .vrt は隠しディレクトリのため明示しないと中身が除外される
+          include-hidden-files: true
 
       # PR: main の最新成功 run からベースラインを取得する（無ければ比較スキップ）
       - name: Download baseline from main
@@ -72,6 +74,8 @@ jobs:
           name: vrt-report
           path: .vrt
           retention-days: 14
+          # .vrt は隠しディレクトリのため明示しないと中身が除外される
+          include-hidden-files: true
 
       - name: Warn when differences exist
         if: github.event_name == 'pull_request' && steps.compare.outcome == 'failure'
