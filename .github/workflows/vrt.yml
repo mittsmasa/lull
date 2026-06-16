@@ -99,26 +99,29 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: vrt-report
-          path: vrt-out
+          # repo 作業ツリー外に展開し、gh-pages へ誤って混入させない
+          path: ${{ runner.temp }}/vrt-report
 
       - name: Deploy to gh-pages (amend, force)
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPORT_DIR: ${{ runner.temp }}/vrt-report
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # 作業ツリーを gh-pages 化する前に成果物を退避
-          rm -rf /tmp/vrt && cp -r vrt-out /tmp/vrt
           git fetch origin gh-pages --depth=1 || true
           if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
             git checkout -B gh-pages origin/gh-pages
+            # 過去に誤って混入したルート成果物を一掃（無ければ no-op）
+            git rm -r --cached --ignore-unmatch vrt-out >/dev/null 2>&1 || true
+            rm -rf vrt-out
           else
             git checkout --orphan gh-pages
             git rm -rf . >/dev/null 2>&1 || true
           fi
           rm -rf "pr-$PR_NUMBER"
           mkdir -p "pr-$PR_NUMBER"
-          cp -r /tmp/vrt/. "pr-$PR_NUMBER/"
+          cp -r "$REPORT_DIR/." "pr-$PR_NUMBER/"
           touch .nojekyll
           git add -A
           # amend で常に単一コミットに保ち、画像で history を膨らませない
@@ -136,6 +139,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           PAGES_URL: https://mittsmasa.github.io/lull/pr-${{ github.event.pull_request.number }}/report.html
+          REPORT_DIR: ${{ runner.temp }}/vrt-report
         run: |
           # report.json から PR コメント本文を生成（スクリプトは inline で持つ）
           cat > vrt-comment.mjs <<'SCRIPT'
@@ -186,7 +190,7 @@ jobs:
           }
           console.log(lines.join("\n"));
           SCRIPT
-          node vrt-comment.mjs vrt-out/report.json "$PAGES_URL" > comment.md
+          node vrt-comment.mjs "$REPORT_DIR/report.json" "$PAGES_URL" > comment.md
           rm -f vrt-comment.mjs
           marker='<!-- vrt-report -->'
           comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n1)
