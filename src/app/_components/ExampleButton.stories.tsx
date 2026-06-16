@@ -23,3 +23,10 @@ export const Secondary: Story = {
     variant: "secondary",
   },
 };
+
+export const VrtSmokeTest: Story = {
+  args: {
+    label: "VRT Smoke Test",
+    variant: "primary",
+  },
+};
