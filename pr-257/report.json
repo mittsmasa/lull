@@ -1,0 +1,452 @@
+{
+  "version": 2,
+  "createdAt": "2026-10-19T01:14:27.170Z",
+  "run": {
+    "mode": "full",
+    "ref": null,
+    "escalation": null
+  },
+  "options": {
+    "threshold": 0.1,
+    "failOn": [
+      "changed",
+      "added",
+      "removed"
+    ]
+  },
+  "dirs": {
+    "expected": "expected",
+    "actual": "actual",
+    "diff": "diff"
+  },
+  "summary": {
+    "total": 19,
+    "passed": 0,
+    "changed": 19,
+    "added": 0,
+    "removed": 0,
+    "skipped": 0,
+    "carried": 0,
+    "failed": true
+  },
+  "items": [
+    {
+      "key": "src/app/_components/app-header.stories.tsx/Default.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/app-header.stories.tsx/Default.png",
+        "actual": "actual/src/app/_components/app-header.stories.tsx/Default.png",
+        "diff": "diff/src/app/_components/app-header.stories.tsx/Default.png"
+      },
+      "mismatchedPixels": 388904,
+      "mismatchRatio": 0.3600962962962963,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/app-header.stories.tsx/With-Back-Button.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/app-header.stories.tsx/With-Back-Button.png",
+        "actual": "actual/src/app/_components/app-header.stories.tsx/With-Back-Button.png",
+        "diff": "diff/src/app/_components/app-header.stories.tsx/With-Back-Button.png"
+      },
+      "mismatchedPixels": 388949,
+      "mismatchRatio": 0.36013796296296297,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/event-card.stories.tsx/Default.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/event-card.stories.tsx/Default.png",
+        "actual": "actual/src/app/_components/event-card.stories.tsx/Default.png",
+        "diff": "diff/src/app/_components/event-card.stories.tsx/Default.png"
+      },
+      "mismatchedPixels": 389961,
+      "mismatchRatio": 0.361075,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/event-card.stories.tsx/Finished.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/event-card.stories.tsx/Finished.png",
+        "actual": "actual/src/app/_components/event-card.stories.tsx/Finished.png",
+        "diff": "diff/src/app/_components/event-card.stories.tsx/Finished.png"
+      },
+      "mismatchedPixels": 389977,
+      "mismatchRatio": 0.36108981481481484,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/event-card.stories.tsx/Long-Name.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/event-card.stories.tsx/Long-Name.png",
+        "actual": "actual/src/app/_components/event-card.stories.tsx/Long-Name.png",
+        "diff": "diff/src/app/_components/event-card.stories.tsx/Long-Name.png"
+      },
+      "mismatchedPixels": 391624,
+      "mismatchRatio": 0.36261481481481483,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/event-card.stories.tsx/Ongoing.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/event-card.stories.tsx/Ongoing.png",
+        "actual": "actual/src/app/_components/event-card.stories.tsx/Ongoing.png",
+        "diff": "diff/src/app/_components/event-card.stories.tsx/Ongoing.png"
+      },
+      "mismatchedPixels": 390076,
+      "mismatchRatio": 0.3611814814814815,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/event-card.stories.tsx/Published.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/event-card.stories.tsx/Published.png",
+        "actual": "actual/src/app/_components/event-card.stories.tsx/Published.png",
+        "diff": "diff/src/app/_components/event-card.stories.tsx/Published.png"
+      },
+      "mismatchedPixels": 390445,
+      "mismatchRatio": 0.3615231481481481,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/ExampleButton.stories.tsx/Primary.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/ExampleButton.stories.tsx/Primary.png",
+        "actual": "actual/src/app/_components/ExampleButton.stories.tsx/Primary.png",
+        "diff": "diff/src/app/_components/ExampleButton.stories.tsx/Primary.png"
+      },
+      "mismatchedPixels": 391727,
+      "mismatchRatio": 0.36271018518518516,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/ExampleButton.stories.tsx/Secondary.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/ExampleButton.stories.tsx/Secondary.png",
+        "actual": "actual/src/app/_components/ExampleButton.stories.tsx/Secondary.png",
+        "diff": "diff/src/app/_components/ExampleButton.stories.tsx/Secondary.png"
+      },
+      "mismatchedPixels": 389627,
+      "mismatchRatio": 0.36076574074074075,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/navigation-sheet.stories.tsx/All-Statuses.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/navigation-sheet.stories.tsx/All-Statuses.png",
+        "actual": "actual/src/app/_components/navigation-sheet.stories.tsx/All-Statuses.png",
+        "diff": "diff/src/app/_components/navigation-sheet.stories.tsx/All-Statuses.png"
+      },
+      "mismatchedPixels": 516974,
+      "mismatchRatio": 0.4786796296296296,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/navigation-sheet.stories.tsx/Default.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/navigation-sheet.stories.tsx/Default.png",
+        "actual": "actual/src/app/_components/navigation-sheet.stories.tsx/Default.png",
+        "diff": "diff/src/app/_components/navigation-sheet.stories.tsx/Default.png"
+      },
+      "mismatchedPixels": 519707,
+      "mismatchRatio": 0.48121018518518516,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/navigation-sheet.stories.tsx/Sub-Page-Active.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/navigation-sheet.stories.tsx/Sub-Page-Active.png",
+        "actual": "actual/src/app/_components/navigation-sheet.stories.tsx/Sub-Page-Active.png",
+        "diff": "diff/src/app/_components/navigation-sheet.stories.tsx/Sub-Page-Active.png"
+      },
+      "mismatchedPixels": 519659,
+      "mismatchRatio": 0.48116574074074075,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/program-detail.stories.tsx/Non-Performance.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/program-detail.stories.tsx/Non-Performance.png",
+        "actual": "actual/src/app/_components/program-detail.stories.tsx/Non-Performance.png",
+        "diff": "diff/src/app/_components/program-detail.stories.tsx/Non-Performance.png"
+      },
+      "mismatchedPixels": 498211,
+      "mismatchRatio": 0.46130648148148146,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/program-detail.stories.tsx/Performance.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/program-detail.stories.tsx/Performance.png",
+        "actual": "actual/src/app/_components/program-detail.stories.tsx/Performance.png",
+        "diff": "diff/src/app/_components/program-detail.stories.tsx/Performance.png"
+      },
+      "mismatchedPixels": 529663,
+      "mismatchRatio": 0.49042870370370373,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/program-list.stories.tsx/Default.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/program-list.stories.tsx/Default.png",
+        "actual": "actual/src/app/_components/program-list.stories.tsx/Default.png",
+        "diff": "diff/src/app/_components/program-list.stories.tsx/Default.png"
+      },
+      "mismatchedPixels": 393188,
+      "mismatchRatio": 0.364062962962963,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/program-list.stories.tsx/Empty.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/program-list.stories.tsx/Empty.png",
+        "actual": "actual/src/app/_components/program-list.stories.tsx/Empty.png",
+        "diff": "diff/src/app/_components/program-list.stories.tsx/Empty.png"
+      },
+      "mismatchedPixels": 390612,
+      "mismatchRatio": 0.36167777777777776,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/program-list.stories.tsx/Read-Only.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/program-list.stories.tsx/Read-Only.png",
+        "actual": "actual/src/app/_components/program-list.stories.tsx/Read-Only.png",
+        "diff": "diff/src/app/_components/program-list.stories.tsx/Read-Only.png"
+      },
+      "mismatchedPixels": 393474,
+      "mismatchRatio": 0.36432777777777775,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/program-list.stories.tsx/Single-Item.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/program-list.stories.tsx/Single-Item.png",
+        "actual": "actual/src/app/_components/program-list.stories.tsx/Single-Item.png",
+        "diff": "diff/src/app/_components/program-list.stories.tsx/Single-Item.png"
+      },
+      "mismatchedPixels": 390208,
+      "mismatchRatio": 0.3613037037037037,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    },
+    {
+      "key": "src/app/_components/sign-in-button.stories.tsx/Default.png",
+      "status": "changed",
+      "reason": "dimension-diff",
+      "paths": {
+        "expected": "expected/src/app/_components/sign-in-button.stories.tsx/Default.png",
+        "actual": "actual/src/app/_components/sign-in-button.stories.tsx/Default.png",
+        "diff": "diff/src/app/_components/sign-in-button.stories.tsx/Default.png"
+      },
+      "mismatchedPixels": 391474,
+      "mismatchRatio": 0.3624759259259259,
+      "dimensions": {
+        "expected": [
+          960,
+          720
+        ],
+        "actual": [
+          1200,
+          900
+        ]
+      }
+    }
+  ]
+}
