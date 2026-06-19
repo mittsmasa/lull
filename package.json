@@ -60,7 +60,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.16",
+    "@biomejs/biome": "2.5.0",
     "@serwist/build": "9.5.7",
     "@serwist/cli": "9.5.7",
     "@storybook/addon-a11y": "10.4.6",
@@ -75,7 +75,7 @@
     "@vitest/coverage-v8": "4.1.9",
     "drizzle-kit": "0.31.10",
     "lefthook": "2.1.9",
-    "playwright": "1.60.0",
+    "playwright": "1.61.0",
     "storybook": "10.4.6",
     "storybook-addon-vrt": "0.1.0",
     "typescript": "6.0.3",
