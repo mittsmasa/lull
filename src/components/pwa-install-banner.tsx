@@ -11,11 +11,18 @@ function getDismissKey(id: string) {
 type PwaInstallBannerProps = {
   dismissId?: string;
   dismissible?: boolean;
+  variant?: "guest" | "member";
 };
+
+const descriptions = {
+  guest: "ホーム画面に追加すると、当日チケットにすぐアクセスできます",
+  member: "ホーム画面に追加すると、イベント管理にすぐアクセスできます",
+} as const;
 
 export function PwaInstallBanner({
   dismissId = "default",
   dismissible = true,
+  variant = "guest",
 }: PwaInstallBannerProps) {
   const { hasNativeInstall, showManualGuide, isInstalled, promptInstall } =
     usePwaInstall();
@@ -37,6 +44,8 @@ export function PwaInstallBanner({
     setDismissed(true);
   };
 
+  const description = descriptions[variant];
+
   return (
     <div
       data-testid="pwa-install-banner"
@@ -44,11 +53,13 @@ export function PwaInstallBanner({
     >
       {hasNativeInstall ? (
         <NativeInstallContent
+          description={description}
           onInstall={promptInstall}
           onDismiss={dismissible ? handleDismiss : undefined}
         />
       ) : (
         <ManualGuideContent
+          description={description}
           onDismiss={dismissible ? handleDismiss : undefined}
         />
       )}
@@ -57,16 +68,18 @@ export function PwaInstallBanner({
 }
 
 function NativeInstallContent({
+  description,
   onInstall,
   onDismiss,
 }: {
+  description: string;
   onInstall: () => void;
   onDismiss?: () => void;
 }) {
   return (
     <>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        ホーム画面に追加すると、当日チケットにすぐアクセスできます
+        {description}
       </p>
       <div className="flex items-center gap-4">
         <button
@@ -82,7 +95,13 @@ function NativeInstallContent({
   );
 }
 
-function ManualGuideContent({ onDismiss }: { onDismiss?: () => void }) {
+function ManualGuideContent({
+  description,
+  onDismiss,
+}: {
+  description: string;
+  onDismiss?: () => void;
+}) {
   const isIos =
     typeof navigator !== "undefined" &&
     /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -90,7 +109,7 @@ function ManualGuideContent({ onDismiss }: { onDismiss?: () => void }) {
   return (
     <>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        ホーム画面に追加すると、当日チケットにすぐアクセスできます
+        {description}
       </p>
       <div className="flex flex-col gap-2 text-xs text-muted-foreground">
         {isIos ? (
