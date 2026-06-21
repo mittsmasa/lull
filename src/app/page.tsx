@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { SignInButton } from "@/app/_components/sign-in-button";
+import { GuestInvitationLink } from "@/components/guest-invitation-link";
 import { getSession, validateReturnTo } from "@/lib/session";
 
 export default async function Page(props: PageProps<"/">) {
@@ -19,6 +20,7 @@ export default async function Page(props: PageProps<"/">) {
       <p className="text-sm leading-relaxed text-muted-foreground">
         ひとつの舞台を、もっとあたたかく
       </p>
+      <GuestInvitationLink />
       <SignInButton callbackURL={callbackURL} />
     </div>
   );
