@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-Lull（ラル）— 発表会の招待・座席・当日体験を一つに繋ぐ Web アプリケーション。管理者・出演者・ゲストの 3 ロール構成。詳細は README.md と ARCHITECTURE.md を参照。
+Lull（ラル）— 発表会の招待・座席・当日体験を一つに繋ぐ Web アプリケーション。管理者・出演者・ゲストの 3 ロール構成。詳細は README.md と ARCHITECTURE.md を参照。ローカル環境の構築手順は docs/local-dev-guide.md を参照。
 
 ## コマンド
 

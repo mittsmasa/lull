@@ -8,6 +8,7 @@ import { InvitationProgramView } from "@/app/_components/invitation-program-view
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
 import { QrCode } from "@/app/_components/qr-code";
 import { VenueLink } from "@/app/_components/venue-link";
+import { SaveGuestToken } from "@/components/guest-token-store";
 import type { EventStatus } from "@/db/schema";
 import { formatDate, formatDatetime, formatTime } from "@/lib/format";
 import { getInvitationByToken } from "@/lib/queries/invitations";
@@ -381,6 +382,7 @@ export default async function InvitationResponsePage(
 
   return (
     <GuestShell>
+      <SaveGuestToken token={token} />
       <EventInfoHeader
         event={event}
         inviterName={invitation.inviterDisplayName}

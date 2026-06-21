@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { respondToInvitation } from "@/app/i/[token]/_actions";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +48,7 @@ export function InvitationResponseForm({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(!isUpdate);
+  const [hasJustResponded, setHasJustResponded] = useState(false);
 
   const handleAddCompanion = () => {
     if (companions.length >= 4) return;
@@ -83,6 +85,7 @@ export function InvitationResponseForm({
         if (result.error) toast.error(result.error);
       } else {
         toast.success("回答を受け取りました");
+        if (!isUpdate) setHasJustResponded(true);
         setIsOpen(false);
       }
     });
@@ -106,6 +109,7 @@ export function InvitationResponseForm({
         >
           回答を変更する
         </button>
+        {hasJustResponded && <PwaInstallBanner dismissId="guest" />}
       </div>
     );
   }
