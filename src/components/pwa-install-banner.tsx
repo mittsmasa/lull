@@ -2,6 +2,7 @@
 
 import { Export, Plus } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
+import { useIsIos } from "@/hooks/use-is-ios";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 
 function getDismissKey(id: string) {
@@ -102,9 +103,7 @@ function ManualGuideContent({
   description: string;
   onDismiss?: () => void;
 }) {
-  const isIos =
-    typeof navigator !== "undefined" &&
-    /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isIos = useIsIos();
 
   return (
     <>
