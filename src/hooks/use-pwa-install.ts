@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 type BeforeInstallPromptEvent = Event & {
   prompt(): Promise<void>;
@@ -56,12 +56,6 @@ export function usePwaInstall() {
     () => false,
   );
 
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    setIsReady(true);
-  }, []);
-
   const promptInstall = useCallback(async () => {
     if (!deferredPrompt) return;
     await deferredPrompt.prompt();
@@ -72,7 +66,7 @@ export function usePwaInstall() {
     }
   }, []);
 
-  if (!isReady || isInstalled) {
+  if (isInstalled) {
     return {
       hasNativeInstall: false,
       showManualGuide: false,
