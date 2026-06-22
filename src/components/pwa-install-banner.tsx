@@ -49,7 +49,7 @@ export function PwaInstallBanner({
   return (
     <div
       data-testid="pwa-install-banner"
-      className="flex flex-col gap-3 rounded-sm border border-border/50 px-5 py-4"
+      className="flex flex-col gap-3 rounded-sm bg-muted px-5 py-4"
     >
       {hasNativeInstall ? (
         <NativeInstallContent
