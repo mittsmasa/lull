@@ -16,7 +16,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="-mt-4 mb-6 empty:hidden">
-        <PwaInstallBanner dismissible={false} />
+        <PwaInstallBanner dismissible={false} variant="member" />
       </div>
 
       {events.length === 0 ? (
