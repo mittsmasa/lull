@@ -75,9 +75,11 @@ export function usePwaInstall() {
     } as const;
   }
 
+  const supportsInstallPrompt = "onbeforeinstallprompt" in window;
+
   return {
     hasNativeInstall,
-    showManualGuide: !hasNativeInstall,
+    showManualGuide: !hasNativeInstall && !supportsInstallPrompt,
     isInstalled,
     promptInstall,
   } as const;
