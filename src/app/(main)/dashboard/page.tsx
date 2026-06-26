@@ -1,6 +1,5 @@
 import { CreateEventDialog } from "@/app/_components/create-event-dialog";
 import { EventCard } from "@/app/_components/event-card";
-import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { getEventsByUserId } from "@/lib/queries/events";
 import { requireSession } from "@/lib/session";
 
@@ -13,10 +12,6 @@ export default async function DashboardPage() {
       <div className="mb-10 flex items-center justify-between">
         <h1 className="text-2xl font-light tracking-wide">マイイベント</h1>
         <CreateEventDialog />
-      </div>
-
-      <div className="-mt-4 mb-6 empty:hidden">
-        <PwaInstallBanner dismissible={false} variant="member" />
       </div>
 
       {events.length === 0 ? (
