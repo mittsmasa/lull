@@ -60,7 +60,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.0",
+    "@biomejs/biome": "2.5.1",
     "@serwist/build": "9.5.7",
     "@serwist/cli": "9.5.7",
     "@storybook/addon-a11y": "10.4.6",
