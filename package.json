@@ -29,8 +29,8 @@
     "node": "24.17.0"
   },
   "dependencies": {
-    "@emulators/adapter-next": "0.7.0",
-    "@emulators/google": "0.7.0",
+    "@emulators/adapter-next": "0.8.0",
+    "@emulators/google": "0.8.0",
     "@hono/zod-validator": "0.8.0",
     "@libsql/client": "0.17.4",
     "@phosphor-icons/react": "2.1.10",
