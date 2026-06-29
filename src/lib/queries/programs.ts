@@ -35,6 +35,7 @@ export type EventForProgramManagement = {
   id: string;
   name: string;
   status: EventStatus;
+  showProgram: boolean;
 };
 
 export type MemberOption = {
@@ -54,6 +55,7 @@ export async function getEventForProgramManagement(
       id: true,
       name: true,
       status: true,
+      showProgram: true,
     },
   });
 }

@@ -337,8 +337,10 @@ export default async function InvitationResponsePage(
     );
   }
 
-  // 以降はプログラム表示があるため、ここで初めてフェッチ
-  const programs = await getProgramsByEventId(event.id);
+  // プログラム表示が有効な場合のみフェッチ
+  const programs = event.showProgram
+    ? await getProgramsByEventId(event.id)
+    : [];
 
   // finished + accepted → 思い出カード
   if (event.status === "finished") {
@@ -348,7 +350,7 @@ export default async function InvitationResponsePage(
           event={event}
           inviterName={invitation.inviterDisplayName}
         />
-        <InvitationProgramView programs={programs} />
+        {event.showProgram && <InvitationProgramView programs={programs} />}
         <CurrentResponseView invitation={invitation} />
         <CheckInStatusView invitation={invitation} />
         <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
@@ -388,7 +390,7 @@ export default async function InvitationResponsePage(
         inviterName={invitation.inviterDisplayName}
       />
 
-      <InvitationProgramView programs={programs} />
+      {event.showProgram && <InvitationProgramView programs={programs} />}
 
       {showPass && (
         <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-300 motion-reduce:animate-none motion-reduce:delay-0">
