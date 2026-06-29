@@ -1,0 +1,1 @@
+ALTER TABLE `events` ADD `show_program` integer DEFAULT true NOT NULL;
