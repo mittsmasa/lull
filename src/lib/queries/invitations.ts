@@ -63,6 +63,7 @@ export type InvitationForResponse = {
     openDatetime: string | null;
     status: EventStatus;
     totalSeats: number;
+    showProgram: boolean;
   };
 };
 
@@ -140,6 +141,7 @@ export async function getInvitationByToken(
           openDatetime: true,
           status: true,
           totalSeats: true,
+          showProgram: true,
         },
       },
       member: { columns: { displayName: true } },

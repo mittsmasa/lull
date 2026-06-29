@@ -1,15 +1,17 @@
 "use client";
 
-import { Plus } from "@phosphor-icons/react";
-import { useState } from "react";
+import { Gear, Plus } from "@phosphor-icons/react";
+import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   ResponsiveModal,
   ResponsiveModalContent,
   ResponsiveModalHeader,
   ResponsiveModalTitle,
 } from "@/components/ui/responsive-modal";
+import { Switch } from "@/components/ui/switch";
 import type { EventStatus, MemberRole } from "@/db/schema";
 import { statusLabels, statusVariants } from "@/lib/event-status";
 import type {
@@ -19,6 +21,7 @@ import type {
 import {
   deleteProgram,
   reorderPrograms,
+  toggleShowProgram,
 } from "../(main)/events/[eventId]/programs/_actions";
 import { ProgramDetail } from "./program-detail";
 import { ProgramForm } from "./program-form";
@@ -29,6 +32,7 @@ type ProgramManagementProps = {
     id: string;
     name: string;
     status: EventStatus;
+    showProgram: boolean;
   };
   programs: ProgramWithPerformers[];
   members: MemberOption[];
@@ -39,6 +43,7 @@ type DialogState =
   | { mode: "add" }
   | { mode: "edit"; program: ProgramWithPerformers }
   | { mode: "detail"; program: ProgramWithPerformers }
+  | { mode: "settings" }
   | null;
 
 export function ProgramManagement({
@@ -48,6 +53,8 @@ export function ProgramManagement({
   currentUserRole,
 }: ProgramManagementProps) {
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [isPending, startTransition] = useTransition();
+  const isOrganizer = currentUserRole === "organizer";
 
   const canModify =
     event.status !== "finished" &&
@@ -66,6 +73,21 @@ export function ProgramManagement({
             <Badge variant={statusVariants[event.status]}>
               {statusLabels[event.status]}
             </Badge>
+            {isOrganizer && (
+              <>
+                <Badge variant={event.showProgram ? "outline" : "secondary"}>
+                  {event.showProgram ? "招待状:表示中" : "招待状:非表示"}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => setDialog({ mode: "settings" })}
+                >
+                  <Gear size={16} />
+                </Button>
+              </>
+            )}
           </div>
         </div>
         {canModify && (
@@ -91,7 +113,7 @@ export function ProgramManagement({
       />
 
       <ResponsiveModal
-        open={dialog !== null}
+        open={dialog !== null && dialog.mode !== "settings"}
         onOpenChange={(open) => {
           if (!open) close();
         }}
@@ -137,6 +159,40 @@ export function ProgramManagement({
               onSuccess={close}
             />
           )}
+        </ResponsiveModalContent>
+      </ResponsiveModal>
+
+      <ResponsiveModal
+        open={dialog?.mode === "settings"}
+        onOpenChange={(open) => {
+          if (!open) close();
+        }}
+        size="sm"
+      >
+        <ResponsiveModalContent>
+          <ResponsiveModalHeader>
+            <ResponsiveModalTitle>プログラム設定</ResponsiveModalTitle>
+          </ResponsiveModalHeader>
+          <div className="flex items-center justify-between gap-4 py-4">
+            <Label htmlFor="show-program" className="flex flex-col gap-1.5">
+              <span>招待状にプログラムを表示</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {event.showProgram
+                  ? "ゲストの招待状ページにプログラムが表示されます"
+                  : "ゲストの招待状ページにプログラムは表示されません"}
+              </span>
+            </Label>
+            <Switch
+              id="show-program"
+              checked={event.showProgram}
+              disabled={isPending}
+              onCheckedChange={(checked) => {
+                startTransition(async () => {
+                  await toggleShowProgram(event.id, checked);
+                });
+              }}
+            />
+          </div>
         </ResponsiveModalContent>
       </ResponsiveModal>
     </div>

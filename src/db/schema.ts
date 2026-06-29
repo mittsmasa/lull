@@ -147,6 +147,9 @@ export const events = sqliteTable("events", {
   openDatetime: text("open_datetime"),
   status: text("status", { enum: EVENT_STATUSES }).notNull().default("draft"),
   totalSeats: integer("total_seats").notNull(),
+  showProgram: integer("show_program", { mode: "boolean" })
+    .notNull()
+    .default(true),
   currentProgramId: text("current_program_id"),
   createdAt: integer("created_at")
     .notNull()

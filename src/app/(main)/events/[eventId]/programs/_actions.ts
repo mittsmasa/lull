@@ -304,6 +304,32 @@ export async function deleteProgram(
 }
 
 /**
+ * プログラム表示トグル（organizer のみ）
+ */
+export async function toggleShowProgram(
+  eventId: string,
+  showProgram: boolean,
+): Promise<{ error: string } | null> {
+  const session = await requireSession();
+
+  const member = await db.query.eventMembers.findFirst({
+    where: and(
+      eq(eventMembers.eventId, eventId),
+      eq(eventMembers.userId, session.user.id),
+    ),
+  });
+
+  if (member?.role !== "organizer") {
+    return { error: "権限がありません" };
+  }
+
+  await db.update(events).set({ showProgram }).where(eq(events.id, eventId));
+
+  revalidatePath(`/events/${eventId}/programs`);
+  return null;
+}
+
+/**
  * プログラム並び替え
  */
 export async function reorderPrograms(
