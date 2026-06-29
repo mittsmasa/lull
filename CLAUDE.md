@@ -84,3 +84,11 @@ Better Auth + Drizzle アダプタ。`/api/auth/*` を Hono 経由で Better Aut
 ## shadcn/ui
 
 `components.json` で設定済み。RSC 対応、アイコンは @phosphor-icons/react。コンポーネント追加: `pnpm dlx shadcn@latest add <component>`（生成物は lucide-react を import するため、`@phosphor-icons/react` の対応アイコンに置換する）
+
+## UI 動作確認（/ui-verify）
+
+dev server は `NEXT_PUBLIC_VERCEL_ENV=preview` 付きで起動する。これにより Google OAuth がエミュレータ（mock）経由になり、実際の Google 認証なしでログインできる。
+
+```bash
+NEXT_PUBLIC_VERCEL_ENV=preview pnpm dev
+```
