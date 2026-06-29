@@ -69,6 +69,23 @@ Hono RPC を使用。サーバー側で `AppType` をエクスポートし、ク
 
 `src/db/schema.ts` に Drizzle ORM で全テーブル定義。主要テーブル: users, sessions, accounts, verifications（Better Auth 管理）、events, event_members, invitations, programs, check_ins（ドメイン）。変更後は `pnpm db:generate` → `pnpm db:migrate`。
 
+### 本番 DB マイグレーション
+
+`drizzle.config.ts` は `TURSO_DATABASE_URL` 未設定時に `file:local.db` へフォールバックする。成功メッセージが出てもローカル DB に当たっている可能性がある。本番 Turso に対して実行するには:
+
+```bash
+vercel env pull .env.vercel-prod --environment production
+eval $(grep -E '^TURSO_' .env.vercel-prod) && export TURSO_DATABASE_URL TURSO_AUTH_TOKEN
+pnpm db:migrate
+rm .env.vercel-prod
+```
+
+**注意点:**
+- `eval` だけでは子プロセスに渡らない。`export` が必須
+- worktree 内で作業している場合、`.env.vercel-prod` は worktree の cwd に pull すること（本体リポジトリ側に置いても worktree からは見えない）
+- 適用結果は `turso db shell lull "PRAGMA table_info(<table>);"` で実テーブルを確認する（成功メッセージを信用しない）
+- Turso CLI 未ログインの場合は `turso auth login` をユーザーに依頼する
+
 ### 認証
 
 Better Auth + Drizzle アダプタ。`/api/auth/*` を Hono 経由で Better Auth にルーティング。セッションは DB 保存方式。
