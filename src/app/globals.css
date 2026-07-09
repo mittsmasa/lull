@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 :root {
   /* Lull — 生成り(kinari) base palette */
@@ -41,7 +41,7 @@
   --brand: oklch(0.55 0.1 45);
 }
 
-.dark {
+[data-theme="dark"] {
   --background: oklch(0.19 0.012 55);
   --foreground: oklch(0.92 0.01 80);
   --card: oklch(0.22 0.012 55);
