@@ -17,6 +17,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import type { EventStatus } from "@/db/schema";
 import { authClient } from "@/lib/auth-client";
 import { statusDotClass, statusLabels } from "@/lib/event-status";
@@ -103,6 +104,12 @@ export function NavigationSheet({
         </nav>
 
         <div className="mt-auto border-t py-4">
+          <div className="px-3 pb-3">
+            <p className="pb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              表示テーマ
+            </p>
+            <ThemeToggle />
+          </div>
           <button
             type="button"
             onClick={handleSignOut}
