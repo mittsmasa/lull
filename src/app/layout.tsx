@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppSplash } from "@/app/_components/app-splash";
 import { SerwistProvider } from "@/components/register-sw";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { notoSerifJP, shipporiMincho } from "@/lib/fonts";
 
@@ -30,7 +31,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#F5F0E8",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F5F0E8" },
+    { media: "(prefers-color-scheme: dark)", color: "#211d18" },
+  ],
   interactiveWidget: "resizes-content",
 };
 
@@ -43,13 +47,21 @@ export default function RootLayout({
     <html
       lang="ja"
       className={`${notoSerifJP.variable} ${shipporiMincho.variable}`}
+      suppressHydrationWarning
     >
       <body className="font-sans antialiased">
-        <SerwistProvider swUrl="/sw.js">
-          {children}
-          <Toaster />
-          <AppSplash />
-        </SerwistProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SerwistProvider swUrl="/sw.js">
+            {children}
+            <Toaster />
+            <AppSplash />
+          </SerwistProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
