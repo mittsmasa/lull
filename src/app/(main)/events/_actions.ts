@@ -49,6 +49,16 @@ const updateEventSchema = z.object({
   venue: z.string().min(1).max(200).optional(),
   address: z.string().max(300).nullable().optional(),
   totalSeats: z.number().int().min(0).max(9999).optional(),
+  attendanceFee: z.number().int().min(0).max(1000000).optional(),
+  afterPartyEnabled: z.boolean().optional(),
+  afterPartyVenue: z.string().max(200).nullable().optional(),
+  afterPartyStartTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .nullable()
+    .optional(),
+  afterPartyFee: z.number().int().min(0).max(1000000).optional(),
+  paymentNote: z.string().max(500).nullable().optional(),
 });
 
 // ============================================================
@@ -220,6 +230,26 @@ export async function updateEvent(
     totalSeats: formData.has("totalSeats")
       ? Number(formData.get("totalSeats"))
       : undefined,
+    attendanceFee: formData.has("attendanceFee")
+      ? Number(formData.get("attendanceFee"))
+      : undefined,
+    // チェックボックスは未チェック時に送信されないため、フォーム側で
+    // hidden の afterPartyEnabledPresent を併送して「設定対象かどうか」を判別する
+    afterPartyEnabled: formData.has("afterPartyEnabledPresent")
+      ? formData.get("afterPartyEnabled") === "on"
+      : undefined,
+    afterPartyVenue: formData.has("afterPartyVenue")
+      ? (formData.get("afterPartyVenue") as string) || null
+      : undefined,
+    afterPartyStartTime: formData.has("afterPartyStartTime")
+      ? (formData.get("afterPartyStartTime") as string) || null
+      : undefined,
+    afterPartyFee: formData.has("afterPartyFee")
+      ? Number(formData.get("afterPartyFee"))
+      : undefined,
+    paymentNote: formData.has("paymentNote")
+      ? (formData.get("paymentNote") as string) || null
+      : undefined,
   });
 
   if (!parsed.success) {
@@ -244,6 +274,24 @@ export async function updateEvent(
       }
     }
     updateData.totalSeats = rest.totalSeats;
+  }
+  if (rest.attendanceFee !== undefined) {
+    updateData.attendanceFee = rest.attendanceFee;
+  }
+  if (rest.afterPartyEnabled !== undefined) {
+    updateData.afterPartyEnabled = rest.afterPartyEnabled;
+  }
+  if (rest.afterPartyVenue !== undefined) {
+    updateData.afterPartyVenue = rest.afterPartyVenue;
+  }
+  if (rest.afterPartyStartTime !== undefined) {
+    updateData.afterPartyStartTime = rest.afterPartyStartTime;
+  }
+  if (rest.afterPartyFee !== undefined) {
+    updateData.afterPartyFee = rest.afterPartyFee;
+  }
+  if (rest.paymentNote !== undefined) {
+    updateData.paymentNote = rest.paymentNote;
   }
 
   // date または startTime が変更された場合、startDatetime を再構築

@@ -3,6 +3,7 @@
 import {
   CalendarBlank,
   CaretRight,
+  CurrencyJpy,
   IdentificationCard,
   MapPin,
   MusicNotes,
@@ -39,6 +40,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import type { EventStatus, MemberRole } from "@/db/schema";
 import {
   statusLabels,
@@ -46,6 +49,7 @@ import {
   transitionLabels,
 } from "@/lib/event-status";
 import { formatDatetime } from "@/lib/format";
+import { formatYen } from "@/lib/payment";
 import type { EventStats } from "@/lib/queries/events";
 import { VenueField } from "./venue-field";
 import { VenueLink } from "./venue-link";
@@ -60,6 +64,12 @@ type EventDetailProps = {
     openDatetime: string | null;
     status: EventStatus;
     totalSeats: number;
+    attendanceFee: number;
+    afterPartyEnabled: boolean;
+    afterPartyVenue: string | null;
+    afterPartyStartTime: string | null;
+    afterPartyFee: number;
+    paymentNote: string | null;
   };
   stats: EventStats;
   currentUserRole: MemberRole;
@@ -73,6 +83,9 @@ export function EventDetail({
   availableTransitions,
 }: EventDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [afterPartyEnabled, setAfterPartyEnabled] = useState(
+    event.afterPartyEnabled,
+  );
   const [isPending, startTransition] = useTransition();
   const [, editAction, isEditPending] = useActionState(
     async (
@@ -145,7 +158,10 @@ export function EventDetail({
           {canEdit && isEditing && (
             <Button
               variant="ghost"
-              onClick={() => setIsEditing(false)}
+              onClick={() => {
+                setIsEditing(false);
+                setAfterPartyEnabled(event.afterPartyEnabled);
+              }}
               className="tracking-wider"
             >
               キャンセル
@@ -181,6 +197,28 @@ export function EventDetail({
                   event.totalSeats === 0 ? "無制限" : `${event.totalSeats} 席`
                 }
               />
+              {(event.attendanceFee > 0 || event.afterPartyEnabled) && (
+                <FactItem
+                  icon={<CurrencyJpy className="h-4 w-4" aria-hidden />}
+                  label="会費"
+                  value={
+                    <div className="flex flex-col gap-1">
+                      <span>参加費 {formatYen(event.attendanceFee)}/人</span>
+                      {event.afterPartyEnabled && (
+                        <span>
+                          懇親会 {formatYen(event.afterPartyFee)}
+                          /人
+                        </span>
+                      )}
+                    </div>
+                  }
+                  sub={
+                    event.afterPartyEnabled && event.afterPartyVenue
+                      ? `懇親会: ${event.afterPartyVenue}${event.afterPartyStartTime ? ` ${event.afterPartyStartTime}〜` : ""}`
+                      : null
+                  }
+                />
+              )}
             </dl>
             <div className="pt-2">
               <VenueLink venue={event.venue} address={event.address} />
@@ -256,6 +294,87 @@ export function EventDetail({
                 defaultValue={event.totalSeats}
               />
             </div>
+
+            <Separator />
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="attendanceFee">参加費（円/人、0 = 無料）</Label>
+              <Input
+                type="number"
+                id="attendanceFee"
+                name="attendanceFee"
+                min={0}
+                max={1000000}
+                defaultValue={event.attendanceFee}
+              />
+            </div>
+
+            {/* チェック外し時にフォームへ値が乗らない Switch の代わりに、
+                設定対象であることを示すマーカーを併送する */}
+            <input type="hidden" name="afterPartyEnabledPresent" value="1" />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="afterPartyEnabled">懇親会を開催する</Label>
+              <Switch
+                id="afterPartyEnabled"
+                name="afterPartyEnabled"
+                checked={afterPartyEnabled}
+                onCheckedChange={setAfterPartyEnabled}
+              />
+            </div>
+
+            {afterPartyEnabled && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="afterPartyVenue">懇親会会場（任意）</Label>
+                  <Input
+                    type="text"
+                    id="afterPartyVenue"
+                    name="afterPartyVenue"
+                    maxLength={200}
+                    defaultValue={event.afterPartyVenue ?? ""}
+                  />
+                </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="afterPartyStartTime">
+                      懇親会開始時刻（任意）
+                    </Label>
+                    <Input
+                      type="time"
+                      id="afterPartyStartTime"
+                      name="afterPartyStartTime"
+                      defaultValue={event.afterPartyStartTime ?? ""}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="afterPartyFee">
+                      懇親会費（円/人、0 = 無料）
+                    </Label>
+                    <Input
+                      type="number"
+                      id="afterPartyFee"
+                      name="afterPartyFee"
+                      min={0}
+                      max={1000000}
+                      defaultValue={event.afterPartyFee}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="paymentNote">支払い案内文（任意）</Label>
+              <Textarea
+                id="paymentNote"
+                name="paymentNote"
+                maxLength={500}
+                rows={3}
+                placeholder="例: 当日受付にて現金でお支払いください。キャンセルポリシー等もこちらに記載できます。"
+                defaultValue={event.paymentNote ?? ""}
+              />
+            </div>
+
             <div className="flex gap-4">
               <Button
                 type="submit"
@@ -268,7 +387,10 @@ export function EventDetail({
                 type="button"
                 variant="outline"
                 className="tracking-wider"
-                onClick={() => setIsEditing(false)}
+                onClick={() => {
+                  setIsEditing(false);
+                  setAfterPartyEnabled(event.afterPartyEnabled);
+                }}
               >
                 キャンセル
               </Button>
