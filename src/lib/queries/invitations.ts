@@ -1,13 +1,16 @@
 import "server-only";
 
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq, sql, sum } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  type AfterPartyAttendance,
   companions,
   type EventStatus,
   events,
   type InvitationStatus,
   invitations,
+  type PaidMethod,
+  type PaymentMethod,
 } from "@/db/schema";
 
 // ============================================================
@@ -19,6 +22,9 @@ export type EventForInvitationManagement = {
   name: string;
   status: EventStatus;
   totalSeats: number;
+  attendanceFee: number;
+  afterPartyEnabled: boolean;
+  afterPartyFee: number;
 };
 
 export type InvitationItem = {
@@ -33,6 +39,12 @@ export type InvitationItem = {
   memberId: string | null;
   companionCount: number;
   companionNames: string[];
+  afterPartyAttendance: AfterPartyAttendance | null;
+  afterPartyCompanionCount: number;
+  paymentMethod: PaymentMethod | null;
+  paidAt: number | null;
+  paidMethod: PaidMethod | null;
+  paidAmount: number | null;
   createdAt: number;
 };
 
@@ -48,11 +60,18 @@ export type InvitationForResponse = {
   memberId: string | null;
   checkedIn: boolean;
   checkedInAt: number | null;
+  afterPartyAttendance: AfterPartyAttendance | null;
+  paymentMethod: PaymentMethod | null;
+  paidAt: number | null;
+  paidMethod: PaidMethod | null;
+  paidAmount: number | null;
+  stripeCheckoutSessionId: string | null;
   companions: {
     id: string;
     name: string;
     checkedIn: boolean;
     checkedInAt: number | null;
+    afterPartyAttending: boolean;
   }[];
   event: {
     id: string;
@@ -64,6 +83,12 @@ export type InvitationForResponse = {
     status: EventStatus;
     totalSeats: number;
     showProgram: boolean;
+    attendanceFee: number;
+    afterPartyEnabled: boolean;
+    afterPartyVenue: string | null;
+    afterPartyStartTime: string | null;
+    afterPartyFee: number;
+    paymentNote: string | null;
   };
 };
 
@@ -90,7 +115,15 @@ export async function getEventForInvitationManagement(
 ): Promise<EventForInvitationManagement | undefined> {
   return db.query.events.findFirst({
     where: eq(events.id, eventId),
-    columns: { id: true, name: true, status: true, totalSeats: true },
+    columns: {
+      id: true,
+      name: true,
+      status: true,
+      totalSeats: true,
+      attendanceFee: true,
+      afterPartyEnabled: true,
+      afterPartyFee: true,
+    },
   });
 }
 
@@ -101,7 +134,9 @@ export async function getInvitationsByEventId(
   const rows = await db.query.invitations.findMany({
     where: eq(invitations.eventId, eventId),
     with: {
-      companions: { columns: { id: true, name: true } },
+      companions: {
+        columns: { id: true, name: true, afterPartyAttending: true },
+      },
       member: { columns: { displayName: true } },
     },
   });
@@ -120,6 +155,13 @@ export async function getInvitationsByEventId(
     memberId: r.memberId,
     companionCount: r.companions.length,
     companionNames: r.companions.map((c) => c.name),
+    afterPartyAttendance: r.afterPartyAttendance,
+    afterPartyCompanionCount: r.companions.filter((c) => c.afterPartyAttending)
+      .length,
+    paymentMethod: r.paymentMethod,
+    paidAt: r.paidAt,
+    paidMethod: r.paidMethod,
+    paidAmount: r.paidAmount,
     createdAt: r.createdAt,
   }));
 }
@@ -142,11 +184,23 @@ export async function getInvitationByToken(
           status: true,
           totalSeats: true,
           showProgram: true,
+          attendanceFee: true,
+          afterPartyEnabled: true,
+          afterPartyVenue: true,
+          afterPartyStartTime: true,
+          afterPartyFee: true,
+          paymentNote: true,
         },
       },
       member: { columns: { displayName: true } },
       companions: {
-        columns: { id: true, name: true, checkedIn: true, checkedInAt: true },
+        columns: {
+          id: true,
+          name: true,
+          checkedIn: true,
+          checkedInAt: true,
+          afterPartyAttending: true,
+        },
       },
     },
   });
@@ -167,6 +221,12 @@ export async function getInvitationByToken(
     invalidatedAt: invitation.invalidatedAt,
     respondedAt: invitation.respondedAt,
     memberId: invitation.memberId,
+    afterPartyAttendance: invitation.afterPartyAttendance,
+    paymentMethod: invitation.paymentMethod,
+    paidAt: invitation.paidAt,
+    paidMethod: invitation.paidMethod,
+    paidAmount: invitation.paidAmount,
+    stripeCheckoutSessionId: invitation.stripeCheckoutSessionId,
     companions: invitation.companions,
     event: invitation.event,
   };
@@ -212,11 +272,17 @@ export type CheckInListItem = {
   guestName: string | null;
   checkedIn: boolean;
   checkedInAt: number | null;
+  afterPartyAttendance: AfterPartyAttendance | null;
+  paymentMethod: PaymentMethod | null;
+  paidAt: number | null;
+  paidMethod: PaidMethod | null;
+  paidAmount: number | null;
   companions: {
     id: string;
     name: string;
     checkedIn: boolean;
     checkedInAt: number | null;
+    afterPartyAttending: boolean;
   }[];
 };
 
@@ -234,6 +300,11 @@ export async function getCheckInList(
       guestName: true,
       checkedIn: true,
       checkedInAt: true,
+      afterPartyAttendance: true,
+      paymentMethod: true,
+      paidAt: true,
+      paidMethod: true,
+      paidAmount: true,
     },
     with: {
       companions: {
@@ -242,6 +313,7 @@ export async function getCheckInList(
           name: true,
           checkedIn: true,
           checkedInAt: true,
+          afterPartyAttending: true,
         },
       },
     },
@@ -282,5 +354,55 @@ export async function getCheckInSummary(
     totalCompanions: companionStats?.total ?? 0,
     checkedInGuests: guestStats?.checkedIn ?? 0,
     checkedInCompanions: companionStats?.checkedIn ?? 0,
+  };
+}
+
+export type PaymentSummary = {
+  /** 懇親会参加者数（accepted の本人） */
+  afterPartyGuestCount: number;
+  /** 懇親会参加の同伴者数（本人が参加のときのみ数える） */
+  afterPartyCompanionCount: number;
+  afterPartyTotalCount: number;
+  /** 入金記録のある招待数 */
+  paidCount: number;
+  /** 受領額の合計（円） */
+  paidTotalAmount: number;
+};
+
+/** 懇親会参加人数・入金状況のサマリー取得 */
+export async function getPaymentSummary(
+  eventId: string,
+): Promise<PaymentSummary> {
+  const guestStats = await db
+    .select({
+      afterParty: count(
+        sql`CASE WHEN ${invitations.status} = 'accepted' AND ${invitations.afterPartyAttendance} = 'attending' THEN 1 END`,
+      ),
+      paidCount: count(invitations.paidAt),
+      paidTotal: sum(invitations.paidAmount),
+    })
+    .from(invitations)
+    .where(eq(invitations.eventId, eventId))
+    .get();
+
+  const companionStats = await db
+    .select({
+      afterParty: count(
+        sql`CASE WHEN ${companions.afterPartyAttending} = 1 AND ${invitations.status} = 'accepted' AND ${invitations.afterPartyAttendance} = 'attending' THEN 1 END`,
+      ),
+    })
+    .from(companions)
+    .innerJoin(invitations, eq(companions.invitationId, invitations.id))
+    .where(eq(invitations.eventId, eventId))
+    .get();
+
+  const afterPartyGuestCount = guestStats?.afterParty ?? 0;
+  const afterPartyCompanionCount = companionStats?.afterParty ?? 0;
+  return {
+    afterPartyGuestCount,
+    afterPartyCompanionCount,
+    afterPartyTotalCount: afterPartyGuestCount + afterPartyCompanionCount,
+    paidCount: guestStats?.paidCount ?? 0,
+    paidTotalAmount: Number(guestStats?.paidTotal ?? 0),
   };
 }

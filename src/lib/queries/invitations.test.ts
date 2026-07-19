@@ -12,6 +12,7 @@ import {
   getConsumedSeats,
   getInvitationByToken,
   getInvitationsByEventId,
+  getPaymentSummary,
   getSeatSummary,
 } from "./invitations";
 
@@ -140,5 +141,65 @@ describe("getInvitationByToken / getInvitationsByEventId", () => {
   it("getInvitationByToken: token が一致しなければ undefined", async () => {
     const got = await getInvitationByToken("nonexistent-token");
     expect(got).toBeUndefined();
+  });
+});
+
+describe("getPaymentSummary", () => {
+  it("懇親会参加人数（本人 + 同伴者）と入金件数・合計額を集計する", async () => {
+    const event = await createEvent({
+      attendanceFee: 500,
+      afterPartyEnabled: true,
+      afterPartyFee: 1000,
+    });
+    // 本人参加 + 同伴者 1 名参加・1 名不参加、Stripe で ¥3,000 入金済み
+    const inv1 = await addInvitation({
+      eventId: event.id,
+      status: "accepted",
+      afterPartyAttendance: "attending",
+      paidAt: 1000,
+      paidMethod: "stripe",
+      paidAmount: 3000,
+    });
+    await addCompanion({ invitationId: inv1.id, afterPartyAttending: true });
+    await addCompanion({ invitationId: inv1.id, afterPartyAttending: false });
+    // 本人不参加（同伴者の参加フラグが残っていても数えない）、現金 ¥500 入金済み
+    const inv2 = await addInvitation({
+      eventId: event.id,
+      status: "accepted",
+      afterPartyAttendance: "declined",
+      paidAt: 2000,
+      paidMethod: "cash",
+      paidAmount: 500,
+    });
+    await addCompanion({ invitationId: inv2.id, afterPartyAttending: true });
+    // 未回答・未払い
+    await addInvitation({ eventId: event.id, status: "pending" });
+    // declined（懇親会回答が残っていても数えない）
+    await addInvitation({
+      eventId: event.id,
+      status: "declined",
+      afterPartyAttendance: "attending",
+    });
+
+    const summary = await getPaymentSummary(event.id);
+    expect(summary).toEqual({
+      afterPartyGuestCount: 1,
+      afterPartyCompanionCount: 1,
+      afterPartyTotalCount: 2,
+      paidCount: 2,
+      paidTotalAmount: 3500,
+    });
+  });
+
+  it("該当なしならすべて 0", async () => {
+    const event = await createEvent();
+    const summary = await getPaymentSummary(event.id);
+    expect(summary).toEqual({
+      afterPartyGuestCount: 0,
+      afterPartyCompanionCount: 0,
+      afterPartyTotalCount: 0,
+      paidCount: 0,
+      paidTotalAmount: 0,
+    });
   });
 });
