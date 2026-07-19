@@ -3,6 +3,7 @@
 import {
   CheckCircle,
   Copy,
+  CurrencyJpy,
   DotsThree,
   Trash,
   XCircle,
@@ -12,7 +13,9 @@ import { toast } from "sonner";
 import {
   deleteInvitation,
   invalidateInvitation,
+  markInvitationPaid,
   proxyChangeStatus,
+  unmarkInvitationPaid,
 } from "@/app/(main)/events/[eventId]/invitations/_actions";
 import {
   AlertDialog,
@@ -39,6 +42,12 @@ import {
 import type { EventStatus } from "@/db/schema";
 import { copyText } from "@/lib/clipboard";
 import { formatGuestInvitationCopy } from "@/lib/invitation-copy";
+import {
+  calcBilling,
+  type FeeSettings,
+  formatYen,
+  PAID_METHOD_LABELS,
+} from "@/lib/payment";
 import type { InvitationItem } from "@/lib/queries/invitations";
 import { buildShareUrl } from "@/lib/share-url";
 import { cn } from "@/lib/utils";
@@ -50,6 +59,7 @@ type Props = {
   eventId: string;
   eventStatus: EventStatus;
   invitations: InvitationItem[];
+  feeSettings: FeeSettings;
   currentMemberId: string;
   isOrganizer: boolean;
   view: View;
@@ -59,6 +69,7 @@ export function InvitationList({
   eventId,
   eventStatus,
   invitations,
+  feeSettings,
   currentMemberId,
   isOrganizer,
   view,
@@ -87,6 +98,7 @@ export function InvitationList({
       eventId={eventId}
       eventStatus={eventStatus}
       invitation={invitation}
+      feeSettings={feeSettings}
       currentMemberId={currentMemberId}
       isOrganizer={isOrganizer}
       section={section}
@@ -154,6 +166,7 @@ function InvitationRow({
   eventId,
   eventStatus,
   invitation,
+  feeSettings,
   currentMemberId,
   isOrganizer,
   section,
@@ -161,6 +174,7 @@ function InvitationRow({
   eventId: string;
   eventStatus: EventStatus;
   invitation: InvitationItem;
+  feeSettings: FeeSettings;
   currentMemberId: string;
   isOrganizer: boolean;
   section: SectionKind;
@@ -170,6 +184,18 @@ function InvitationRow({
   const [proxyToDeclinedOpen, setProxyToDeclinedOpen] = useState(false);
   const [proxyToAcceptedOpen, setProxyToAcceptedOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [markPaidOpen, setMarkPaidOpen] = useState(false);
+  const [unmarkPaidOpen, setUnmarkPaidOpen] = useState(false);
+
+  // 請求額は常に現在の設定・回答から算出（受領記録とは独立）
+  const billing = calcBilling(feeSettings, {
+    status: invitation.status,
+    companionCount: invitation.companionCount,
+    afterPartyAttendance: invitation.afterPartyAttendance,
+    afterPartyCompanionCount: invitation.afterPartyCompanionCount,
+  });
+  const isRowPaid = invitation.paidAt !== null;
+  const hasAmountDiff = isRowPaid && invitation.paidAmount !== billing.total;
 
   const isInvalidated = !!invitation.invalidatedAt;
   const isFinished = eventStatus === "finished";
@@ -191,13 +217,19 @@ function InvitationRow({
     invitation.status === "declined" &&
     !isInvalidated;
   const showDelete = !isFinished && isInvalidated && canControl;
+  // 手動の入金済みマーク/解除は organizer のみ。
+  // 支払済みの招待にはマークを出さない（変更するには先に解除が必要）
+  const showMarkPaid = isOrganizer && !isRowPaid && billing.total > 0;
+  const showUnmarkPaid = isOrganizer && isRowPaid;
 
   const hasMenu =
     showCopy ||
     showInvalidate ||
     showProxyToDeclined ||
     showProxyToAccepted ||
-    showDelete;
+    showDelete ||
+    showMarkPaid ||
+    showUnmarkPaid;
 
   const guestDisplayName = invitation.guestName ?? "未設定";
 
@@ -256,6 +288,28 @@ function InvitationRow({
     });
   };
 
+  const handleMarkPaid = () => {
+    startTransition(async () => {
+      const result = await markInvitationPaid(eventId, invitation.id);
+      if (result?.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("入金済みにしました");
+      }
+    });
+  };
+
+  const handleUnmarkPaid = () => {
+    startTransition(async () => {
+      const result = await unmarkInvitationPaid(eventId, invitation.id);
+      if (result?.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("入金済みを解除しました");
+      }
+    });
+  };
+
   // メタテキスト構築
   const metaParts: string[] = [`招待: ${invitation.inviterDisplayName}`];
   if (invitation.status === "declined" && !isInvalidated) {
@@ -266,6 +320,28 @@ function InvitationRow({
   if (invitation.status === "accepted" && invitation.companionCount > 0) {
     metaParts.push(`同伴 +${invitation.companionCount}名`);
   }
+  if (
+    invitation.status === "accepted" &&
+    invitation.afterPartyAttendance !== null
+  ) {
+    metaParts.push(
+      invitation.afterPartyAttendance === "attending"
+        ? `懇親会 ${1 + invitation.afterPartyCompanionCount}名`
+        : "懇親会なし",
+    );
+  }
+
+  // 支払い状態の表示（請求または入金記録があるときのみ）
+  const showPaymentLine = billing.total > 0 || isRowPaid;
+  const paymentLabel = isRowPaid
+    ? `✓ ${formatYen(invitation.paidAmount ?? 0)} 支払済${
+        invitation.paidMethod
+          ? `（${PAID_METHOD_LABELS[invitation.paidMethod]}）`
+          : ""
+      }`
+    : `${formatYen(billing.total)} ${
+        invitation.paymentMethod === "prepaid" ? "事前" : "当日"
+      }・未払い`;
 
   return (
     <li
@@ -290,6 +366,25 @@ function InvitationRow({
         <div className="mt-0.5 text-[11px] text-muted-foreground">
           {metaParts.join(" · ")}
         </div>
+        {showPaymentLine && (
+          <div className="mt-0.5 text-[11px]">
+            <span
+              className={isRowPaid ? "text-primary" : "text-muted-foreground"}
+            >
+              {paymentLabel}
+            </span>
+            {hasAmountDiff && (
+              <span className="ml-1.5 text-amber-600 dark:text-amber-500">
+                受領 {formatYen(invitation.paidAmount ?? 0)} / 現請求{" "}
+                {formatYen(billing.total)}（差額{" "}
+                {formatYen(
+                  Math.abs(billing.total - (invitation.paidAmount ?? 0)),
+                )}
+                ）
+              </span>
+            )}
+          </div>
+        )}
         {section === "accepted" && invitation.companionNames.length > 0 && (
           <Collapsible>
             <CollapsibleTrigger asChild>
@@ -342,6 +437,18 @@ function InvitationRow({
               <DropdownMenuItem onSelect={() => setProxyToDeclinedOpen(true)}>
                 <XCircle className="size-4" aria-hidden />
                 辞退に変更
+              </DropdownMenuItem>
+            )}
+            {showMarkPaid && (
+              <DropdownMenuItem onSelect={() => setMarkPaidOpen(true)}>
+                <CurrencyJpy className="size-4" aria-hidden />
+                入金済みにする
+              </DropdownMenuItem>
+            )}
+            {showUnmarkPaid && (
+              <DropdownMenuItem onSelect={() => setUnmarkPaidOpen(true)}>
+                <CurrencyJpy className="size-4" aria-hidden />
+                入金済みを解除
               </DropdownMenuItem>
             )}
             {showInvalidate && (
@@ -440,6 +547,56 @@ function InvitationRow({
                 disabled={isPending}
               >
                 出席に変更
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {showMarkPaid && (
+        <AlertDialog open={markPaidOpen} onOpenChange={setMarkPaidOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>入金済みにしますか？</AlertDialogTitle>
+              <AlertDialogDescription>
+                {`受領額として現在の請求額 ${formatYen(billing.total)} を記録します。銀行振込などアプリ外での受け取りを確認してから操作してください。`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isPending}>
+                キャンセル
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => handleMarkPaid()}
+                disabled={isPending}
+              >
+                入金済みにする
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {showUnmarkPaid && (
+        <AlertDialog open={unmarkPaidOpen} onOpenChange={setUnmarkPaidOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>入金済みを解除しますか？</AlertDialogTitle>
+              <AlertDialogDescription>
+                解除は記録の訂正のみで、Stripe
+                の返金は実行されません。実際の返金は Stripe
+                ダッシュボードから行ってください。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isPending}>
+                キャンセル
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => handleUnmarkPaid()}
+                disabled={isPending}
+              >
+                解除する
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -5,6 +5,7 @@ import { getEventMembership } from "@/lib/queries/events";
 import {
   getEventForInvitationManagement,
   getInvitationsByEventId,
+  getPaymentSummary,
   getSeatSummary,
 } from "@/lib/queries/invitations";
 import { requireSession } from "@/lib/session";
@@ -25,8 +26,11 @@ export default async function InvitationsPage(
     notFound();
   }
 
-  const allInvitations = await getInvitationsByEventId(eventId);
-  const seatSummary = await getSeatSummary(eventId, event.totalSeats);
+  const [allInvitations, seatSummary, paymentSummary] = await Promise.all([
+    getInvitationsByEventId(eventId),
+    getSeatSummary(eventId, event.totalSeats),
+    getPaymentSummary(eventId),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
@@ -35,6 +39,7 @@ export default async function InvitationsPage(
         event={event}
         invitations={allInvitations}
         seatSummary={seatSummary}
+        paymentSummary={paymentSummary}
         currentMemberId={membership.id}
         currentUserRole={membership.role}
       />

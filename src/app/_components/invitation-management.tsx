@@ -7,7 +7,12 @@ import { InvitationList } from "@/app/_components/invitation-list";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { EventStatus, MemberRole } from "@/db/schema";
 import { statusDotClass, statusLabels } from "@/lib/event-status";
-import type { InvitationItem, SeatSummary } from "@/lib/queries/invitations";
+import { formatYen } from "@/lib/payment";
+import type {
+  InvitationItem,
+  PaymentSummary,
+  SeatSummary,
+} from "@/lib/queries/invitations";
 
 type View = "all" | "mine";
 
@@ -17,9 +22,13 @@ type InvitationManagementProps = {
     name: string;
     status: EventStatus;
     totalSeats: number;
+    attendanceFee: number;
+    afterPartyEnabled: boolean;
+    afterPartyFee: number;
   };
   invitations: InvitationItem[];
   seatSummary: SeatSummary;
+  paymentSummary: PaymentSummary;
   currentMemberId: string;
   currentUserRole: MemberRole;
 };
@@ -28,6 +37,7 @@ export function InvitationManagement({
   event,
   invitations,
   seatSummary,
+  paymentSummary,
   currentMemberId,
   currentUserRole,
 }: InvitationManagementProps) {
@@ -90,6 +100,32 @@ export function InvitationManagement({
         <SummaryCell label="回答待ち" value={String(pendingCount)} bordered />
       </div>
 
+      {/* 懇親会・入金サマリ（会費設定または入金記録があるときのみ） */}
+      {(event.attendanceFee > 0 ||
+        event.afterPartyEnabled ||
+        paymentSummary.paidCount > 0) && (
+        <div className="-mt-4 grid grid-cols-3 border-b pb-5 text-center">
+          <SummaryCell
+            label="懇親会参加"
+            value={
+              event.afterPartyEnabled || paymentSummary.afterPartyTotalCount > 0
+                ? String(paymentSummary.afterPartyTotalCount)
+                : "—"
+            }
+          />
+          <SummaryCell
+            label="入金"
+            value={String(paymentSummary.paidCount)}
+            bordered
+          />
+          <SummaryCell
+            label="受領合計"
+            value={formatYen(paymentSummary.paidTotalAmount)}
+            bordered
+          />
+        </div>
+      )}
+
       {/* CTA */}
       {canIssue && (
         <div>
@@ -142,6 +178,11 @@ export function InvitationManagement({
           eventId={event.id}
           eventStatus={event.status}
           invitations={invitations}
+          feeSettings={{
+            attendanceFee: event.attendanceFee,
+            afterPartyEnabled: event.afterPartyEnabled,
+            afterPartyFee: event.afterPartyFee,
+          }}
           currentMemberId={currentMemberId}
           isOrganizer={isOrganizer}
           view={view}
