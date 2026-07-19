@@ -62,6 +62,33 @@ NEXT_PUBLIC_VERCEL_ENV=preview
 
 サインインボタンを押すと、本物の Google ログイン画面の代わりにエミュレータ画面が表示される。任意のメールアドレス・名前でログインできる。
 
+## Stripe（事前支払い）
+
+事前支払い（オンライン決済）機能を動かすには Stripe のテストモード API キーが必要。**未設定でもアプリは動く**（事前支払いの選択肢が表示されないだけ）。
+
+### 環境変数
+
+`.env.local` に以下を設定する（[Stripe ダッシュボード](https://dashboard.stripe.com/test/apikeys) のテストモードキー）:
+
+```
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+### webhook のローカル転送
+
+決済完了の反映は webhook（`checkout.session.completed`）経由なので、ローカルでは [Stripe CLI](https://docs.stripe.com/stripe-cli) で転送する:
+
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+
+起動時に表示される `whsec_...` を `STRIPE_WEBHOOK_SECRET` に設定して dev サーバーを再起動する。
+
+### テストカード
+
+テストモードでは `4242 4242 4242 4242`（有効期限・CVC は任意の未来日/数字）で決済できる。
+
 ## よくあるハマりどころ
 
 ### DB 関連のエラーが出る
