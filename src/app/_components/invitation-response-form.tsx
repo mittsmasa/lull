@@ -5,9 +5,15 @@ import { toast } from "sonner";
 import { respondToInvitation } from "@/app/i/[token]/_actions";
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { InvitationStatus } from "@/db/schema";
+import type {
+  AfterPartyAttendance,
+  InvitationStatus,
+  PaymentMethod,
+} from "@/db/schema";
+import { calcBilling, formatYen } from "@/lib/payment";
 
 type InvitationResponseFormProps = {
   token: string;
@@ -15,11 +21,25 @@ type InvitationResponseFormProps = {
     guestName: string | null;
     guestEmail: string | null;
     status: InvitationStatus;
-    companions: { id: string; name: string }[];
+    afterPartyAttendance: AfterPartyAttendance | null;
+    paymentMethod: PaymentMethod | null;
+    companions: { id: string; name: string; afterPartyAttending: boolean }[];
   };
+  event: {
+    attendanceFee: number;
+    afterPartyEnabled: boolean;
+    afterPartyVenue: string | null;
+    afterPartyStartTime: string | null;
+    afterPartyFee: number;
+  };
+  stripeEnabled: boolean;
 };
 
-type CompanionEntry = { key: string; name: string };
+type CompanionEntry = {
+  key: string;
+  name: string;
+  afterPartyAttending: boolean;
+};
 
 let companionKeyCounter = 0;
 function nextCompanionKey() {
@@ -29,6 +49,8 @@ function nextCompanionKey() {
 export function InvitationResponseForm({
   token,
   invitation,
+  event,
+  stripeEnabled,
 }: InvitationResponseFormProps) {
   const isUpdate = invitation.status !== "pending";
 
@@ -42,17 +64,45 @@ export function InvitationResponseForm({
       ? invitation.companions.map((c) => ({
           key: nextCompanionKey(),
           name: c.name,
+          afterPartyAttending: c.afterPartyAttending,
         }))
       : [],
+  );
+  const [afterParty, setAfterParty] = useState<AfterPartyAttendance | null>(
+    invitation.afterPartyAttendance,
+  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
+    invitation.paymentMethod,
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(!isUpdate);
   const [hasJustResponded, setHasJustResponded] = useState(false);
 
+  // 請求額のライブ表示（サーバーと同じ算出ロジックを共有）
+  const namedCompanions = companions.filter((c) => c.name.trim());
+  const billing = calcBilling(
+    {
+      attendanceFee: event.attendanceFee,
+      afterPartyEnabled: event.afterPartyEnabled,
+      afterPartyFee: event.afterPartyFee,
+    },
+    {
+      status: attendance,
+      companionCount: namedCompanions.length,
+      afterPartyAttendance: afterParty,
+      afterPartyCompanionCount: namedCompanions.filter(
+        (c) => c.afterPartyAttending,
+      ).length,
+    },
+  );
+
   const handleAddCompanion = () => {
     if (companions.length >= 4) return;
-    setCompanions([...companions, { key: nextCompanionKey(), name: "" }]);
+    setCompanions([
+      ...companions,
+      { key: nextCompanionKey(), name: "", afterPartyAttending: false },
+    ]);
   };
 
   const handleRemoveCompanion = (key: string) => {
@@ -62,6 +112,14 @@ export function InvitationResponseForm({
   const handleCompanionChange = (key: string, value: string) => {
     setCompanions(
       companions.map((c) => (c.key === key ? { ...c, name: value } : c)),
+    );
+  };
+
+  const handleCompanionAfterPartyChange = (key: string, checked: boolean) => {
+    setCompanions(
+      companions.map((c) =>
+        c.key === key ? { ...c, afterPartyAttending: checked } : c,
+      ),
     );
   };
 
@@ -76,8 +134,19 @@ export function InvitationResponseForm({
         attendance,
         companions:
           attendance === "accepted"
-            ? companions.map((c) => c.name).filter((n) => n.trim())
+            ? companions
+                .filter((c) => c.name.trim())
+                .map((c) => ({
+                  name: c.name,
+                  afterPartyAttending:
+                    afterParty === "attending" && c.afterPartyAttending,
+                }))
             : [],
+        afterPartyAttendance:
+          attendance === "accepted" && event.afterPartyEnabled
+            ? afterParty
+            : null,
+        paymentMethod: billing.total > 0 ? paymentMethod : null,
       });
 
       if (result) {
@@ -175,7 +244,7 @@ export function InvitationResponseForm({
         {/* 出欠選択 */}
         <div className="flex flex-col gap-3">
           <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            出欠
+            発表会の出欠
           </p>
           <div className="grid grid-cols-1 gap-3">
             <label className="block cursor-pointer rounded-sm border border-border/50 p-5 text-left transition-colors has-[input:checked]:border-foreground has-[input:checked]:bg-foreground/[0.03] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
@@ -247,6 +316,163 @@ export function InvitationResponseForm({
             {fieldErrors.companions && (
               <p className="text-xs text-destructive">
                 {fieldErrors.companions}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* 懇親会 */}
+        {attendance === "accepted" && event.afterPartyEnabled && (
+          <div className="flex flex-col gap-3 border-t border-border/50 pt-6">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              After party
+            </p>
+            <div className="flex flex-col gap-1">
+              <p className="font-serif text-lg">懇親会のご案内</p>
+              <p className="text-xs text-muted-foreground">
+                {[
+                  event.afterPartyVenue,
+                  event.afterPartyStartTime
+                    ? `${event.afterPartyStartTime}〜`
+                    : null,
+                  event.afterPartyFee > 0
+                    ? `会費 ${formatYen(event.afterPartyFee)}/人`
+                    : "会費無料",
+                ]
+                  .filter(Boolean)
+                  .join("　")}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block cursor-pointer rounded-sm border border-border/50 p-4 text-center transition-colors has-[input:checked]:border-foreground has-[input:checked]:bg-foreground/[0.03] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+                <input
+                  type="radio"
+                  name="afterParty"
+                  value="attending"
+                  required
+                  checked={afterParty === "attending"}
+                  onChange={() => setAfterParty("attending")}
+                  className="sr-only"
+                />
+                <p className="font-serif">参加します</p>
+              </label>
+              <label className="block cursor-pointer rounded-sm border border-border/50 p-4 text-center transition-colors has-[input:checked]:border-foreground has-[input:checked]:bg-foreground/[0.03] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+                <input
+                  type="radio"
+                  name="afterParty"
+                  value="declined"
+                  checked={afterParty === "declined"}
+                  onChange={() => setAfterParty("declined")}
+                  className="sr-only"
+                />
+                <p className="font-serif">参加しません</p>
+              </label>
+            </div>
+            {afterParty === "attending" &&
+              companions.some((c) => c.name.trim()) && (
+                <div className="flex flex-col gap-2 pt-1">
+                  <p className="text-xs text-muted-foreground">
+                    同伴者の懇親会参加
+                  </p>
+                  {companions
+                    .filter((c) => c.name.trim())
+                    .map((c) => (
+                      <div key={c.key} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`companion-after-party-${c.key}`}
+                          checked={c.afterPartyAttending}
+                          onCheckedChange={(checked) =>
+                            handleCompanionAfterPartyChange(
+                              c.key,
+                              checked === true,
+                            )
+                          }
+                        />
+                        <Label
+                          htmlFor={`companion-after-party-${c.key}`}
+                          className="cursor-pointer text-sm font-normal"
+                        >
+                          {c.name}
+                        </Label>
+                      </div>
+                    ))}
+                </div>
+              )}
+            {fieldErrors.afterPartyAttendance && (
+              <p className="text-xs text-destructive">
+                {fieldErrors.afterPartyAttendance}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* お支払い */}
+        {billing.total > 0 && (
+          <div className="flex flex-col gap-3 border-t border-border/50 pt-6">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              Payment
+            </p>
+            <div className="flex flex-col gap-1 text-sm">
+              {billing.attendanceSubtotal > 0 && (
+                <p className="flex justify-between text-muted-foreground">
+                  <span>
+                    参加費 {formatYen(billing.attendanceFee)} ×{" "}
+                    {billing.attendeeCount} 名
+                  </span>
+                  <span>{formatYen(billing.attendanceSubtotal)}</span>
+                </p>
+              )}
+              {billing.afterPartySubtotal > 0 && (
+                <p className="flex justify-between text-muted-foreground">
+                  <span>
+                    懇親会費 {formatYen(billing.afterPartyFee)} ×{" "}
+                    {billing.afterPartyCount} 名
+                  </span>
+                  <span>{formatYen(billing.afterPartySubtotal)}</span>
+                </p>
+              )}
+              <p className="flex justify-between border-t border-border/50 pt-1 font-medium">
+                <span>合計</span>
+                <span>{formatYen(billing.total)}</span>
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              {stripeEnabled && (
+                <label className="block cursor-pointer rounded-sm border border-border/50 p-4 text-left transition-colors has-[input:checked]:border-foreground has-[input:checked]:bg-foreground/[0.03] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="prepaid"
+                    required
+                    checked={paymentMethod === "prepaid"}
+                    onChange={() => setPaymentMethod("prepaid")}
+                    className="sr-only"
+                  />
+                  <p className="font-serif">事前支払い（オンライン決済）</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    回答後、このページからカードでお支払いいただけます
+                  </p>
+                </label>
+              )}
+              <label className="block cursor-pointer rounded-sm border border-border/50 p-4 text-left transition-colors has-[input:checked]:border-foreground has-[input:checked]:bg-foreground/[0.03] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="onsite"
+                  required
+                  checked={paymentMethod === "onsite"}
+                  onChange={() => setPaymentMethod("onsite")}
+                  className="sr-only"
+                />
+                <p className="font-serif">当日支払い</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  当日受付にて現金・電子決済でお支払いください
+                </p>
+              </label>
+            </div>
+            {fieldErrors.paymentMethod && (
+              <p className="text-xs text-destructive">
+                {fieldErrors.paymentMethod}
               </p>
             )}
           </div>

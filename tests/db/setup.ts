@@ -52,6 +52,15 @@ vi.mock("@/lib/mailer", () => ({
   sendMail: async () => {},
 }));
 
+// Stripe SDK の差し替え。__mockSession と同じグローバル制御パターン。
+// 未設定（デフォルト）は「Stripe 無効」= 実環境の env 未設定時と同じ挙動
+vi.mock("@/lib/stripe", () => ({
+  getStripe: () =>
+    (globalThis as { __mockStripe?: unknown }).__mockStripe ?? null,
+  isStripeEnabled: () =>
+    Boolean((globalThis as { __mockStripe?: unknown }).__mockStripe),
+}));
+
 vi.mock("@/lib/session", () => ({
   getSession: async () => {
     return (globalThis as { __mockSession?: unknown }).__mockSession ?? null;

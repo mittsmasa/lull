@@ -4,6 +4,7 @@ import {
   User,
   UsersThree,
 } from "@phosphor-icons/react/dist/ssr";
+import { InvitationPaymentSection } from "@/app/_components/invitation-payment-section";
 import { InvitationProgramView } from "@/app/_components/invitation-program-view";
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
 import { QrCode } from "@/app/_components/qr-code";
@@ -11,8 +12,18 @@ import { VenueLink } from "@/app/_components/venue-link";
 import { SaveGuestToken } from "@/components/guest-token-store";
 import type { EventStatus } from "@/db/schema";
 import { formatDate, formatDatetime, formatTime } from "@/lib/format";
-import { getInvitationByToken } from "@/lib/queries/invitations";
+import {
+  calcBilling,
+  formatYen,
+  isPaid as isPaymentRecorded,
+  PAID_METHOD_LABELS,
+} from "@/lib/payment";
+import {
+  getInvitationByToken,
+  type InvitationForResponse,
+} from "@/lib/queries/invitations";
 import { getProgramsByEventId } from "@/lib/queries/programs";
+import { isStripeEnabled } from "@/lib/stripe";
 
 // ============================================================
 // Shell
@@ -143,13 +154,31 @@ function formatCheckInTime(ts: number): string {
 function CurrentResponseView({
   invitation,
 }: {
-  invitation: {
-    guestName: string | null;
-    guestEmail: string | null;
-    status: string;
-    companions: { id: string; name: string }[];
-  };
+  invitation: InvitationForResponse;
 }) {
+  const { event } = invitation;
+  const billing = calcBilling(
+    {
+      attendanceFee: event.attendanceFee,
+      afterPartyEnabled: event.afterPartyEnabled,
+      afterPartyFee: event.afterPartyFee,
+    },
+    {
+      status: invitation.status,
+      companionCount: invitation.companions.length,
+      afterPartyAttendance: invitation.afterPartyAttendance,
+      afterPartyCompanionCount: invitation.companions.filter(
+        (c) => c.afterPartyAttending,
+      ).length,
+    },
+  );
+  const paid = isPaymentRecorded(invitation);
+  // 懇親会が無効化されても、回答済みの情報は表示し続ける
+  const showAfterParty =
+    invitation.status === "accepted" &&
+    invitation.afterPartyAttendance !== null;
+  const showPayment = billing.total > 0 || paid;
+
   return (
     <section className="flex flex-col gap-4 border-t border-border/50 pt-6">
       <SectionLabel>現在の回答</SectionLabel>
@@ -158,7 +187,7 @@ function CurrentResponseView({
         <dd className="text-sm">{invitation.guestName}</dd>
         <dt className="text-xs text-muted-foreground">メール</dt>
         <dd className="break-all text-sm">{invitation.guestEmail}</dd>
-        <dt className="text-xs text-muted-foreground">出欠</dt>
+        <dt className="text-xs text-muted-foreground">発表会</dt>
         <dd className="text-sm">
           {invitation.status === "accepted" ? "出席" : "辞退"}
         </dd>
@@ -170,7 +199,57 @@ function CurrentResponseView({
             </dd>
           </>
         )}
+        {showAfterParty && (
+          <>
+            <dt className="text-xs text-muted-foreground">懇親会</dt>
+            <dd className="text-sm">
+              {invitation.afterPartyAttendance === "attending"
+                ? `参加（${
+                    1 +
+                    invitation.companions.filter((c) => c.afterPartyAttending)
+                      .length
+                  }名）`
+                : "不参加"}
+            </dd>
+          </>
+        )}
+        {showPayment && (
+          <>
+            <dt className="text-xs text-muted-foreground">ご請求</dt>
+            <dd className="text-sm">
+              {formatYen(billing.total)}
+              {billing.afterPartySubtotal > 0 &&
+                billing.attendanceSubtotal > 0 && (
+                  <span className="text-muted-foreground text-xs">
+                    （参加費 {formatYen(billing.attendanceSubtotal)} + 懇親会{" "}
+                    {formatYen(billing.afterPartySubtotal)}）
+                  </span>
+                )}
+            </dd>
+            <dt className="text-xs text-muted-foreground">お支払い</dt>
+            <dd className="text-sm">
+              {paid ? (
+                <span className="text-primary">
+                  ✓ {formatYen(invitation.paidAmount ?? 0)} 支払済み
+                  {invitation.paidMethod &&
+                    `（${PAID_METHOD_LABELS[invitation.paidMethod]}）`}
+                </span>
+              ) : invitation.paymentMethod === "prepaid" ? (
+                "オンライン決済 ・ 未払い"
+              ) : invitation.paymentMethod === "onsite" ? (
+                "当日支払い"
+              ) : (
+                "未選択"
+              )}
+            </dd>
+          </>
+        )}
       </dl>
+      {showPayment && !paid && event.paymentNote && (
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          {event.paymentNote}
+        </p>
+      )}
     </section>
   );
 }
@@ -294,6 +373,14 @@ export default async function InvitationResponsePage(
   props: PageProps<"/i/[token]">,
 ) {
   const { token } = await props.params;
+  const searchParams = await props.searchParams;
+  // クエリは表示の出し分けにのみ使う。支払済み判定は常に DB の paid_at
+  const paymentQuery =
+    searchParams.payment === "success"
+      ? ("success" as const)
+      : searchParams.payment === "cancelled"
+        ? ("cancelled" as const)
+        : null;
   const invitation = await getInvitationByToken(token);
 
   if (!invitation) {
@@ -377,6 +464,31 @@ export default async function InvitationResponsePage(
     invitation.status === "accepted" &&
     (event.status === "published" || event.status === "ongoing");
 
+  // 「オンラインで支払う」セクション: 未払い + prepaid 選択 + Stripe 有効 + 請求あり
+  const billingTotal = calcBilling(
+    {
+      attendanceFee: event.attendanceFee,
+      afterPartyEnabled: event.afterPartyEnabled,
+      afterPartyFee: event.afterPartyFee,
+    },
+    {
+      status: invitation.status,
+      companionCount: invitation.companions.length,
+      afterPartyAttendance: invitation.afterPartyAttendance,
+      afterPartyCompanionCount: invitation.companions.filter(
+        (c) => c.afterPartyAttending,
+      ).length,
+    },
+  ).total;
+
+  const showPaymentSection =
+    !isInvalidated &&
+    invitation.status === "accepted" &&
+    invitation.paymentMethod === "prepaid" &&
+    invitation.paidAt === null &&
+    billingTotal > 0 &&
+    isStripeEnabled();
+
   const passCaption =
     event.status === "ongoing"
       ? "スタッフにこのコードをお見せください"
@@ -409,9 +521,22 @@ export default async function InvitationResponsePage(
         <CurrentResponseView invitation={invitation} />
       )}
 
+      {showPaymentSection && (
+        <InvitationPaymentSection
+          token={token}
+          amount={billingTotal}
+          paymentStatus={paymentQuery}
+        />
+      )}
+
       {(canRespond || canModify) && (
         <div className="border-t border-border/50 pt-8">
-          <InvitationResponseForm token={token} invitation={invitation} />
+          <InvitationResponseForm
+            token={token}
+            invitation={invitation}
+            event={event}
+            stripeEnabled={isStripeEnabled()}
+          />
         </div>
       )}
 
