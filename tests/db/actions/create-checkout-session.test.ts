@@ -14,6 +14,7 @@ import {
 type MockStripe = {
   checkout: {
     sessions: {
+      retrieve: ReturnType<typeof vi.fn>;
       expire: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
     };
@@ -24,6 +25,7 @@ function enableStripe(): MockStripe {
   const mock: MockStripe = {
     checkout: {
       sessions: {
+        retrieve: vi.fn().mockResolvedValue({ status: "open" }),
         expire: vi.fn().mockResolvedValue({}),
         create: vi.fn().mockResolvedValue({
           id: "cs_test_new",
@@ -149,7 +151,7 @@ describe("createCheckoutSession - 正常系と金額", () => {
 
     expect(stripe.checkout.sessions.create).toHaveBeenCalledTimes(1);
     const args = stripe.checkout.sessions.create.mock.calls[0][0];
-    expect(args.payment_method_types).toEqual(["card"]);
+    expect(args.payment_method_types).toEqual(["card", "paypay"]);
     expect(args.metadata).toEqual({ invitationId: inv.id });
     // JPY はゼロ小数通貨: 請求額算出結果（円の整数値）と完全一致すること
     expect(args.line_items).toEqual([
@@ -197,7 +199,7 @@ describe("createCheckoutSession - 正常系と金額", () => {
     expect(args.line_items[0].price_data.unit_amount).toBe(500);
   });
 
-  it("既存の未払いセッションは expire してから新規生成する", async () => {
+  it("既存の未払い（open）セッションは expire してから新規生成する", async () => {
     const stripe = enableStripe();
     const { inv } = await setupInvitation({
       invitationOverrides: { stripeCheckoutSessionId: "cs_test_old" },
@@ -205,12 +207,79 @@ describe("createCheckoutSession - 正常系と金額", () => {
 
     const res = await createCheckoutSession(inv.token);
     expect(res).toEqual({ url: "https://checkout.stripe.com/test" });
+    expect(stripe.checkout.sessions.retrieve).toHaveBeenCalledWith(
+      "cs_test_old",
+    );
     expect(stripe.checkout.sessions.expire).toHaveBeenCalledWith("cs_test_old");
 
     const after = await db.query.invitations.findFirst({
       where: eq(invitations.id, inv.id),
     });
     expect(after?.stripeCheckoutSessionId).toBe("cs_test_new");
+  });
+
+  it("旧セッションが complete（確定済み/非同期確定待ち）なら新規生成せず確認処理中エラーを返す", async () => {
+    const stripe = enableStripe();
+    stripe.checkout.sessions.retrieve.mockResolvedValue({ status: "complete" });
+    const { inv } = await setupInvitation({
+      invitationOverrides: { stripeCheckoutSessionId: "cs_test_old" },
+    });
+
+    const res = await createCheckoutSession(inv.token);
+    expect(res).toEqual({
+      error: expect.stringContaining("お支払いの確認処理中"),
+    });
+    expect(stripe.checkout.sessions.expire).not.toHaveBeenCalled();
+    expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
+
+    // 旧セッション ID は保持されたまま（webhook の反映を待つ）
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after?.stripeCheckoutSessionId).toBe("cs_test_old");
+  });
+
+  it("旧セッションが expired なら expire を呼ばず新規生成する", async () => {
+    const stripe = enableStripe();
+    stripe.checkout.sessions.retrieve.mockResolvedValue({ status: "expired" });
+    const { inv } = await setupInvitation({
+      invitationOverrides: { stripeCheckoutSessionId: "cs_test_old" },
+    });
+
+    const res = await createCheckoutSession(inv.token);
+    expect(res).toEqual({ url: "https://checkout.stripe.com/test" });
+    expect(stripe.checkout.sessions.expire).not.toHaveBeenCalled();
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("旧セッションが存在しない（resource_missing）なら旧セッションなし扱いで新規生成する", async () => {
+    const stripe = enableStripe();
+    stripe.checkout.sessions.retrieve.mockRejectedValue(
+      Object.assign(new Error("No such checkout.session: cs_test_old"), {
+        code: "resource_missing",
+      }),
+    );
+    const { inv } = await setupInvitation({
+      invitationOverrides: { stripeCheckoutSessionId: "cs_test_old" },
+    });
+
+    const res = await createCheckoutSession(inv.token);
+    expect(res).toEqual({ url: "https://checkout.stripe.com/test" });
+    expect(stripe.checkout.sessions.expire).not.toHaveBeenCalled();
+  });
+
+  it("旧セッションの retrieve に失敗したら新規生成を中断してエラーを返す（安全側）", async () => {
+    const stripe = enableStripe();
+    stripe.checkout.sessions.retrieve.mockRejectedValue(new Error("api down"));
+    const { inv } = await setupInvitation({
+      invitationOverrides: { stripeCheckoutSessionId: "cs_test_old" },
+    });
+
+    const res = await createCheckoutSession(inv.token);
+    expect(res).toEqual({
+      error: expect.stringContaining("決済ページを開けませんでした"),
+    });
+    expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
   });
 
   it("旧セッションの expire に失敗したら新規生成を中断してエラーを返す（安全側）", async () => {

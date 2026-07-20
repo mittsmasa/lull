@@ -114,7 +114,7 @@ export function buildInvitationResponseMail(
       billingLines.push("お支払いは確認済みです。");
     } else if (paymentMethod === "prepaid") {
       billingLines.push(
-        "招待状ページの「オンラインで支払う」から、カードでお支払いいただけます。",
+        "招待状ページの「オンラインで支払う」から、カードまたは PayPay でお支払いいただけます。",
       );
     } else {
       billingLines.push("当日、受付にてお支払いください。");

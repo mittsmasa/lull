@@ -89,6 +89,14 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook
 
 テストモードでは `4242 4242 4242 4242`（有効期限・CVC は任意の未来日/数字）で決済できる。
 
+### PayPay
+
+Checkout ではカードに加えて PayPay を選択できる（`payment_method_types: ["card", "paypay"]`）。利用には [Stripe ダッシュボードの決済手段設定](https://dashboard.stripe.com/settings/payment_methods) で PayPay を有効化しておく必要がある（テストモード・本番それぞれで有効化する。本番は PayPay 側の審査が入る場合あり）。
+
+**未有効のままだとセッション作成自体がエラーになり、カード決済も含めて事前支払いが使えなくなる**ので、本番へ反映する前に必ず本番アカウント側の有効化を確認すること。
+
+テストモードでは Checkout 画面で PayPay を選ぶと決済のシミュレート画面（承認/拒否）が表示される。決済確定は `checkout.session.completed`（即時）または `checkout.session.async_payment_succeeded`（非同期確定）の webhook で反映されるため、上記の `stripe listen` を起動した状態で確認する。
+
 ## よくあるハマりどころ
 
 ### DB 関連のエラーが出る

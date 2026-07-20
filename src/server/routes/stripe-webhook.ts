@@ -7,7 +7,8 @@ import { calcBilling } from "@/lib/payment";
 import { getStripe } from "@/lib/stripe";
 
 /**
- * Stripe webhook（checkout.session.completed）の受け口。
+ * Stripe webhook（checkout.session.completed / async_payment_succeeded /
+ * async_payment_failed）の受け口。
  * 認証セッションは不要な公開エンドポイントで、Stripe 署名検証がアクセス制御を兼ねる。
  *
  * レスポンスコードの方針:
@@ -47,21 +48,34 @@ const app = new Hono().post("/webhook", async (c) => {
     return c.json({ error: "invalid signature" }, 400);
   }
 
-  // 対象外のイベントは受領のみ
-  if (event.type !== "checkout.session.completed") {
+  // 決済失敗の async 通知は記録せず受領のみ（顧客は Checkout から再試行できる）
+  if (event.type === "checkout.session.async_payment_failed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    console.warn(
+      `[stripe-webhook] session ${session.id} async payment failed (invitation ${session.metadata?.invitationId})`,
+    );
+    return c.json({ received: true });
+  }
+
+  // 対象外のイベントは受領のみ。
+  // async_payment_succeeded は、決済手段が確定を非同期通知するケース
+  // （PayPay は原則即時だが防御的に対応）で completed の後に発火する
+  if (
+    event.type !== "checkout.session.completed" &&
+    event.type !== "checkout.session.async_payment_succeeded"
+  ) {
     return c.json({ received: true });
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
 
-  // カード限定（payment_method_types: ["card"]）のため通常ここには来ないが、
-  // 遅延決済（コンビニ等）では completed が payment_status: "unpaid" のまま
-  // 発火し得るため多層防御として確認する。
-  // 将来遅延決済を許す場合は checkout.session.async_payment_succeeded の
-  // ハンドリングを別途追加すること
+  // 即時決済手段限定（payment_method_types: ["card", "paypay"]）のため通常
+  // ここには来ないが、遅延決済では completed が payment_status: "unpaid" の
+  // まま発火し得るため多層防御として確認する。
+  // 非同期確定分は async_payment_succeeded（定義上 paid 確定）で拾う
   if (session.payment_status !== "paid") {
     console.warn(
-      `[stripe-webhook] session ${session.id} completed with payment_status=${session.payment_status}, skipping`,
+      `[stripe-webhook] session ${session.id} ${event.type} with payment_status=${session.payment_status}, skipping`,
     );
     return c.json({ received: true });
   }
