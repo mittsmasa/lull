@@ -75,6 +75,21 @@ STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
+`.env.local` の代わりに fnox でも管理できる（`STRIPE_SECRET_KEY` は登録済み）:
+
+```bash
+fnox set STRIPE_SECRET_KEY        # 初回のみ。隠し入力プロンプトに sk_test_... を貼る
+fnox exec -- pnpm dev             # キーを環境変数として注入して起動
+```
+
+webhook 転送も `--api-key` でキーを渡せば `stripe login` は不要:
+
+```bash
+fnox exec -- sh -c 'stripe listen --forward-to localhost:3000/api/stripe/webhook --api-key "$STRIPE_SECRET_KEY"'
+```
+
+起動時に表示される `whsec_...` を `STRIPE_WEBHOOK_SECRET` として dev サーバーに渡す。
+
 ### webhook のローカル転送
 
 決済完了の反映は webhook（`checkout.session.completed`）経由なので、ローカルでは [Stripe CLI](https://docs.stripe.com/stripe-cli) で転送する:
