@@ -15,8 +15,8 @@ importers:
         specifier: 0.9.0
         version: 0.9.0
       '@hono/zod-validator':
-        specifier: 0.8.0
-        version: 0.8.0(hono@4.12.30)(zod@4.4.3)
+        specifier: 0.9.0
+        version: 0.9.0(hono@4.12.30)(zod@4.4.3)
       '@libsql/client':
         specifier: 0.17.4
         version: 0.17.4
@@ -883,10 +883,10 @@ packages:
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
 
-  '@hono/zod-validator@0.8.0':
-    resolution: {integrity: sha512-5uS4S1/LKtZQYvD4BtpPUFkOv8d1wNxHHrChm26buMiEYc1FrHWvDUaKVBwkiVtvSExHSpLGDvcnpI2Copyj9w==}
+  '@hono/zod-validator@0.9.0':
+    resolution: {integrity: sha512-n0ZSXmCiHVIp4Y5wlOOyZCeTd/rsawA/qW1cipB8QOYKZ9N8Tk0nZUZCXho9cu374AN4JpDNKioNKBJ/W+LBug==}
     peerDependencies:
-      hono: '>=4.10.0'
+      hono: '>=4.11.2'
       zod: ^3.25.0 || ^4.0.0
 
   '@img/colour@1.0.0':
@@ -5123,7 +5123,7 @@ snapshots:
 
   '@floating-ui/utils@0.2.10': {}
 
-  '@hono/zod-validator@0.8.0(hono@4.12.30)(zod@4.4.3)':
+  '@hono/zod-validator@0.9.0(hono@4.12.30)(zod@4.4.3)':
     dependencies:
       hono: 4.12.30
       zod: 4.4.3
