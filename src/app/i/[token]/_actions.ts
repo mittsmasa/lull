@@ -3,6 +3,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import type Stripe from "stripe";
 import * as z from "zod";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
@@ -416,30 +417,66 @@ export async function createCheckoutSession(
   }
 
   // 既存の未払いセッションを失効させてから新規生成する（有効なセッションは常に 1 本のみ）。
-  // expire に失敗した場合は新規生成を中断する — 続行すると古い金額のセッションが
-  // 生き残り、過少支払いの抜け穴になるため（安全側に倒す）
+  // まず旧セッションの状態を確認する — complete（支払確定済み、または PayPay 等の
+  // 非同期確定待ち）のセッションは expire できず、この状態で新規セッションを作ると
+  // 二重支払いの恐れがあるため生成を中断する
   if (invitation.stripeCheckoutSessionId) {
+    let oldSessionStatus: string | null = null;
     try {
-      await stripe.checkout.sessions.expire(invitation.stripeCheckoutSessionId);
+      const oldSession = await stripe.checkout.sessions.retrieve(
+        invitation.stripeCheckoutSessionId,
+      );
+      oldSessionStatus = oldSession.status;
     } catch (err) {
-      // すでに expired / completed のセッションへの expire はエラーになるが、
-      // 「有効な旧セッションが残っていない」ことは保証されるため続行してよい
       const code =
         err && typeof err === "object" && "code" in err
           ? (err as { code?: string }).code
           : undefined;
-      const alreadyInactive =
-        err instanceof Error &&
-        (code === "checkout_session_already_expired" ||
-          /already (expired|completed)|cannot be expired/i.test(err.message));
-      if (!alreadyInactive) {
+      // セッションが存在しない（テストデータ消去等）なら旧セッションなし扱いで続行
+      if (code !== "resource_missing") {
         console.error(
-          `[createCheckoutSession] failed to expire old session ${invitation.stripeCheckoutSessionId} for invitation ${invitation.id}`,
+          `[createCheckoutSession] failed to retrieve old session ${invitation.stripeCheckoutSessionId} for invitation ${invitation.id}`,
           err,
         );
         return { error: CHECKOUT_UNAVAILABLE_ERROR };
       }
     }
+    if (oldSessionStatus === "complete") {
+      // 支払確定済み（webhook 反映待ち）または非同期確定待ち。
+      // 反映は webhook に任せ、ここでは新規セッションを作らない
+      return {
+        error:
+          "お支払いの確認処理中です。しばらくしてからページを再読み込みしてください",
+      };
+    }
+    if (oldSessionStatus === "open") {
+      // expire に失敗した場合は新規生成を中断する — 続行すると古い金額のセッションが
+      // 生き残り、過少支払いの抜け穴になるため（安全側に倒す）
+      try {
+        await stripe.checkout.sessions.expire(
+          invitation.stripeCheckoutSessionId,
+        );
+      } catch (err) {
+        // retrieve と expire の間で失効した場合の expire はエラーになるが、
+        // 「有効な旧セッションが残っていない」ことは保証されるため続行してよい
+        const code =
+          err && typeof err === "object" && "code" in err
+            ? (err as { code?: string }).code
+            : undefined;
+        const alreadyExpired =
+          err instanceof Error &&
+          (code === "checkout_session_already_expired" ||
+            /already expired/i.test(err.message));
+        if (!alreadyExpired) {
+          console.error(
+            `[createCheckoutSession] failed to expire old session ${invitation.stripeCheckoutSessionId} for invitation ${invitation.id}`,
+            err,
+          );
+          return { error: CHECKOUT_UNAVAILABLE_ERROR };
+        }
+      }
+    }
+    // expired はそのまま続行（新規セッションを生成する）
   }
 
   const baseUrl = getBaseUrl();
@@ -469,8 +506,13 @@ export async function createCheckoutSession(
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       // コンビニ等の遅延決済（payment_status: unpaid のまま completed 発火）を
-      // 排除するためカードのみに明示制限する
-      payment_method_types: ["card"],
+      // 排除するため即時決済手段のみに明示制限する。
+      // "paypay" は API では有効だが SDK の型 union に未収載のためアサーションで補う
+      // https://docs.stripe.com/payments/paypay/accept-a-payment
+      payment_method_types: [
+        "card",
+        "paypay",
+      ] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
       line_items: lineItems,
       metadata: { invitationId: invitation.id },
       success_url: `${baseUrl}/i/${token}?payment=success&session_id={CHECKOUT_SESSION_ID}`,

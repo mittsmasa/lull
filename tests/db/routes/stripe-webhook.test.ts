@@ -135,6 +135,63 @@ describe("stripe webhook", () => {
     expect(after?.paidAt).toBeNull();
   });
 
+  it("async_payment_succeeded は completed と同様に支払記録する", async () => {
+    const stripe = enableStripe();
+    const { inv } = await setupInvitation();
+    await addCompanion({ invitationId: inv.id, afterPartyAttending: true });
+    stripe.webhooks.constructEventAsync.mockResolvedValue({
+      type: "checkout.session.async_payment_succeeded",
+      data: {
+        object: {
+          id: "cs_test_paid",
+          payment_status: "paid",
+          amount_total: 3000,
+          metadata: { invitationId: inv.id },
+        },
+      },
+    });
+
+    const res = await postWebhook();
+    expect(res.status).toBe(200);
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after?.paidAt).toBeTruthy();
+    expect(after?.paidMethod).toBe("stripe");
+    expect(after?.paidAmount).toBe(3000);
+    expect(after?.stripeCheckoutSessionId).toBe("cs_test_paid");
+  });
+
+  it("async_payment_failed は記録せず 200 + 警告ログ", async () => {
+    const stripe = enableStripe();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { inv } = await setupInvitation();
+    stripe.webhooks.constructEventAsync.mockResolvedValue({
+      type: "checkout.session.async_payment_failed",
+      data: {
+        object: {
+          id: "cs_test_failed",
+          payment_status: "unpaid",
+          amount_total: 3000,
+          metadata: { invitationId: inv.id },
+        },
+      },
+    });
+
+    const res = await postWebhook();
+    expect(res.status).toBe(200);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("async payment failed"),
+    );
+    warnSpy.mockRestore();
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after?.paidAt).toBeNull();
+  });
+
   it("招待が見つからない場合は 200 + 記録なし", async () => {
     const stripe = enableStripe();
     stripe.webhooks.constructEventAsync.mockResolvedValue(

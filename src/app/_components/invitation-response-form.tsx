@@ -450,7 +450,8 @@ export function InvitationResponseForm({
                   />
                   <p className="font-serif">事前支払い（オンライン決済）</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    回答後、このページからカードでお支払いいただけます
+                    回答後、このページからカードまたは PayPay
+                    でお支払いいただけます
                   </p>
                 </label>
               )}

@@ -105,7 +105,7 @@ export function InvitationPaymentSection({
           : `オンラインで支払う ${formatYen(amount)}`}
       </Button>
       <p className="text-muted-foreground text-xs">
-        カード決済（Stripe）のページへ移動します
+        カード / PayPay 決済（Stripe）のページへ移動します
       </p>
     </section>
   );
