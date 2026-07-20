@@ -8,7 +8,9 @@ import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
 import { buildInvitationResponseMail } from "@/lib/emails/invitation-response";
 import { MailerConfigError, sendMail } from "@/lib/mailer";
+import { calcBilling } from "@/lib/payment";
 import { getConsumedSeats } from "@/lib/queries/invitations";
+import { getStripe, isStripeEnabled } from "@/lib/stripe";
 
 function getBaseUrl(): string {
   // 明示設定（trim 後の非空）が最優先
@@ -30,14 +32,27 @@ export type ResponseActionState =
     }
   | undefined;
 
-const companionNameSchema = z.string().trim().min(1).max(100);
+const companionSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  afterPartyAttending: z.boolean().optional().default(false),
+});
 
 const responseSchema = z
   .object({
     guestName: z.string().trim().min(1).max(100),
     guestEmail: z.string().trim().email(),
     attendance: z.enum(["accepted", "declined"]),
-    companions: z.array(companionNameSchema).max(4).optional().default([]),
+    companions: z.array(companionSchema).max(4).optional().default([]),
+    afterPartyAttendance: z
+      .enum(["attending", "declined"])
+      .nullable()
+      .optional()
+      .default(null),
+    paymentMethod: z
+      .enum(["prepaid", "onsite"])
+      .nullable()
+      .optional()
+      .default(null),
   })
   .superRefine((data, ctx) => {
     if (data.attendance === "declined" && data.companions.length > 0) {
@@ -45,6 +60,16 @@ const responseSchema = z
         code: z.ZodIssueCode.custom,
         message: "辞退の場合、同伴者は入力できません",
         path: ["companions"],
+      });
+    }
+    if (
+      data.attendance === "declined" &&
+      data.afterPartyAttendance === "attending"
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "辞退の場合、懇親会には参加できません",
+        path: ["afterPartyAttendance"],
       });
     }
   });
@@ -55,7 +80,9 @@ export async function respondToInvitation(
     guestName: string;
     guestEmail: string;
     attendance: string;
-    companions: string[];
+    companions: { name: string; afterPartyAttending?: boolean }[];
+    afterPartyAttendance?: string | null;
+    paymentMethod?: string | null;
   },
 ): Promise<ResponseActionState> {
   const invitation = await db.query.invitations.findFirst({
@@ -124,8 +151,81 @@ export async function respondToInvitation(
     };
   }
 
-  const { attendance, companions: companionNames, ...guestInfo } = parsed.data;
+  const {
+    attendance,
+    companions: companionEntries,
+    ...guestInfo
+  } = parsed.data;
   const prevStatus = invitation.status;
+
+  // ------------------------------------------------------------
+  // 懇親会・支払い方法の正規化とバリデーション
+  // ------------------------------------------------------------
+
+  // 欠席（declined）は懇親会・支払い方法を未回答扱いに戻す。
+  // 懇親会が無効なイベントでは入力自体を受理しない
+  const afterPartyAttendance =
+    attendance === "accepted" && event.afterPartyEnabled
+      ? parsed.data.afterPartyAttendance
+      : null;
+
+  // 懇親会有効時、出席者には懇親会の回答を求める
+  if (
+    attendance === "accepted" &&
+    event.afterPartyEnabled &&
+    afterPartyAttendance === null
+  ) {
+    return {
+      error: "入力内容を確認してください",
+      fieldErrors: {
+        afterPartyAttendance: "懇親会の参加可否を選択してください",
+      },
+    };
+  }
+
+  // 本人が懇親会参加でない場合、同伴者だけの参加はできない（全件 false に強制）
+  const normalizedCompanions = companionEntries.map((c) => ({
+    name: c.name,
+    afterPartyAttending:
+      afterPartyAttendance === "attending" && c.afterPartyAttending,
+  }));
+
+  const billing = calcBilling(
+    {
+      attendanceFee: event.attendanceFee,
+      afterPartyEnabled: event.afterPartyEnabled,
+      afterPartyFee: event.afterPartyFee,
+    },
+    {
+      status: attendance,
+      companionCount: normalizedCompanions.length,
+      afterPartyAttendance,
+      afterPartyCompanionCount: normalizedCompanions.filter(
+        (c) => c.afterPartyAttending,
+      ).length,
+    },
+  );
+
+  // 請求額 0 なら支払い方法は不要（指定されていても無視）
+  const paymentMethod = billing.total > 0 ? parsed.data.paymentMethod : null;
+
+  if (billing.total > 0) {
+    if (paymentMethod === null) {
+      return {
+        error: "入力内容を確認してください",
+        fieldErrors: { paymentMethod: "お支払い方法を選択してください" },
+      };
+    }
+    // 事前支払いは Stripe 設定済みの環境でのみ選択できる
+    if (paymentMethod === "prepaid" && !isStripeEnabled()) {
+      return {
+        error: "入力内容を確認してください",
+        fieldErrors: {
+          paymentMethod: "オンライン決済は現在ご利用いただけません",
+        },
+      };
+    }
+  }
 
   // DB 更新（トランザクションで座席競合を防止）
   const txError = await db.transaction(async (tx) => {
@@ -137,7 +237,7 @@ export async function respondToInvitation(
       const selfSeats =
         invitation.status === "accepted" ? 1 + currentCompanionCount : 0;
       const remaining = event.totalSeats - consumed + selfSeats;
-      const needed = 1 + companionNames.length;
+      const needed = 1 + normalizedCompanions.length;
       if (remaining < needed) {
         return "満席のため出席回答を受け付けられません";
       }
@@ -148,13 +248,21 @@ export async function respondToInvitation(
       .delete(companions)
       .where(eq(companions.invitationId, invitation.id));
 
-    // 招待ステータス更新
+    // 招待ステータス更新。
+    // 入金記録（paidAt / paidMethod / paidAmount）には一切触れない（受領記録は不変）。
+    // 未払いの Checkout セッションは回答変更で請求額が変わり得るため ID をクリアし、
+    // トランザクション成功後に expire する
+    const shouldExpireSession =
+      invitation.paidAt === null && invitation.stripeCheckoutSessionId !== null;
     await tx
       .update(invitations)
       .set({
         ...guestInfo,
         status: attendance,
+        afterPartyAttendance,
+        paymentMethod,
         respondedAt: Date.now(),
+        ...(shouldExpireSession ? { stripeCheckoutSessionId: null } : {}),
         ...(attendance === "declined"
           ? { checkedIn: false, checkedInAt: null }
           : {}),
@@ -162,11 +270,12 @@ export async function respondToInvitation(
       .where(eq(invitations.id, invitation.id));
 
     // accepted の場合: 同伴者を登録
-    if (attendance === "accepted" && companionNames.length > 0) {
+    if (attendance === "accepted" && normalizedCompanions.length > 0) {
       await tx.insert(companions).values(
-        companionNames.map((name) => ({
+        normalizedCompanions.map((c) => ({
           invitationId: invitation.id,
-          name,
+          name: c.name,
+          afterPartyAttending: c.afterPartyAttending,
         })),
       );
     }
@@ -178,14 +287,51 @@ export async function respondToInvitation(
     return { error: txError };
   }
 
+  // 未払いの古い Checkout セッションを失効させる（古い金額では支払えないように）。
+  // expire の失敗は回答処理を止めない（webhook の金額照合・差額表示が後段の防御）
+  if (
+    invitation.paidAt === null &&
+    invitation.stripeCheckoutSessionId !== null
+  ) {
+    const stripe = getStripe();
+    if (stripe) {
+      try {
+        await stripe.checkout.sessions.expire(
+          invitation.stripeCheckoutSessionId,
+        );
+      } catch (err) {
+        console.error(
+          `[respondToInvitation] failed to expire checkout session ${invitation.stripeCheckoutSessionId} for invitation ${invitation.id}`,
+          err,
+        );
+      }
+    }
+  }
+
   const mail = buildInvitationResponseMail({
     eventName: event.name,
     guestName: guestInfo.guestName,
     guestEmail: guestInfo.guestEmail,
     attendance,
     prevStatus,
-    companionNames: attendance === "accepted" ? companionNames : [],
+    companionNames:
+      attendance === "accepted" ? normalizedCompanions.map((c) => c.name) : [],
     invitationUrl: `${getBaseUrl()}/i/${token}`,
+    afterParty:
+      attendance === "accepted" && afterPartyAttendance
+        ? {
+            attendance: afterPartyAttendance,
+            totalCount:
+              1 +
+              normalizedCompanions.filter((c) => c.afterPartyAttending).length,
+            venue: event.afterPartyVenue,
+            startTime: event.afterPartyStartTime,
+          }
+        : null,
+    billing,
+    paymentMethod,
+    paymentNote: event.paymentNote,
+    paid: invitation.paidAt !== null,
   });
   // レスポンス返却後に走らせる（serverless 環境で fire-and-forget が
   // 切られる挙動を避ける）
@@ -203,4 +349,155 @@ export async function respondToInvitation(
 
   revalidatePath(`/i/${token}`);
   revalidatePath(`/events/${event.id}/invitations`);
+}
+
+// ============================================================
+// Stripe Checkout セッション生成
+// ============================================================
+
+export type CheckoutSessionResult = { url: string } | { error: string };
+
+const CHECKOUT_UNAVAILABLE_ERROR =
+  "決済ページを開けませんでした。時間をおいて再試行してください";
+
+export async function createCheckoutSession(
+  token: string,
+): Promise<CheckoutSessionResult> {
+  const stripe = getStripe();
+  if (!stripe) {
+    return { error: "オンライン決済は現在ご利用いただけません" };
+  }
+
+  const invitation = await db.query.invitations.findFirst({
+    where: eq(invitations.token, token),
+    with: { event: true, companions: true },
+  });
+
+  if (!invitation) {
+    return { error: "招待が見つかりません" };
+  }
+
+  const { event } = invitation;
+
+  // ガード: 無効化済み招待・回答受付外のイベントステータスでは生成不可
+  if (invitation.invalidatedAt) {
+    return { error: "この招待ではお支払いいただけません" };
+  }
+  if (event.status !== "published" && event.status !== "ongoing") {
+    return { error: "現在お支払いを受け付けていません" };
+  }
+
+  // ガード: 支払済み・事前支払い以外は生成不可
+  if (invitation.paidAt !== null) {
+    return { error: "すでにお支払い済みです" };
+  }
+  if (invitation.paymentMethod !== "prepaid") {
+    return { error: "オンライン決済が選択されていません" };
+  }
+
+  // 請求額は常に現在の設定・回答から算出（保存値を信用しない）
+  const billing = calcBilling(
+    {
+      attendanceFee: event.attendanceFee,
+      afterPartyEnabled: event.afterPartyEnabled,
+      afterPartyFee: event.afterPartyFee,
+    },
+    {
+      status: invitation.status,
+      companionCount: invitation.companions.length,
+      afterPartyAttendance: invitation.afterPartyAttendance,
+      afterPartyCompanionCount: invitation.companions.filter(
+        (c) => c.afterPartyAttending,
+      ).length,
+    },
+  );
+  if (billing.total <= 0) {
+    return { error: "お支払いいただく金額はありません" };
+  }
+
+  // 既存の未払いセッションを失効させてから新規生成する（有効なセッションは常に 1 本のみ）。
+  // expire に失敗した場合は新規生成を中断する — 続行すると古い金額のセッションが
+  // 生き残り、過少支払いの抜け穴になるため（安全側に倒す）
+  if (invitation.stripeCheckoutSessionId) {
+    try {
+      await stripe.checkout.sessions.expire(invitation.stripeCheckoutSessionId);
+    } catch (err) {
+      // すでに expired / completed のセッションへの expire はエラーになるが、
+      // 「有効な旧セッションが残っていない」ことは保証されるため続行してよい
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? (err as { code?: string }).code
+          : undefined;
+      const alreadyInactive =
+        err instanceof Error &&
+        (code === "checkout_session_already_expired" ||
+          /already (expired|completed)|cannot be expired/i.test(err.message));
+      if (!alreadyInactive) {
+        console.error(
+          `[createCheckoutSession] failed to expire old session ${invitation.stripeCheckoutSessionId} for invitation ${invitation.id}`,
+          err,
+        );
+        return { error: CHECKOUT_UNAVAILABLE_ERROR };
+      }
+    }
+  }
+
+  const baseUrl = getBaseUrl();
+  // JPY は Stripe のゼロ小数通貨: unit_amount には円の整数値をそのまま渡す
+  // （USD/EUR 前提の amount * 100 をすると請求額が 100 倍になる）
+  const lineItems = [
+    {
+      price_data: {
+        currency: "jpy",
+        product_data: { name: `参加費（${event.name}）` },
+        unit_amount: billing.attendanceFee,
+      },
+      quantity: billing.attendeeCount,
+    },
+    {
+      price_data: {
+        currency: "jpy",
+        product_data: { name: `懇親会費（${event.name}）` },
+        unit_amount: billing.afterPartyFee,
+      },
+      quantity: billing.afterPartyCount,
+    },
+  ].filter((item) => item.price_data.unit_amount > 0 && item.quantity > 0);
+
+  let sessionUrl: string;
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      // コンビニ等の遅延決済（payment_status: unpaid のまま completed 発火）を
+      // 排除するためカードのみに明示制限する
+      payment_method_types: ["card"],
+      line_items: lineItems,
+      metadata: { invitationId: invitation.id },
+      success_url: `${baseUrl}/i/${token}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/i/${token}?payment=cancelled`,
+      ...(invitation.guestEmail
+        ? { customer_email: invitation.guestEmail }
+        : {}),
+    });
+    if (!session.url) {
+      console.error(
+        `[createCheckoutSession] session created without url for invitation ${invitation.id}`,
+      );
+      return { error: CHECKOUT_UNAVAILABLE_ERROR };
+    }
+    // 新セッションの ID を保存（失効管理・webhook 冪等性のため）
+    await db
+      .update(invitations)
+      .set({ stripeCheckoutSessionId: session.id })
+      .where(eq(invitations.id, invitation.id));
+    sessionUrl = session.url;
+  } catch (err) {
+    console.error(
+      `[createCheckoutSession] failed to create session for invitation ${invitation.id}`,
+      err,
+    );
+    return { error: CHECKOUT_UNAVAILABLE_ERROR };
+  }
+
+  return { url: sessionUrl };
 }

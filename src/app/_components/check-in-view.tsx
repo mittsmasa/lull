@@ -10,12 +10,22 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { toast } from "sonner";
 import {
   type LookupInvitation,
+  type LookupPayment,
   lookupInvitationByToken,
   performBulkCheckIn,
   performCheckIn,
+  recordOnsitePayment,
   undoCheckIn,
 } from "@/app/(main)/events/[eventId]/checkin/_actions";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +41,7 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { EventStatus } from "@/db/schema";
 import { statusLabels, statusVariants } from "@/lib/event-status";
+import { calcBilling, formatYen, PAID_METHOD_LABELS } from "@/lib/payment";
 import type {
   CheckInListItem,
   CheckInSummary,
@@ -43,6 +54,9 @@ type CheckInViewProps = {
     name: string;
     status: EventStatus;
     totalSeats: number;
+    attendanceFee: number;
+    afterPartyEnabled: boolean;
+    afterPartyFee: number;
   };
   summary: CheckInSummary;
   initialList: CheckInListItem[];
@@ -326,6 +340,23 @@ export function CheckInView({
   };
 
   const selectFromList = (item: CheckInListItem) => {
+    // 一覧経由でも QR 経由（lookup）と同じ形に揃える。請求額は現在の設定・回答から算出
+    const afterPartyCompanionCount = item.companions.filter(
+      (c) => c.afterPartyAttending,
+    ).length;
+    const billing = calcBilling(
+      {
+        attendanceFee: event.attendanceFee,
+        afterPartyEnabled: event.afterPartyEnabled,
+        afterPartyFee: event.afterPartyFee,
+      },
+      {
+        status: "accepted",
+        companionCount: item.companions.length,
+        afterPartyAttendance: item.afterPartyAttendance,
+        afterPartyCompanionCount,
+      },
+    );
     setViewState({
       mode: "found",
       invitation: {
@@ -334,6 +365,18 @@ export function CheckInView({
         guestEmail: null,
         checkedIn: item.checkedIn,
         checkedInAt: item.checkedInAt,
+        afterPartyAttendance: item.afterPartyAttendance,
+        afterPartyCount:
+          item.afterPartyAttendance === "attending"
+            ? 1 + afterPartyCompanionCount
+            : 0,
+        payment: {
+          billing,
+          paymentMethod: item.paymentMethod,
+          paidAt: item.paidAt,
+          paidMethod: item.paidMethod,
+          paidAmount: item.paidAmount,
+        },
         companions: item.companions,
       },
     });
@@ -527,6 +570,7 @@ export function CheckInView({
           )}
           {viewState.mode === "found" && (
             <FoundPanel
+              eventId={event.id}
               invitation={viewState.invitation}
               processing={processing}
               onCheckIn={handleCheckIn}
@@ -818,6 +862,7 @@ function ScanningView({ scanKey, onScan, onCancel }: ScanningViewProps) {
 // ============================================================
 
 type FoundPanelProps = {
+  eventId: string;
   invitation: LookupInvitation;
   processing: string | null;
   onCheckIn: (
@@ -836,6 +881,7 @@ type FoundPanelProps = {
 };
 
 function FoundPanel({
+  eventId,
   invitation: inv,
   processing,
   onCheckIn,
@@ -911,6 +957,14 @@ function FoundPanel({
         </div>
       )}
 
+      <PaymentPanel
+        eventId={eventId}
+        invitationId={inv.id}
+        afterPartyAttendance={inv.afterPartyAttendance}
+        afterPartyCount={inv.afterPartyCount}
+        initialPayment={inv.payment}
+      />
+
       <div className="grid grid-cols-2 gap-2 pt-1">
         <Button variant="outline" onClick={onClose}>
           閉じる
@@ -920,6 +974,145 @@ function FoundPanel({
           次のゲスト
         </Button>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Sub: PaymentPanel（懇親会・会費の受領）
+// ============================================================
+
+type PaymentPanelProps = {
+  eventId: string;
+  invitationId: string;
+  afterPartyAttendance: "attending" | "declined" | null;
+  afterPartyCount: number;
+  initialPayment: LookupPayment;
+};
+
+function PaymentPanel({
+  eventId,
+  invitationId,
+  afterPartyAttendance,
+  afterPartyCount,
+  initialPayment,
+}: PaymentPanelProps) {
+  const [payment, setPayment] = useState(initialPayment);
+  const [isPending, startTransition] = useTransition();
+
+  const { billing } = payment;
+  const paid = payment.paidAt !== null;
+  // 受領ボタンの非活性は「全額受領済み」のときのみ。
+  // 受領額 < 現請求額（差額あり）は警告表示のうえボタンを活性のまま残す
+  const fullyPaid = paid && (payment.paidAmount ?? 0) >= billing.total;
+  const shortfall = billing.total - (payment.paidAmount ?? 0);
+
+  // 請求も入金記録もなければ何も出さない（会費なしイベントでは UI 差分ゼロ）
+  if (billing.total <= 0 && !paid) return null;
+
+  const handleReceive = (method: "cash" | "electronic") => {
+    startTransition(async () => {
+      const result = await recordOnsitePayment(eventId, invitationId, method);
+      if ("error" in result) {
+        toast.error(result.error);
+      } else {
+        setPayment(result.payment);
+        toast.success("受領を記録しました");
+      }
+    });
+  };
+
+  const breakdown = [
+    billing.attendanceSubtotal > 0
+      ? `参加費 ${formatYen(billing.attendanceSubtotal)}`
+      : null,
+    billing.afterPartySubtotal > 0
+      ? `懇親会 ${formatYen(billing.afterPartySubtotal)}`
+      : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="space-y-2 border-t pt-3">
+      <div className="text-muted-foreground text-[9px] font-medium tracking-[0.22em] uppercase">
+        Payment
+      </div>
+      <dl className="space-y-1 text-sm">
+        {afterPartyAttendance !== null && (
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">懇親会</dt>
+            <dd>
+              {afterPartyAttendance === "attending"
+                ? `参加 ${afterPartyCount} 名`
+                : "不参加"}
+            </dd>
+          </div>
+        )}
+        <div className="flex justify-between">
+          <dt className="text-muted-foreground">ご請求</dt>
+          <dd className="tabular-nums">
+            {formatYen(billing.total)}
+            {breakdown.length > 1 && (
+              <span className="text-muted-foreground text-xs">
+                （{breakdown.join(" + ")}）
+              </span>
+            )}
+          </dd>
+        </div>
+        <div className="flex justify-between">
+          <dt className="text-muted-foreground">支払い</dt>
+          <dd>
+            {paid ? (
+              <span className="text-emerald-700">
+                ✓ {formatYen(payment.paidAmount ?? 0)} 受領済
+                {payment.paidMethod &&
+                  `（${PAID_METHOD_LABELS[payment.paidMethod]}）`}
+              </span>
+            ) : (
+              `未払い（${
+                payment.paymentMethod === "prepaid"
+                  ? "オンライン決済"
+                  : "当日支払い"
+              }）`
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      {paid && shortfall > 0 && (
+        <div className="flex items-start gap-2 rounded-md border-amber-500 border-l-2 bg-amber-500/10 px-3 py-2 text-amber-700 text-xs dark:text-amber-500">
+          <Warning className="mt-0.5 size-4 shrink-0" />
+          <span>
+            差額 {formatYen(shortfall)} あり（受領{" "}
+            {formatYen(payment.paidAmount ?? 0)} / 現請求{" "}
+            {formatYen(billing.total)}）
+          </span>
+        </div>
+      )}
+
+      {fullyPaid ? (
+        <p className="text-muted-foreground text-xs">
+          取消は招待管理画面の「入金済みを解除」から行えます
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            onClick={() => handleReceive("cash")}
+          >
+            現金で受領
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            onClick={() => handleReceive("electronic")}
+          >
+            電子決済で受領
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

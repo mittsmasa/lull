@@ -59,6 +59,16 @@ export type PerformerInvitationStatus =
 export const INVITATION_STATUSES = ["pending", "accepted", "declined"] as const;
 export type InvitationStatus = (typeof INVITATION_STATUSES)[number];
 
+export const AFTER_PARTY_ATTENDANCES = ["attending", "declined"] as const;
+export type AfterPartyAttendance = (typeof AFTER_PARTY_ATTENDANCES)[number];
+
+export const PAYMENT_METHODS = ["prepaid", "onsite"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+// 実際の受領手段（stripe = Checkout webhook の自動記録 / manual = 管理画面の手動マーク）
+export const PAID_METHODS = ["stripe", "cash", "electronic", "manual"] as const;
+export type PaidMethod = (typeof PAID_METHODS)[number];
+
 // ============================================================
 // テーブル定義
 // ============================================================
@@ -150,6 +160,16 @@ export const events = sqliteTable("events", {
   showProgram: integer("show_program", { mode: "boolean" })
     .notNull()
     .default(true),
+  // 参加費（円/人）: 出席者全員に発生。0 = 無料
+  attendanceFee: integer("attendance_fee").notNull().default(0),
+  afterPartyEnabled: integer("after_party_enabled", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  afterPartyVenue: text("after_party_venue"),
+  afterPartyStartTime: text("after_party_start_time"),
+  // 懇親会費（円/人）: 懇親会参加者にのみ参加費へ加算
+  afterPartyFee: integer("after_party_fee").notNull().default(0),
+  paymentNote: text("payment_note"),
   currentProgramId: text("current_program_id"),
   createdAt: integer("created_at")
     .notNull()
@@ -222,6 +242,19 @@ export const invitations = sqliteTable(
       .notNull()
       .default(false),
     checkedInAt: integer("checked_in_at"),
+    // 本人の懇親会出欠（null = 未回答 or 懇親会なし）
+    afterPartyAttendance: text("after_party_attendance", {
+      enum: AFTER_PARTY_ATTENDANCES,
+    }),
+    // 支払いは参加費+懇親会費を合算し招待単位で一括管理（ゲストがまとめて支払う）
+    paymentMethod: text("payment_method", { enum: PAYMENT_METHODS }),
+    paidAt: integer("paid_at"),
+    paidMethod: text("paid_method", { enum: PAID_METHODS }),
+    // 受領額（記録時点の請求額）。後から会費設定・回答が変わっても記録は不変
+    paidAmount: integer("paid_amount"),
+    // 最新の Checkout セッション ID。未払い段階でも生成時に保存（失効管理用）、
+    // 支払済み後は決済に使われたセッション ID（webhook 冪等性・監査用）
+    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
     invalidatedAt: integer("invalidated_at"),
     respondedAt: integer("responded_at"),
     createdAt: integer("created_at")
@@ -284,6 +317,9 @@ export const companions = sqliteTable(
       .notNull()
       .default(false),
     checkedInAt: integer("checked_in_at"),
+    afterPartyAttending: integer("after_party_attending", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: integer("created_at")
       .notNull()
       .$defaultFn(() => Date.now()),

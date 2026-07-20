@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "@/lib/auth";
 import { healthRoute } from "./routes/health";
+import { stripeWebhookRoute } from "./routes/stripe-webhook";
 
 const app = new Hono().basePath("/api");
 
@@ -19,7 +20,9 @@ app.on(["POST", "GET"], "/auth/*", (c) => {
   return auth.handler(c.req.raw);
 });
 
-const routes = app.route("/health", healthRoute);
+const routes = app
+  .route("/health", healthRoute)
+  .route("/stripe", stripeWebhookRoute);
 
 export type AppType = typeof routes;
 export default app;

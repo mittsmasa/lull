@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { db } from "@/db";
 import { companions, eventMembers, events, invitations } from "@/db/schema";
+import { calcBilling } from "@/lib/payment";
 import { getConsumedSeats } from "@/lib/queries/invitations";
 import { requireSession } from "@/lib/session";
 
@@ -280,6 +281,114 @@ export async function deleteInvitation(
   }
 
   await db.delete(invitations).where(eq(invitations.id, invitationId));
+
+  revalidatePath(`/events/${eventId}/invitations`);
+}
+
+// ============================================================
+// 入金の手動記録（organizer のみ）
+// ============================================================
+
+async function requireOrganizerMember(eventId: string) {
+  const session = await requireSession();
+  return db.query.eventMembers.findFirst({
+    where: and(
+      eq(eventMembers.eventId, eventId),
+      eq(eventMembers.userId, session.user.id),
+      eq(eventMembers.role, "organizer"),
+    ),
+  });
+}
+
+/**
+ * 手動の入金済みマーク（銀行振込等の例外対応・webhook 不達時のフォールバック）。
+ * 受領額には記録時点の請求額を記録する
+ */
+export async function markInvitationPaid(
+  eventId: string,
+  invitationId: string,
+): Promise<{ error: string } | undefined> {
+  const member = await requireOrganizerMember(eventId);
+  if (!member) {
+    return { error: "権限がありません" };
+  }
+
+  const invitation = await db.query.invitations.findFirst({
+    where: and(
+      eq(invitations.id, invitationId),
+      eq(invitations.eventId, eventId),
+    ),
+    with: { event: true, companions: true },
+  });
+  if (!invitation) {
+    return { error: "招待が見つかりません" };
+  }
+  if (invitation.paidAt !== null) {
+    return { error: "すでに入金済みです。変更するには先に解除してください" };
+  }
+
+  const billing = calcBilling(
+    {
+      attendanceFee: invitation.event.attendanceFee,
+      afterPartyEnabled: invitation.event.afterPartyEnabled,
+      afterPartyFee: invitation.event.afterPartyFee,
+    },
+    {
+      status: invitation.status,
+      companionCount: invitation.companions.length,
+      afterPartyAttendance: invitation.afterPartyAttendance,
+      afterPartyCompanionCount: invitation.companions.filter(
+        (c) => c.afterPartyAttending,
+      ).length,
+    },
+  );
+  if (billing.total <= 0) {
+    return { error: "請求額がないため入金を記録できません" };
+  }
+
+  await db
+    .update(invitations)
+    .set({
+      paidAt: Date.now(),
+      paidMethod: "manual",
+      paidAmount: billing.total,
+    })
+    .where(eq(invitations.id, invitationId));
+
+  revalidatePath(`/events/${eventId}/invitations`);
+}
+
+/**
+ * 入金済みの解除。記録の訂正のみで Stripe の返金は実行しない
+ * （実返金は Stripe ダッシュボードから行い、その後この操作で記録を解除する運用）。
+ * stripe_checkout_session_id は監査用に保持する
+ */
+export async function unmarkInvitationPaid(
+  eventId: string,
+  invitationId: string,
+): Promise<{ error: string } | undefined> {
+  const member = await requireOrganizerMember(eventId);
+  if (!member) {
+    return { error: "権限がありません" };
+  }
+
+  const invitation = await db.query.invitations.findFirst({
+    where: and(
+      eq(invitations.id, invitationId),
+      eq(invitations.eventId, eventId),
+    ),
+  });
+  if (!invitation) {
+    return { error: "招待が見つかりません" };
+  }
+  if (invitation.paidAt === null) {
+    return { error: "入金記録がありません" };
+  }
+
+  await db
+    .update(invitations)
+    .set({ paidAt: null, paidMethod: null, paidAmount: null })
+    .where(eq(invitations.id, invitationId));
 
   revalidatePath(`/events/${eventId}/invitations`);
 }

@@ -87,7 +87,7 @@ describe("respondToInvitation - 受諾", () => {
     const res = await respondToInvitation(inv.token, {
       ...baseGuestInfo,
       attendance: "accepted",
-      companions: ["同伴1", "同伴2"],
+      companions: [{ name: "同伴1" }, { name: "同伴2" }],
     });
     expect(res).toBeUndefined();
 
@@ -159,7 +159,7 @@ describe("respondToInvitation - 受諾", () => {
     const res = await respondToInvitation(target.token, {
       ...baseGuestInfo,
       attendance: "accepted",
-      companions: ["新同伴1", "新同伴2"],
+      companions: [{ name: "新同伴1" }, { name: "新同伴2" }],
     });
     expect(res).toBeUndefined();
 

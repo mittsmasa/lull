@@ -3,12 +3,28 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { companions, eventMembers, events, invitations } from "@/db/schema";
+import {
+  companions,
+  eventMembers,
+  events,
+  invitations,
+  type PaidMethod,
+} from "@/db/schema";
+import { type Billing, calcBilling } from "@/lib/payment";
 import {
   type CheckInSummary,
   getCheckInSummary,
 } from "@/lib/queries/invitations";
 import { requireSession } from "@/lib/session";
+
+export type LookupPayment = {
+  /** 現在の設定・回答から算出した請求内訳 */
+  billing: Billing;
+  paymentMethod: "prepaid" | "onsite" | null;
+  paidAt: number | null;
+  paidMethod: PaidMethod | null;
+  paidAmount: number | null;
+};
 
 export type LookupInvitation = {
   id: string;
@@ -16,6 +32,9 @@ export type LookupInvitation = {
   guestEmail: string | null;
   checkedIn: boolean;
   checkedInAt: number | null;
+  afterPartyAttendance: "attending" | "declined" | null;
+  afterPartyCount: number;
+  payment: LookupPayment;
   companions: {
     id: string;
     name: string;
@@ -60,6 +79,7 @@ export async function lookupInvitationByToken(
           name: true,
           checkedIn: true,
           checkedInAt: true,
+          afterPartyAttending: true,
         },
       },
     },
@@ -85,6 +105,24 @@ export async function lookupInvitationByToken(
     return { error: "この招待は辞退されています" };
   }
 
+  // 請求額は常に現在の設定・回答から算出
+  const afterPartyCompanionCount = invitation.companions.filter(
+    (c) => c.afterPartyAttending,
+  ).length;
+  const billing = calcBilling(
+    {
+      attendanceFee: event.attendanceFee,
+      afterPartyEnabled: event.afterPartyEnabled,
+      afterPartyFee: event.afterPartyFee,
+    },
+    {
+      status: invitation.status,
+      companionCount: invitation.companions.length,
+      afterPartyAttendance: invitation.afterPartyAttendance,
+      afterPartyCompanionCount,
+    },
+  );
+
   // accepted → 招待情報を返す
   return {
     invitation: {
@@ -93,7 +131,121 @@ export async function lookupInvitationByToken(
       guestEmail: invitation.guestEmail,
       checkedIn: invitation.checkedIn,
       checkedInAt: invitation.checkedInAt,
-      companions: invitation.companions,
+      afterPartyAttendance: invitation.afterPartyAttendance,
+      afterPartyCount:
+        invitation.afterPartyAttendance === "attending"
+          ? 1 + afterPartyCompanionCount
+          : 0,
+      payment: {
+        billing,
+        paymentMethod: invitation.paymentMethod,
+        paidAt: invitation.paidAt,
+        paidMethod: invitation.paidMethod,
+        paidAmount: invitation.paidAmount,
+      },
+      companions: invitation.companions.map((c) => ({
+        id: c.id,
+        name: c.name,
+        checkedIn: c.checkedIn,
+        checkedInAt: c.checkedInAt,
+      })),
+    },
+  };
+}
+
+/** 当日の会費受領を記録（現金・電子決済）。取消は招待管理画面の「入金済み解除」のみ */
+export async function recordOnsitePayment(
+  eventId: string,
+  invitationId: string,
+  method: "cash" | "electronic",
+): Promise<{ error: string } | { payment: LookupPayment }> {
+  const session = await requireSession();
+
+  // member 権限（主催者 or 出演者）
+  const member = await db.query.eventMembers.findFirst({
+    where: and(
+      eq(eventMembers.eventId, eventId),
+      eq(eventMembers.userId, session.user.id),
+    ),
+  });
+  if (!member) return { error: "権限がありません" };
+
+  const event = await db.query.events.findFirst({
+    where: eq(events.id, eventId),
+  });
+  if (event?.status !== "ongoing") {
+    return { error: "会費の受領は開催中のイベントでのみ記録できます" };
+  }
+
+  const invitation = await db.query.invitations.findFirst({
+    where: and(
+      eq(invitations.id, invitationId),
+      eq(invitations.eventId, eventId),
+    ),
+    with: { companions: { columns: { afterPartyAttending: true } } },
+  });
+  if (!invitation) return { error: "招待が見つかりません" };
+  if (invitation.invalidatedAt) {
+    return { error: "この招待は無効化されています" };
+  }
+
+  const billing = calcBilling(
+    {
+      attendanceFee: event.attendanceFee,
+      afterPartyEnabled: event.afterPartyEnabled,
+      afterPartyFee: event.afterPartyFee,
+    },
+    {
+      status: invitation.status,
+      companionCount: invitation.companions.length,
+      afterPartyAttendance: invitation.afterPartyAttendance,
+      afterPartyCompanionCount: invitation.companions.filter(
+        (c) => c.afterPartyAttending,
+      ).length,
+    },
+  );
+  if (billing.total <= 0) {
+    return { error: "受領する金額がありません" };
+  }
+  // 全額受領済み（受領額 ≥ 現請求額）なら二重受領を防ぐ。
+  // 受領額 < 現請求額（差額あり）の場合は受領を許可する
+  if (
+    invitation.paidAt !== null &&
+    (invitation.paidAmount ?? 0) >= billing.total
+  ) {
+    return { error: "すでに全額受領済みです" };
+  }
+
+  // 受領額を現請求額に更新。既存の paid_method が "stripe" の場合は
+  // 上書きしない（一部 Stripe 決済済みという内訳を記録に残す）。
+  // stripe_checkout_session_id は常に監査用に保持する
+  const paidMethod: PaidMethod =
+    invitation.paidMethod === "stripe" ? "stripe" : method;
+  await db
+    .update(invitations)
+    .set({
+      paidAt: Date.now(),
+      paidMethod,
+      paidAmount: billing.total,
+    })
+    .where(
+      and(eq(invitations.id, invitationId), eq(invitations.eventId, eventId)),
+    );
+
+  revalidatePath(`/events/${eventId}/checkin`);
+  revalidatePath(`/events/${eventId}/invitations`);
+  revalidatePath(`/i/${invitation.token}`);
+
+  const updated = await db.query.invitations.findFirst({
+    where: eq(invitations.id, invitationId),
+  });
+  return {
+    payment: {
+      billing,
+      paymentMethod: updated?.paymentMethod ?? invitation.paymentMethod,
+      paidAt: updated?.paidAt ?? null,
+      paidMethod: updated?.paidMethod ?? null,
+      paidAmount: updated?.paidAmount ?? null,
     },
   };
 }
