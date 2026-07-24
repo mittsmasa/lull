@@ -72,8 +72,8 @@ importers:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
       resend:
-        specifier: 6.17.2
-        version: 6.17.2
+        specifier: 6.18.0
+        version: 6.18.0
       server-only:
         specifier: 0.0.1
         version: 0.0.1
@@ -3952,8 +3952,8 @@ packages:
     resolution: {integrity: sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow==}
     engines: {node: '>=14.19.0'}
 
-  postal-mime@2.7.4:
-    resolution: {integrity: sha512-0WdnFQYUrPGGTFu1uOqD2s7omwua8xaeYGdO6rb88oD5yJ/4pPHDA4sdWqfD8wQVfCny563n/HQS7zTFft+f/g==}
+  postal-mime@2.7.5:
+    resolution: {integrity: sha512-GNEXKvWFQnbgO5NlrGzVa0FmWzBZ24PersAWErttSg1Hjpf0ATxTwS5DOMGaOpTG6bUh5cTr7xi0jAD942wCJA==}
 
   postcss@8.4.31:
     resolution: {integrity: sha512-PS08Iboia9mts/2ygV3eLpY5ghnUcfLV/EXTOW1E2qYxJKGGBUtNjN76FYHnMs36RmARn41bC0AZmn+rR0OVpQ==}
@@ -4085,8 +4085,8 @@ packages:
   require-main-filename@2.0.0:
     resolution: {integrity: sha512-NKN5kMDylKuldxYLSUfrbo5Tuzh4hd+2E8NPPX02mZtn1VuREQToYe/ZdlJy+J3uCpfaiGF05e7B8W0iXbQHmg==}
 
-  resend@6.17.2:
-    resolution: {integrity: sha512-hbaXEORFIFfT2Bh03NsA/akTTTKkD1hiuJ88ke64c5dWVV6DyoLxzFve3OiZqVOQ+JKLJ5uVkPR6hlUslpJFoA==}
+  resend@6.18.0:
+    resolution: {integrity: sha512-EjxZ9AVzywJgOlUoIJe9ytBWVrfbUtJbjeoLnRSvpU1sv97Hh9DSwhw+k8kiujrG4Rg4bzTBsjlmwWWuoOxSug==}
     engines: {node: '>=20'}
     peerDependencies:
       '@react-email/render': '*'
@@ -7867,7 +7867,7 @@ snapshots:
 
   pngjs@7.0.0: {}
 
-  postal-mime@2.7.4: {}
+  postal-mime@2.7.5: {}
 
   postcss@8.4.31:
     dependencies:
@@ -8057,9 +8057,9 @@ snapshots:
 
   require-main-filename@2.0.0: {}
 
-  resend@6.17.2:
+  resend@6.18.0:
     dependencies:
-      postal-mime: 2.7.4
+      postal-mime: 2.7.5
       standardwebhooks: 1.0.0
 
   reserved-identifiers@1.2.0: {}
