@@ -78,7 +78,7 @@
     "lefthook": "2.1.10",
     "playwright": "1.61.1",
     "storybook": "10.5.3",
-    "storybook-addon-vrt": "0.2.0",
+    "storybook-addon-vrt": "0.2.1",
     "typescript": "6.0.3",
     "vite": "8.1.5",
     "vitest": "4.1.10"

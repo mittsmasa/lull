@@ -151,8 +151,8 @@ importers:
         specifier: 10.5.3
         version: 10.5.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       storybook-addon-vrt:
-        specifier: 0.2.0
-        version: 0.2.0(vite@8.1.5(@types/node@25.9.5)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0))(vitest@4.1.10)
+        specifier: 0.2.1
+        version: 0.2.1(vite@8.1.5(@types/node@25.9.5)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0))(vitest@4.1.10)
       typescript:
         specifier: 6.0.3
         version: 6.0.3
@@ -4204,8 +4204,8 @@ packages:
   std-env@4.0.0:
     resolution: {integrity: sha512-zUMPtQ/HBY3/50VbpkupYHbRroTRZJPRLvreamgErJVys0ceuzMkD44J/QjqhHjOzK42GQ3QZIeFG1OYfOtKqQ==}
 
-  storybook-addon-vrt@0.2.0:
-    resolution: {integrity: sha512-PV8t20S6+a685byaBJ4GPwmQqXjTjoc0v/jHdqECSfraX+40F6BJw54JMLTuvFgw4lNBx/clJnMjKhUw+2GFsQ==}
+  storybook-addon-vrt@0.2.1:
+    resolution: {integrity: sha512-Q99SQF1Fue825IeB/ccTGoFl7xDSvrqZJ2BLYTXEZPlW82USmM1LVFn94cmajW4PhXBE3McF2Uq4nspq6rGA3Q==}
     engines: {node: '>=22.12.0'}
     hasBin: true
     peerDependencies:
@@ -8195,7 +8195,7 @@ snapshots:
 
   std-env@4.0.0: {}
 
-  storybook-addon-vrt@0.2.0(vite@8.1.5(@types/node@25.9.5)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0))(vitest@4.1.10):
+  storybook-addon-vrt@0.2.1(vite@8.1.5(@types/node@25.9.5)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0))(vitest@4.1.10):
     dependencies:
       cac: 7.0.0
       pixelmatch: 7.2.0
