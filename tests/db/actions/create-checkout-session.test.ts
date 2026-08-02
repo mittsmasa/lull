@@ -151,7 +151,8 @@ describe("createCheckoutSession - 正常系と金額", () => {
 
     expect(stripe.checkout.sessions.create).toHaveBeenCalledTimes(1);
     const args = stripe.checkout.sessions.create.mock.calls[0][0];
-    expect(args.payment_method_types).toEqual(["card", "paypay"]);
+    // paypay は本番アカウントの有効化審査通過後に復帰予定（_actions.ts 参照）
+    expect(args.payment_method_types).toEqual(["card"]);
     expect(args.metadata).toEqual({ invitationId: inv.id });
     // JPY はゼロ小数通貨: 請求額算出結果（円の整数値）と完全一致すること
     expect(args.line_items).toEqual([

@@ -3,7 +3,6 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import type Stripe from "stripe";
 import * as z from "zod";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
@@ -507,12 +506,10 @@ export async function createCheckoutSession(
       mode: "payment",
       // コンビニ等の遅延決済（payment_status: unpaid のまま completed 発火）を
       // 排除するため即時決済手段のみに明示制限する。
-      // "paypay" は API では有効だが SDK の型 union に未収載のためアサーションで補う
+      // "paypay" は本番アカウントで未有効化のため除外中（有効化審査の通過後に
+      // 復帰させる。指定すると sessions.create が invalid で失敗する）
       // https://docs.stripe.com/payments/paypay/accept-a-payment
-      payment_method_types: [
-        "card",
-        "paypay",
-      ] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
+      payment_method_types: ["card"],
       line_items: lineItems,
       metadata: { invitationId: invitation.id },
       success_url: `${baseUrl}/i/${token}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
