@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
 import { buildInvitationResponseMail } from "@/lib/emails/invitation-response";
 import { MailerConfigError, sendMail } from "@/lib/mailer";
-import { calcBilling } from "@/lib/payment";
+import { calcBilling, formatYen, STRIPE_MIN_AMOUNT_JPY } from "@/lib/payment";
 import { getConsumedSeats } from "@/lib/queries/invitations";
 import { getStripe, isStripeEnabled } from "@/lib/stripe";
 
@@ -413,6 +413,14 @@ export async function createCheckoutSession(
   );
   if (billing.total <= 0) {
     return { error: "お支払いいただく金額はありません" };
+  }
+  // Stripe Checkout (JPY) は合計 ¥50 未満のセッション生成を拒否する。
+  // 料金設定側でも防いでいるが、導入前に設定された少額料金が残っている場合に
+  // Stripe API エラーへ落とさず案内を返す（防御的チェック）
+  if (billing.total < STRIPE_MIN_AMOUNT_JPY) {
+    return {
+      error: `オンライン決済は合計 ${formatYen(STRIPE_MIN_AMOUNT_JPY)} 以上のお支払いでご利用いただけます。お手数ですが当日会場でのお支払いをご利用ください`,
+    };
   }
 
   // 既存の未払いセッションを失効させてから新規生成する（有効なセッションは常に 1 本のみ）。

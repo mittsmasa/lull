@@ -8,6 +8,7 @@ import {
   getEventStats,
 } from "@/lib/queries/events";
 import { requireSession } from "@/lib/session";
+import { isStripeEnabled } from "@/lib/stripe";
 
 export default async function EventDetailPage(
   props: PageProps<"/events/[eventId]">,
@@ -38,6 +39,7 @@ export default async function EventDetailPage(
         stats={stats}
         currentUserRole={member.role}
         availableTransitions={availableTransitions}
+        stripeEnabled={isStripeEnabled()}
       />
     </div>
   );
