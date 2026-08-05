@@ -3,6 +3,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import type Stripe from "stripe";
 import * as z from "zod";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
@@ -11,6 +12,10 @@ import { MailerConfigError, sendMail } from "@/lib/mailer";
 import { calcBilling } from "@/lib/payment";
 import { getConsumedSeats } from "@/lib/queries/invitations";
 import { getStripe, isStripeEnabled } from "@/lib/stripe";
+import {
+  isPaymentSettled,
+  recordStripeCheckoutPayment,
+} from "@/lib/stripe-payment";
 
 function getBaseUrl(): string {
   // 明示設定（trim 後の非空）が最優先
@@ -355,7 +360,11 @@ export async function respondToInvitation(
 // Stripe Checkout セッション生成
 // ============================================================
 
-export type CheckoutSessionResult = { url: string } | { error: string };
+export type CheckoutSessionResult =
+  | { url: string }
+  /** 決済済みだったため生成せず、入金記録を反映した */
+  | { paid: true }
+  | { error: string };
 
 const CHECKOUT_UNAVAILABLE_ERROR =
   "決済ページを開けませんでした。時間をおいて再試行してください";
@@ -420,12 +429,11 @@ export async function createCheckoutSession(
   // 非同期確定待ち）のセッションは expire できず、この状態で新規セッションを作ると
   // 二重支払いの恐れがあるため生成を中断する
   if (invitation.stripeCheckoutSessionId) {
-    let oldSessionStatus: string | null = null;
+    let oldSession: Stripe.Checkout.Session | null = null;
     try {
-      const oldSession = await stripe.checkout.sessions.retrieve(
+      oldSession = await stripe.checkout.sessions.retrieve(
         invitation.stripeCheckoutSessionId,
       );
-      oldSessionStatus = oldSession.status;
     } catch (err) {
       const code =
         err && typeof err === "object" && "code" in err
@@ -440,15 +448,25 @@ export async function createCheckoutSession(
         return { error: CHECKOUT_UNAVAILABLE_ERROR };
       }
     }
-    if (oldSessionStatus === "complete") {
-      // 支払確定済み（webhook 反映待ち）または非同期確定待ち。
-      // 反映は webhook に任せ、ここでは新規セッションを作らない
+    if (oldSession?.status === "complete") {
+      // 支払確定済み（webhook 未達・遅延）または非同期確定待ち。
+      // webhook を待たずにこの場で入金記録を試みる — webhook が届かない環境でも
+      // 「支払い済みなのに支払いボタンが出続ける」状態から復帰できるようにする
+      const result = await recordStripeCheckoutPayment(oldSession, {
+        expectedInvitationId: invitation.id,
+      });
+      if (isPaymentSettled(result)) {
+        revalidatePath(`/i/${token}`);
+        revalidatePath(`/events/${event.id}/invitations`);
+        return { paid: true };
+      }
+      // まだ paid になっていない（非同期確定待ち）ので新規セッションは作らない
       return {
         error:
           "お支払いの確認処理中です。しばらくしてからページを再読み込みしてください",
       };
     }
-    if (oldSessionStatus === "open") {
+    if (oldSession?.status === "open") {
       // expire に失敗した場合は新規生成を中断する — 続行すると古い金額のセッションが
       // 生き残り、過少支払いの抜け穴になるため（安全側に倒す）
       try {
@@ -539,4 +557,60 @@ export async function createCheckoutSession(
   }
 
   return { url: sessionUrl };
+}
+
+// ============================================================
+// 決済完了後の入金確認（webhook のフォールバック）
+// ============================================================
+
+export type ConfirmPaymentResult = { paid: boolean };
+
+/**
+ * Checkout から招待状ページへ戻ってきた直後に、セッションの状態を Stripe に
+ * 直接問い合わせて入金を記録する。
+ *
+ * 入金反映を webhook だけに依存すると、webhook の設定漏れ・配信失敗・遅延で
+ * 「Stripe 上は決済成功なのに招待状には支払いボタンが出続ける」状態になる。
+ * success_url の `session_id` を使ってこちらからも確認することで、
+ * webhook が届かなくてもゲストの画面が正しくなるようにする（記録処理は冪等）。
+ */
+export async function confirmCheckoutPayment(
+  token: string,
+  sessionId: string,
+): Promise<ConfirmPaymentResult> {
+  const stripe = getStripe();
+  if (!stripe) return { paid: false };
+
+  // 明らかに Checkout セッション ID でないものは Stripe に問い合わせない
+  if (!sessionId.startsWith("cs_")) return { paid: false };
+
+  const invitation = await db.query.invitations.findFirst({
+    where: eq(invitations.token, token),
+    columns: { id: true, eventId: true, paidAt: true },
+  });
+  if (!invitation) return { paid: false };
+  if (invitation.paidAt !== null) return { paid: true };
+
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(sessionId);
+  } catch (err) {
+    console.error(
+      `[confirmCheckoutPayment] failed to retrieve session ${sessionId} for invitation ${invitation.id}`,
+      err,
+    );
+    return { paid: false };
+  }
+
+  // セッションが本当にこの招待のものかは metadata で検証する
+  // （招待トークンの持ち主が任意のセッション ID を渡しても他招待は書き換わらない）
+  const result = await recordStripeCheckoutPayment(session, {
+    expectedInvitationId: invitation.id,
+  });
+  if (result === "recorded") {
+    revalidatePath(`/i/${token}`);
+    revalidatePath(`/events/${invitation.eventId}/invitations`);
+  }
+
+  return { paid: isPaymentSettled(result) };
 }

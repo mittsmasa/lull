@@ -381,6 +381,12 @@ export default async function InvitationResponsePage(
       : searchParams.payment === "cancelled"
         ? ("cancelled" as const)
         : null;
+  // 決済完了時に success_url へ付与される Checkout セッション ID。
+  // webhook が届かない場合のフォールバック確認に使う
+  const sessionId =
+    paymentQuery === "success" && typeof searchParams.session_id === "string"
+      ? searchParams.session_id
+      : null;
   const invitation = await getInvitationByToken(token);
 
   if (!invitation) {
@@ -526,6 +532,7 @@ export default async function InvitationResponsePage(
           token={token}
           amount={billingTotal}
           paymentStatus={paymentQuery}
+          sessionId={sessionId}
         />
       )}
 

@@ -100,6 +100,19 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook
 
 起動時に表示される `whsec_...` を `STRIPE_WEBHOOK_SECRET` に設定して dev サーバーを再起動する。
 
+### 決済完了の反映経路（webhook が届かない場合）
+
+入金記録（`paid_at`）への反映経路は 2 つあり、どちらも `recordStripeCheckoutPayment`（`src/lib/stripe-payment.ts`）を通る。処理は冪等なので両方走っても二重記録にならない。
+
+1. **webhook**: `checkout.session.completed` / `checkout.session.async_payment_succeeded`
+2. **決済完了後の確認**: Checkout から `/i/[token]?payment=success&session_id=...` に戻った直後に、招待状ページが `confirmCheckoutPayment` でセッションを直接照会して記録する。既存の未払いセッションが `complete` の状態で支払いボタンを押したときも同様に記録する
+
+webhook を張り忘れている / 配信に失敗している環境でも 2 の経路でゲスト側の表示は正しくなるが、**Checkout 画面を閉じて招待状に戻ってこなかったケースは 2 では拾えない**ため、本番では webhook の設定（エンドポイント URL・購読イベント・`STRIPE_WEBHOOK_SECRET`）を必ず確認すること。
+
+- エンドポイント: `https://<本番ドメイン>/api/stripe/webhook`
+- 購読イベント: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`
+- 配信結果は [Stripe ダッシュボードの Webhooks](https://dashboard.stripe.com/webhooks) で確認できる（401/404/503 が並んでいれば URL か環境変数の設定漏れ）
+
 ### テストカード
 
 テストモードでは `4242 4242 4242 4242`（有効期限・CVC は任意の未来日/数字）で決済できる。
