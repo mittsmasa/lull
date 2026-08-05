@@ -240,6 +240,32 @@ describe("createCheckoutSession - 正常系と金額", () => {
     expect(after?.stripeCheckoutSessionId).toBe("cs_test_old");
   });
 
+  it("旧セッションが complete かつ paid なら（webhook 未達）その場で入金を記録する", async () => {
+    const stripe = enableStripe();
+    const { inv } = await setupInvitation({
+      invitationOverrides: { stripeCheckoutSessionId: "cs_test_old" },
+    });
+    stripe.checkout.sessions.retrieve.mockResolvedValue({
+      id: "cs_test_old",
+      status: "complete",
+      payment_status: "paid",
+      amount_total: 1500,
+      metadata: { invitationId: inv.id },
+    });
+
+    const res = await createCheckoutSession(inv.token);
+    expect(res).toEqual({ paid: true });
+    expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after?.paidAt).toBeTruthy();
+    expect(after?.paidMethod).toBe("stripe");
+    expect(after?.paidAmount).toBe(1500);
+    expect(after?.stripeCheckoutSessionId).toBe("cs_test_old");
+  });
+
   it("旧セッションが expired なら expire を呼ばず新規生成する", async () => {
     const stripe = enableStripe();
     stripe.checkout.sessions.retrieve.mockResolvedValue({ status: "expired" });

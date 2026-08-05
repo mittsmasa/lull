@@ -4,7 +4,10 @@ import { CircleNotch } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { createCheckoutSession } from "@/app/i/[token]/_actions";
+import {
+  confirmCheckoutPayment,
+  createCheckoutSession,
+} from "@/app/i/[token]/_actions";
 import { Button } from "@/components/ui/button";
 import { formatYen } from "@/lib/payment";
 
@@ -16,18 +19,23 @@ type InvitationPaymentSectionProps = {
   amount: number;
   /** URL クエリ（?payment=...）。表示の出し分けにのみ使い、支払済み判定には使わない */
   paymentStatus: "success" | "cancelled" | null;
+  /** success_url に付与された Checkout セッション ID（?session_id=...） */
+  sessionId: string | null;
 };
 
 /**
  * 招待状ページの「オンラインで支払う」セクション。
  * 未払い + prepaid 選択時のみサーバー側でレンダリング判定される。
- * 決済から戻った直後（?payment=success）は webhook 反映待ちのため、
- * ポーリングで DB の paid_at 反映（= このコンポーネントが消えること）を待つ。
+ * 決済から戻った直後（?payment=success）は、セッション ID を使って
+ * サーバー側で入金確認を行いつつ、DB の paid_at 反映
+ * （= このコンポーネントが消えること）をポーリングで待つ。
+ * webhook が届かない場合でもこの確認経路で反映される。
  */
 export function InvitationPaymentSection({
   token,
   amount,
   paymentStatus,
+  sessionId,
 }: InvitationPaymentSectionProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -37,6 +45,23 @@ export function InvitationPaymentSection({
 
   useEffect(() => {
     if (paymentStatus !== "success") return;
+    let cancelled = false;
+
+    // 入金確認 → サーバーコンポーネント再取得。paid_at が反映されると
+    // 親の条件によりこのセクション自体が消える
+    const sync = async () => {
+      if (sessionId) {
+        try {
+          await confirmCheckoutPayment(token, sessionId);
+        } catch {
+          // 確認に失敗しても webhook 経由の反映があり得るのでポーリングは続ける
+        }
+      }
+      if (!cancelled) router.refresh();
+    };
+
+    // 戻ってきた直後に 1 回。以降はフォールバックとして定期実行する
+    void sync();
     const timer = setInterval(() => {
       pollCountRef.current += 1;
       setPollCount(pollCountRef.current);
@@ -44,16 +69,23 @@ export function InvitationPaymentSection({
         clearInterval(timer);
         return;
       }
-      // サーバーコンポーネントを再取得。paid_at が反映されると
-      // 親の条件によりこのセクション自体が消える
-      router.refresh();
+      void sync();
     }, POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [paymentStatus, router]);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [paymentStatus, sessionId, token, router]);
 
   const handlePay = () => {
     startTransition(async () => {
       const result = await createCheckoutSession(token);
+      // 決済済みだった場合（webhook 未達）はこの場で記録が入っている
+      if ("paid" in result) {
+        toast.success("お支払いはすでに完了しています");
+        router.refresh();
+        return;
+      }
       if ("error" in result) {
         toast.error(result.error);
         return;
