@@ -11,8 +11,10 @@ import {
   events,
   VALID_TRANSITIONS,
 } from "@/db/schema";
+import { isValidOnlineFee, STRIPE_MIN_AMOUNT_JPY } from "@/lib/payment";
 import { getConsumedSeats } from "@/lib/queries/invitations";
 import { requireSession } from "@/lib/session";
+import { isStripeEnabled } from "@/lib/stripe";
 
 // ============================================================
 // Zod バリデーションスキーマ
@@ -257,6 +259,27 @@ export async function updateEvent(
   }
 
   const { date, startTime, openTime, ...rest } = parsed.data;
+
+  // オンライン決済（Stripe）が有効な環境では、1〜49 円の料金設定を弾く。
+  // Stripe Checkout (JPY) は合計 ¥50 未満のセッション生成を拒否するため、
+  // 決済時に必ず失敗する設定を保存させない
+  if (isStripeEnabled()) {
+    const minFeeError = (label: string) => ({
+      error: `${label}は 0 円（無料）または ${STRIPE_MIN_AMOUNT_JPY} 円以上で設定してください（オンライン決済の最低金額）`,
+    });
+    if (
+      rest.attendanceFee !== undefined &&
+      !isValidOnlineFee(rest.attendanceFee)
+    ) {
+      return minFeeError("参加費");
+    }
+    if (
+      rest.afterPartyFee !== undefined &&
+      !isValidOnlineFee(rest.afterPartyFee)
+    ) {
+      return minFeeError("懇親会費");
+    }
+  }
 
   // datetime 結合（変更があるフィールドのみ）
   const updateData: Partial<typeof events.$inferInsert> = {};

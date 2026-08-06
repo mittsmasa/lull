@@ -241,6 +241,70 @@ describe("updateEvent", () => {
     expect(after?.totalSeats).toBe(0);
   });
 
+  describe("オンライン決済の最低金額バリデーション", () => {
+    // isStripeEnabled() は __mockStripe の有無で切り替わる（tests/db/setup.ts）
+    function enableStripe() {
+      (globalThis as { __mockStripe?: unknown }).__mockStripe = {};
+    }
+
+    afterEach(() => {
+      delete (globalThis as { __mockStripe?: unknown }).__mockStripe;
+    });
+
+    it("Stripe 有効時、参加費 1〜49 円はエラー", async () => {
+      enableStripe();
+      const { event } = await setupOrganizer();
+      const ng = await updateEvent(
+        event.id,
+        null,
+        buildUpdateForm({ attendanceFee: "30" }),
+      );
+      expect(ng).toMatchObject({
+        error: expect.stringContaining("参加費は 0 円（無料）または 50 円以上"),
+      });
+    });
+
+    it("Stripe 有効時、懇親会費 1〜49 円はエラー", async () => {
+      enableStripe();
+      const { event } = await setupOrganizer();
+      const ng = await updateEvent(
+        event.id,
+        null,
+        buildUpdateForm({ afterPartyFee: "49" }),
+      );
+      expect(ng).toMatchObject({
+        error: expect.stringContaining(
+          "懇親会費は 0 円（無料）または 50 円以上",
+        ),
+      });
+    });
+
+    it("Stripe 有効時、0 円と 50 円は設定できる", async () => {
+      enableStripe();
+      const { event } = await setupOrganizer();
+      const ok = await updateEvent(
+        event.id,
+        null,
+        buildUpdateForm({ attendanceFee: "50", afterPartyFee: "0" }),
+      );
+      expect(ok).toMatchObject({ event: expect.any(Object) });
+      const after = await db.query.events.findFirst({
+        where: eq(events.id, event.id),
+      });
+      expect(after).toMatchObject({ attendanceFee: 50, afterPartyFee: 0 });
+    });
+
+    it("Stripe 無効時は 1〜49 円でも設定できる（オンライン決済なし）", async () => {
+      const { event } = await setupOrganizer();
+      const ok = await updateEvent(
+        event.id,
+        null,
+        buildUpdateForm({ attendanceFee: "30" }),
+      );
+      expect(ok).toMatchObject({ event: expect.any(Object) });
+    });
+  });
+
   it("ongoing / finished は編集不可", async () => {
     const { event } = await setupOrganizer({ status: "ongoing" });
     const ng = await updateEvent(

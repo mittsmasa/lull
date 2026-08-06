@@ -97,6 +97,32 @@ describe("createCheckoutSession - ガード条件", () => {
     });
   });
 
+  it("合計が ¥50 未満（Stripe の最低請求額）では生成できない", async () => {
+    const mock = enableStripe();
+    const { inv } = await setupInvitation({
+      attendanceFee: 30,
+      afterPartyEnabled: false,
+      afterPartyFee: 0,
+      invitationOverrides: { afterPartyAttendance: null },
+    });
+    const res = await createCheckoutSession(inv.token);
+    expect(res).toEqual({ error: expect.stringContaining("¥50") });
+    expect(mock.checkout.sessions.create).not.toHaveBeenCalled();
+  });
+
+  it("合計がちょうど ¥50 なら生成できる", async () => {
+    const mock = enableStripe();
+    const { inv } = await setupInvitation({
+      attendanceFee: 50,
+      afterPartyEnabled: false,
+      afterPartyFee: 0,
+      invitationOverrides: { afterPartyAttendance: null },
+    });
+    const res = await createCheckoutSession(inv.token);
+    expect(res).toEqual({ url: "https://checkout.stripe.com/test" });
+    expect(mock.checkout.sessions.create).toHaveBeenCalledTimes(1);
+  });
+
   it("payment_method が prepaid でない場合は生成できない", async () => {
     enableStripe();
     const { inv } = await setupInvitation({

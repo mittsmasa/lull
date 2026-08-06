@@ -49,7 +49,11 @@ import {
   transitionLabels,
 } from "@/lib/event-status";
 import { formatDatetime } from "@/lib/format";
-import { formatYen } from "@/lib/payment";
+import {
+  formatYen,
+  isValidOnlineFee,
+  STRIPE_MIN_AMOUNT_JPY,
+} from "@/lib/payment";
 import type { EventStats } from "@/lib/queries/events";
 import { VenueField } from "./venue-field";
 import { VenueLink } from "./venue-link";
@@ -74,6 +78,8 @@ type EventDetailProps = {
   stats: EventStats;
   currentUserRole: MemberRole;
   availableTransitions: EventStatus[];
+  /** オンライン決済（Stripe）が有効か。有効時は料金に最低金額の制約がかかる */
+  stripeEnabled: boolean;
 };
 
 export function EventDetail({
@@ -81,6 +87,7 @@ export function EventDetail({
   stats,
   currentUserRole,
   availableTransitions,
+  stripeEnabled,
 }: EventDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [afterPartyEnabled, setAfterPartyEnabled] = useState(
@@ -92,6 +99,21 @@ export function EventDetail({
       prevState: Awaited<ReturnType<typeof updateEvent>> | null,
       formData: FormData,
     ) => {
+      // オンライン決済有効時は Stripe の最低請求額を下回る料金を
+      // 送信前に弾く（サーバー側 updateEvent でも同じ検証をしている）
+      if (stripeEnabled) {
+        for (const [name, label] of [
+          ["attendanceFee", "参加費"],
+          ["afterPartyFee", "懇親会費"],
+        ] as const) {
+          const raw = formData.get(name);
+          if (raw !== null && !isValidOnlineFee(Number(raw))) {
+            const error = `${label}は 0 円（無料）または ${STRIPE_MIN_AMOUNT_JPY} 円以上で設定してください（オンライン決済の最低金額）`;
+            toast.error(error);
+            return { error };
+          }
+        }
+      }
       const result = await updateEvent(event.id, prevState, formData);
       if (result && "error" in result) {
         toast.error(result.error);
@@ -307,6 +329,12 @@ export function EventDetail({
                 max={1000000}
                 defaultValue={event.attendanceFee}
               />
+              {stripeEnabled && (
+                <p className="text-muted-foreground text-xs">
+                  オンライン決済のため 0 円（無料）または{" "}
+                  {STRIPE_MIN_AMOUNT_JPY} 円以上で設定してください
+                </p>
+              )}
             </div>
 
             {/* チェック外し時にフォームへ値が乗らない Switch の代わりに、
@@ -358,6 +386,12 @@ export function EventDetail({
                       max={1000000}
                       defaultValue={event.afterPartyFee}
                     />
+                    {stripeEnabled && (
+                      <p className="text-muted-foreground text-xs">
+                        オンライン決済のため 0 円（無料）または{" "}
+                        {STRIPE_MIN_AMOUNT_JPY} 円以上で設定してください
+                      </p>
+                    )}
                   </div>
                 </div>
               </>
