@@ -17,6 +17,18 @@ import {
 // 型定義
 // ============================================================
 
+/**
+ * 表示用の招待元名を解決する。
+ * メンバーが存在すれば現在の表示名、削除済みならスナップショット名にサフィックスを付与。
+ * 招待元名を表示する全画面で同じ結果になるよう、必ずこの関数を通す
+ */
+export function resolveInviterDisplayName(
+  member: { displayName: string } | null | undefined,
+  snapshot: string,
+): string {
+  return member?.displayName ?? `${snapshot}（削除済み）`;
+}
+
 export type EventForInvitationManagement = {
   id: string;
   name: string;
@@ -144,9 +156,10 @@ export async function getInvitationsByEventId(
   return rows.map((r) => ({
     id: r.id,
     token: r.token,
-    // メンバーが存在すれば現在の表示名、削除済みならスナップショット名にサフィックスを付与
-    inviterDisplayName:
-      r.member?.displayName ?? `${r.inviterDisplayName}（削除済み）`,
+    inviterDisplayName: resolveInviterDisplayName(
+      r.member,
+      r.inviterDisplayName,
+    ),
     guestName: r.guestName,
     guestEmail: r.guestEmail,
     status: r.status,
@@ -210,9 +223,10 @@ export async function getInvitationByToken(
   return {
     id: invitation.id,
     token: invitation.token,
-    inviterDisplayName:
-      invitation.member?.displayName ??
-      `${invitation.inviterDisplayName}（削除済み）`,
+    inviterDisplayName: resolveInviterDisplayName(
+      invitation.member,
+      invitation.inviterDisplayName,
+    ),
     guestName: invitation.guestName,
     guestEmail: invitation.guestEmail,
     status: invitation.status,
@@ -270,6 +284,8 @@ export async function getSeatSummary(
 export type CheckInListItem = {
   id: string;
   guestName: string | null;
+  /** 招待した出演者の表示名（発行時点のスナップショット） */
+  inviterDisplayName: string;
   checkedIn: boolean;
   checkedInAt: number | null;
   afterPartyAttendance: AfterPartyAttendance | null;
@@ -298,6 +314,7 @@ export async function getCheckInList(
     columns: {
       id: true,
       guestName: true,
+      inviterDisplayName: true,
       checkedIn: true,
       checkedInAt: true,
       afterPartyAttendance: true,
@@ -307,6 +324,7 @@ export async function getCheckInList(
       paidAmount: true,
     },
     with: {
+      member: { columns: { displayName: true } },
       companions: {
         columns: {
           id: true,
@@ -319,7 +337,10 @@ export async function getCheckInList(
     },
   });
 
-  return rows;
+  return rows.map(({ member, ...r }) => ({
+    ...r,
+    inviterDisplayName: resolveInviterDisplayName(member, r.inviterDisplayName),
+  }));
 }
 
 /** チェックインサマリー取得 */
