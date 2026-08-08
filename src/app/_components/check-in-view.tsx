@@ -10,6 +10,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
+import QRCode from "qrcode";
 import {
   useCallback,
   useEffect,
@@ -20,6 +21,8 @@ import {
 } from "react";
 import { toast } from "sonner";
 import {
+  createOnsiteCheckoutSession,
+  getInvitationPaymentStatus,
   type LookupInvitation,
   type LookupPayment,
   lookupInvitationByToken,
@@ -41,7 +44,12 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { EventStatus } from "@/db/schema";
 import { statusLabels, statusVariants } from "@/lib/event-status";
-import { calcBilling, formatYen, PAID_METHOD_LABELS } from "@/lib/payment";
+import {
+  calcBilling,
+  formatYen,
+  PAID_METHOD_LABELS,
+  STRIPE_MIN_AMOUNT_JPY,
+} from "@/lib/payment";
 import type {
   CheckInListItem,
   CheckInSummary,
@@ -60,6 +68,8 @@ type CheckInViewProps = {
   };
   summary: CheckInSummary;
   initialList: CheckInListItem[];
+  /** Stripe 設定済みか。決済 QR を出せるかの判定に使う（server-only のため prop 経由） */
+  stripeEnabled: boolean;
 };
 
 type ViewState =
@@ -99,6 +109,7 @@ export function CheckInView({
   event,
   summary: initialSummary,
   initialList,
+  stripeEnabled,
 }: CheckInViewProps) {
   const [viewState, setViewState] = useState<ViewState>({ mode: "idle" });
   const [summary, setSummary] = useState<CheckInSummary>(initialSummary);
@@ -363,6 +374,7 @@ export function CheckInView({
         id: item.id,
         guestName: item.guestName,
         guestEmail: null,
+        inviterDisplayName: item.inviterDisplayName,
         checkedIn: item.checkedIn,
         checkedInAt: item.checkedInAt,
         afterPartyAttendance: item.afterPartyAttendance,
@@ -572,6 +584,7 @@ export function CheckInView({
             <FoundPanel
               eventId={event.id}
               invitation={viewState.invitation}
+              stripeEnabled={stripeEnabled}
               processing={processing}
               onCheckIn={handleCheckIn}
               onUndo={handleUndo}
@@ -803,6 +816,9 @@ function RosterSection({
                       </span>
                     )}
                   </div>
+                  <div className="text-muted-foreground mt-0.5 truncate text-xs">
+                    {item.inviterDisplayName} の招待
+                  </div>
                   {displayCompanions.length > 0 && searchQuery && (
                     <div className="text-muted-foreground mt-0.5 text-xs">
                       {displayCompanions.map((c) => c.name).join("、")}
@@ -864,6 +880,7 @@ function ScanningView({ scanKey, onScan, onCancel }: ScanningViewProps) {
 type FoundPanelProps = {
   eventId: string;
   invitation: LookupInvitation;
+  stripeEnabled: boolean;
   processing: string | null;
   onCheckIn: (
     invitationId: string,
@@ -883,6 +900,7 @@ type FoundPanelProps = {
 function FoundPanel({
   eventId,
   invitation: inv,
+  stripeEnabled,
   processing,
   onCheckIn,
   onUndo,
@@ -904,16 +922,12 @@ function FoundPanel({
 
   return (
     <div className="space-y-4">
-      {inv.guestEmail && (
-        <p className="text-muted-foreground -mt-2 text-xs tabular-nums">
-          {inv.guestEmail} · 合計 {totalPeople} 名
+      <div className="text-muted-foreground -mt-2 space-y-0.5 text-xs">
+        <p className="tabular-nums">
+          {inv.guestEmail ? `${inv.guestEmail} · ` : ""}合計 {totalPeople} 名
         </p>
-      )}
-      {!inv.guestEmail && (
-        <p className="text-muted-foreground -mt-2 text-xs tabular-nums">
-          合計 {totalPeople} 名
-        </p>
-      )}
+        <p>{inv.inviterDisplayName} の招待</p>
+      </div>
 
       <div className="space-y-2">
         <PersonRow
@@ -960,6 +974,8 @@ function FoundPanel({
       <PaymentPanel
         eventId={eventId}
         invitationId={inv.id}
+        guestName={inv.guestName}
+        stripeEnabled={stripeEnabled}
         afterPartyAttendance={inv.afterPartyAttendance}
         afterPartyCount={inv.afterPartyCount}
         initialPayment={inv.payment}
@@ -982,9 +998,23 @@ function FoundPanel({
 // Sub: PaymentPanel（懇親会・会費の受領）
 // ============================================================
 
+/** 決済 QR 提示中の入金確認ポーリング。招待状ページ側と同じ間隔・回数 */
+const PAYMENT_POLL_INTERVAL_MS = 3000;
+const PAYMENT_POLL_MAX_COUNT = 20;
+
+type QrState =
+  | { mode: "idle" }
+  | { mode: "creating" }
+  /** QR 提示中。`exhausted` はポーリングを打ち切ったあと（QR 自体は有効） */
+  | { mode: "shown"; url: string; exhausted: boolean }
+  | { mode: "settled" }
+  | { mode: "error"; message: string };
+
 type PaymentPanelProps = {
   eventId: string;
   invitationId: string;
+  guestName: string | null;
+  stripeEnabled: boolean;
   afterPartyAttendance: "attending" | "declined" | null;
   afterPartyCount: number;
   initialPayment: LookupPayment;
@@ -993,11 +1023,14 @@ type PaymentPanelProps = {
 function PaymentPanel({
   eventId,
   invitationId,
+  guestName,
+  stripeEnabled,
   afterPartyAttendance,
   afterPartyCount,
   initialPayment,
 }: PaymentPanelProps) {
   const [payment, setPayment] = useState(initialPayment);
+  const [qrState, setQrState] = useState<QrState>({ mode: "idle" });
   const [isPending, startTransition] = useTransition();
 
   const { billing } = payment;
@@ -1007,20 +1040,125 @@ function PaymentPanel({
   const fullyPaid = paid && (payment.paidAmount ?? 0) >= billing.total;
   const shortfall = billing.total - (payment.paidAmount ?? 0);
 
+  // オンライン決済で回収できる条件。満たさない場合のみ手動の受領記録を出す。
+  // 一部入金済み（差額あり）は Checkout セッションを組めないため対象外にする
+  const canUseCheckout =
+    stripeEnabled && !paid && billing.total >= STRIPE_MIN_AMOUNT_JPY;
+  const unavailableReason = !stripeEnabled
+    ? "オンライン決済が設定されていません"
+    : paid
+      ? "一部入金済みのため、差額は決済 QR で回収できません"
+      : `オンライン決済は合計 ${formatYen(STRIPE_MIN_AMOUNT_JPY)} 以上でご利用いただけます`;
+
+  // QR 提示中は入金を定期確認する。webhook の到達を待たずに受付で完結させる。
+  // 打ち切り後は「待っています」を出し続けず、確認できていないことを明示する
+  const polling = qrState.mode === "shown" && !qrState.exhausted;
+  useEffect(() => {
+    if (!polling) return;
+    let cancelled = false;
+    let count = 0;
+
+    const check = async () => {
+      try {
+        const result = await getInvitationPaymentStatus(eventId, invitationId);
+        if (cancelled || "error" in result) return;
+        setPayment(result.payment);
+        if (result.payment.paidAt !== null) {
+          setQrState({ mode: "settled" });
+          vibrate(10);
+          toast.success("お支払いを確認しました");
+        }
+      } catch (error) {
+        // 一時的な通信断。次のポーリングで再確認するため画面は変えない
+        console.error("Failed to check payment status:", error);
+      }
+    };
+
+    const timer = setInterval(() => {
+      count += 1;
+      if (count >= PAYMENT_POLL_MAX_COUNT) {
+        clearInterval(timer);
+        setQrState((prev) =>
+          prev.mode === "shown" ? { ...prev, exhausted: true } : prev,
+        );
+        return;
+      }
+      void check();
+    }, PAYMENT_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [polling, eventId, invitationId]);
+
   // 請求も入金記録もなければ何も出さない（会費なしイベントでは UI 差分ゼロ）
   if (billing.total <= 0 && !paid) return null;
 
-  const handleReceive = (method: "cash" | "electronic") => {
+  const handleShowQr = () => {
+    setQrState({ mode: "creating" });
     startTransition(async () => {
-      const result = await recordOnsitePayment(eventId, invitationId, method);
-      if ("error" in result) {
-        toast.error(result.error);
-      } else {
-        setPayment(result.payment);
-        toast.success("受領を記録しました");
+      try {
+        const result = await createOnsiteCheckoutSession(eventId, invitationId);
+        if ("paid" in result) {
+          // 生成前に支払い済みが判明した（webhook 未達で画面が古かった等）
+          setPayment(result.payment);
+          setQrState({ mode: "settled" });
+          return;
+        }
+        if ("error" in result) {
+          setQrState({ mode: "error", message: result.error });
+          return;
+        }
+        setQrState({ mode: "shown", url: result.url, exhausted: false });
+      } catch (error) {
+        // 通信失敗。"creating" のまま固まらせず、再試行できる状態に戻す
+        console.error("Failed to create onsite checkout session:", error);
+        setQrState({
+          mode: "error",
+          message:
+            "決済 QR を準備できませんでした。通信状況を確認して再試行してください",
+        });
       }
     });
   };
+
+  const handleReceive = () => {
+    startTransition(async () => {
+      try {
+        const result = await recordOnsitePayment(eventId, invitationId);
+        if ("error" in result) {
+          toast.error(result.error);
+        } else {
+          setPayment(result.payment);
+          setQrState({ mode: "idle" });
+          toast.success("受領を記録しました");
+        }
+      } catch (error) {
+        // 記録できたか分からないまま無反応にしない
+        console.error("Failed to record onsite payment:", error);
+        toast.error("受領を記録できませんでした。再度お試しください");
+      }
+    });
+  };
+
+  // 決済 QR の提示中は支払いだけに集中させる（内訳や受領ボタンは畳む）
+  if (qrState.mode === "shown" || qrState.mode === "settled") {
+    return (
+      <CheckoutQrPanel
+        state={qrState}
+        guestName={guestName}
+        amount={billing.total}
+        paidAmount={payment.paidAmount ?? 0}
+        onRecheck={() =>
+          setQrState((prev) =>
+            prev.mode === "shown" ? { ...prev, exhausted: false } : prev,
+          )
+        }
+        onBack={() => setQrState({ mode: "idle" })}
+      />
+    );
+  }
 
   const breakdown = [
     billing.attendanceSubtotal > 0
@@ -1068,11 +1206,7 @@ function PaymentPanel({
                   `（${PAID_METHOD_LABELS[payment.paidMethod]}）`}
               </span>
             ) : (
-              `未払い（${
-                payment.paymentMethod === "prepaid"
-                  ? "オンライン決済"
-                  : "当日支払い"
-              }）`
+              "未払い"
             )}
           </dd>
         </div>
@@ -1089,30 +1223,188 @@ function PaymentPanel({
         </div>
       )}
 
+      {qrState.mode === "error" && (
+        <div className="flex items-start gap-2 rounded-md border-destructive border-l-2 bg-destructive/5 px-3 py-2 text-destructive text-xs">
+          <Warning className="mt-0.5 size-4 shrink-0" />
+          <span>{qrState.message}</span>
+        </div>
+      )}
+
       {fullyPaid ? (
         <p className="text-muted-foreground text-xs">
           取消は招待管理画面の「入金済みを解除」から行えます
         </p>
+      ) : canUseCheckout && qrState.mode !== "error" ? (
+        <Button
+          className="h-11 w-full gap-2"
+          disabled={isPending}
+          onClick={handleShowQr}
+        >
+          <QrCode className="size-4" />
+          {qrState.mode === "creating"
+            ? "決済 QR を準備中..."
+            : "決済 QR を表示"}
+        </Button>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isPending}
-            onClick={() => handleReceive("cash")}
-          >
-            現金で受領
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isPending}
-            onClick={() => handleReceive("electronic")}
-          >
-            電子決済で受領
-          </Button>
+        <div className="space-y-1.5">
+          {qrState.mode === "error" ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                onClick={handleShowQr}
+              >
+                再試行
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                onClick={handleReceive}
+              >
+                電子決済で受領
+              </Button>
+            </div>
+          ) : (
+            <>
+              <p className="text-muted-foreground text-xs">
+                {unavailableReason}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={isPending}
+                onClick={handleReceive}
+              >
+                電子決済で受領
+              </Button>
+            </>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// Sub: CheckoutQrPanel（決済 QR の提示と入金待ち）
+// ============================================================
+
+type CheckoutQrPanelProps = {
+  state:
+    | { mode: "shown"; url: string; exhausted: boolean }
+    | { mode: "settled" };
+  guestName: string | null;
+  amount: number;
+  paidAmount: number;
+  onRecheck: () => void;
+  onBack: () => void;
+};
+
+function CheckoutQrPanel({
+  state,
+  guestName,
+  amount,
+  paidAmount,
+  onRecheck,
+  onBack,
+}: CheckoutQrPanelProps) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const url = state.mode === "shown" ? state.url : null;
+
+  useEffect(() => {
+    if (!url) return;
+    let cancelled = false;
+    QRCode.toDataURL(url, { width: 240, margin: 2 })
+      .then((generated) => {
+        if (!cancelled) setDataUrl(generated);
+      })
+      .catch((error) => {
+        console.error("Failed to generate checkout QR code:", error);
+        if (!cancelled) setDataUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  const settled = state.mode === "settled";
+
+  return (
+    <div className="space-y-4 border-t pt-3">
+      <div className="text-muted-foreground text-[9px] font-medium tracking-[0.22em] uppercase">
+        Payment
+      </div>
+
+      <div className="flex flex-col items-center gap-4">
+        <div className="text-center">
+          {guestName && (
+            <p className="text-muted-foreground text-xs">{guestName} さま</p>
+          )}
+          <p className="text-4xl font-light tabular-nums tracking-tight">
+            {formatYen(settled ? paidAmount : amount)}
+          </p>
+        </div>
+
+        {settled ? (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.42, ease: [0.34, 1.56, 0.64, 1] }}
+            className="flex size-32 items-center justify-center rounded-lg bg-emerald-700/10"
+          >
+            <CheckCircle className="size-14 text-emerald-700" weight="fill" />
+          </motion.div>
+        ) : dataUrl ? (
+          // biome-ignore lint/performance/noImgElement: data URL のため next/image 不要
+          <img
+            src={dataUrl}
+            alt="お支払い用の QR コード"
+            width={240}
+            height={240}
+            className="size-56 rounded-sm border bg-white p-2"
+          />
+        ) : (
+          <div className="size-56 animate-pulse rounded-sm bg-muted/40" />
+        )}
+
+        {settled ? (
+          <p className="text-sm text-emerald-700">お支払いを受領しました</p>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-muted-foreground text-center text-xs leading-relaxed">
+              ゲストのスマートフォンで読み取っていただいてください
+            </p>
+            {state.mode === "shown" && state.exhausted ? (
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-muted-foreground text-center text-xs">
+                  お支払いをまだ確認できていません。QR
+                  はそのままお使いいただけます
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full text-xs"
+                  onClick={onRecheck}
+                >
+                  お支払いを再確認
+                </Button>
+              </div>
+            ) : (
+              <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                <Spinner className="size-3.5 animate-spin" />
+                お支払いを待っています
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <Button variant="outline" className="w-full" onClick={onBack}>
+        {settled ? "支払い状況に戻る" : "戻る"}
+      </Button>
     </div>
   );
 }
