@@ -38,7 +38,7 @@ async function setupMember(
 }
 
 describe("recordOnsitePayment", () => {
-  it("未払いの招待に現金受領を記録できる（member 権限）", async () => {
+  it("未払いの招待に電子決済の受領を記録できる（member 権限）", async () => {
     const { event, memberId } = await setupMember();
     const inv = await addInvitation({
       eventId: event.id,
@@ -49,17 +49,18 @@ describe("recordOnsitePayment", () => {
     });
     await addCompanion({ invitationId: inv.id, afterPartyAttending: true });
 
-    const result = await recordOnsitePayment(event.id, inv.id, "cash");
+    const result = await recordOnsitePayment(event.id, inv.id);
     if ("error" in result) throw new Error(result.error);
     // 参加費 500×2 + 懇親会 1000×2 = 3000
     expect(result.payment.paidAmount).toBe(3000);
-    expect(result.payment.paidMethod).toBe("cash");
+    // 現金は取り扱わないため、受領記録は常に電子決済
+    expect(result.payment.paidMethod).toBe("electronic");
 
     const after = await db.query.invitations.findFirst({
       where: eq(invitations.id, inv.id),
     });
     expect(after?.paidAt).toBeTruthy();
-    expect(after?.paidMethod).toBe("cash");
+    expect(after?.paidMethod).toBe("electronic");
     expect(after?.paidAmount).toBe(3000);
   });
 
@@ -76,7 +77,7 @@ describe("recordOnsitePayment", () => {
       paidAmount: 500,
     });
 
-    const result = await recordOnsitePayment(event.id, inv.id, "cash");
+    const result = await recordOnsitePayment(event.id, inv.id);
     expect(result).toEqual({
       error: expect.stringContaining("全額受領済み"),
     });
@@ -97,7 +98,7 @@ describe("recordOnsitePayment", () => {
       stripeCheckoutSessionId: "cs_test_audit",
     });
 
-    const result = await recordOnsitePayment(event.id, inv.id, "cash");
+    const result = await recordOnsitePayment(event.id, inv.id);
     if ("error" in result) throw new Error(result.error);
     expect(result.payment.paidAmount).toBe(1500);
     // 一部 Stripe 決済済みの事実を記録に残す
@@ -122,7 +123,7 @@ describe("recordOnsitePayment", () => {
       paymentMethod: "onsite",
     });
 
-    const result = await recordOnsitePayment(event.id, inv.id, "cash");
+    const result = await recordOnsitePayment(event.id, inv.id);
     expect(result).toEqual({
       error: expect.stringContaining("開催中のイベントでのみ"),
     });
@@ -141,7 +142,7 @@ describe("recordOnsitePayment", () => {
     const outsider = await createUser();
     loginAs(outsider);
 
-    const result = await recordOnsitePayment(event.id, inv.id, "cash");
+    const result = await recordOnsitePayment(event.id, inv.id);
     expect(result).toEqual({ error: "権限がありません" });
     logout();
   });
@@ -158,7 +159,7 @@ describe("recordOnsitePayment", () => {
       status: "accepted",
     });
 
-    const result = await recordOnsitePayment(event.id, inv.id, "cash");
+    const result = await recordOnsitePayment(event.id, inv.id);
     expect(result).toEqual({
       error: expect.stringContaining("受領する金額がありません"),
     });

@@ -57,6 +57,43 @@ describe("lookupInvitationByToken", () => {
     expect(result.invitation.companions[0]).toMatchObject({ name: "同伴者A" });
   });
 
+  it("inviterDisplayName は現在のメンバー名、削除済みならサフィックス付き", async () => {
+    const user = await createUser();
+    const event = await createEvent({ status: "ongoing", totalSeats: 10 });
+    const memberId = await addEventMember({
+      eventId: event.id,
+      userId: user.id,
+      role: "performer",
+      displayName: "現在の名前",
+    });
+    loginAs(user);
+    await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      token: "tok-inviter-active",
+      inviterDisplayName: "発行時の名前",
+    });
+    await addInvitation({
+      eventId: event.id,
+      memberId: null,
+      status: "accepted",
+      token: "tok-inviter-gone",
+      inviterDisplayName: "削除された人",
+    });
+
+    const active = await lookupInvitationByToken(
+      event.id,
+      "tok-inviter-active",
+    );
+    if ("error" in active) throw new Error(active.error);
+    expect(active.invitation.inviterDisplayName).toBe("現在の名前");
+
+    const gone = await lookupInvitationByToken(event.id, "tok-inviter-gone");
+    if ("error" in gone) throw new Error(gone.error);
+    expect(gone.invitation.inviterDisplayName).toBe("削除された人（削除済み）");
+  });
+
   it("別イベントの token はエラー", async () => {
     const { event: ownEvent } = await setupMember();
     const otherEvent = await createEvent({ status: "ongoing" });
