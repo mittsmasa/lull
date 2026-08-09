@@ -7,15 +7,22 @@ import {
   companions,
   eventMembers,
   events,
+  type InvitationStatus,
   invitations,
   type PaidMethod,
+  type PaymentMethod,
 } from "@/db/schema";
 import { type Billing, calcBilling } from "@/lib/payment";
 import {
   type CheckInSummary,
   getCheckInSummary,
+  resolveInviterDisplayName,
 } from "@/lib/queries/invitations";
 import { requireSession } from "@/lib/session";
+import {
+  createInvitationCheckoutSession,
+  syncCheckoutPayment,
+} from "@/lib/stripe-checkout";
 
 export type LookupPayment = {
   /** 現在の設定・回答から算出した請求内訳 */
@@ -30,6 +37,8 @@ export type LookupInvitation = {
   id: string;
   guestName: string | null;
   guestEmail: string | null;
+  /** 招待した出演者の表示名（発行時点のスナップショット） */
+  inviterDisplayName: string;
   checkedIn: boolean;
   checkedInAt: number | null;
   afterPartyAttendance: "attending" | "declined" | null;
@@ -73,6 +82,7 @@ export async function lookupInvitationByToken(
   const invitation = await db.query.invitations.findFirst({
     where: eq(invitations.token, token),
     with: {
+      member: { columns: { displayName: true } },
       companions: {
         columns: {
           id: true,
@@ -129,6 +139,10 @@ export async function lookupInvitationByToken(
       id: invitation.id,
       guestName: invitation.guestName,
       guestEmail: invitation.guestEmail,
+      inviterDisplayName: resolveInviterDisplayName(
+        invitation.member,
+        invitation.inviterDisplayName,
+      ),
       checkedIn: invitation.checkedIn,
       checkedInAt: invitation.checkedInAt,
       afterPartyAttendance: invitation.afterPartyAttendance,
@@ -153,15 +167,31 @@ export async function lookupInvitationByToken(
   };
 }
 
-/** 当日の会費受領を記録（現金・電子決済）。取消は招待管理画面の「入金済み解除」のみ */
-export async function recordOnsitePayment(
+/** 決済系 action が招待から参照するフィールド */
+type PayableInvitation = {
+  invitation: {
+    id: string;
+    token: string;
+    status: InvitationStatus;
+    paymentMethod: PaymentMethod | null;
+    paidAt: number | null;
+    paidMethod: PaidMethod | null;
+    paidAmount: number | null;
+    stripeCheckoutSessionId: string | null;
+  };
+  billing: Billing;
+};
+
+/**
+ * 受付の決済系 action が共通で行う検証。
+ * member 権限（主催者 or 出演者）→ 開催中 → 招待の有効性の順に確認する
+ */
+async function loadPayableInvitation(
   eventId: string,
   invitationId: string,
-  method: "cash" | "electronic",
-): Promise<{ error: string } | { payment: LookupPayment }> {
+): Promise<{ error: string } | PayableInvitation> {
   const session = await requireSession();
 
-  // member 権限（主催者 or 出演者）
   const member = await db.query.eventMembers.findFirst({
     where: and(
       eq(eventMembers.eventId, eventId),
@@ -189,6 +219,7 @@ export async function recordOnsitePayment(
     return { error: "この招待は無効化されています" };
   }
 
+  // 請求額は常に現在の設定・回答から算出（保存値を信用しない）
   const billing = calcBilling(
     {
       attendanceFee: event.attendanceFee,
@@ -204,6 +235,26 @@ export async function recordOnsitePayment(
       ).length,
     },
   );
+
+  return { invitation, billing };
+}
+
+/**
+ * 当日の会費受領を記録する。
+ *
+ * 記録できる手段は電子決済のみ — 現金は取り扱わない。会費は招待状からの
+ * オンライン決済（受付が提示する決済 QR を含む）で回収し、この action は
+ * Stripe が使えない場合のフォールバックとして残している。
+ * 取消は招待管理画面の「入金済み解除」のみ。
+ */
+export async function recordOnsitePayment(
+  eventId: string,
+  invitationId: string,
+): Promise<{ error: string } | { payment: LookupPayment }> {
+  const loaded = await loadPayableInvitation(eventId, invitationId);
+  if ("error" in loaded) return loaded;
+  const { invitation, billing } = loaded;
+
   if (billing.total <= 0) {
     return { error: "受領する金額がありません" };
   }
@@ -220,7 +271,7 @@ export async function recordOnsitePayment(
   // 上書きしない（一部 Stripe 決済済みという内訳を記録に残す）。
   // stripe_checkout_session_id は常に監査用に保持する
   const paidMethod: PaidMethod =
-    invitation.paidMethod === "stripe" ? "stripe" : method;
+    invitation.paidMethod === "stripe" ? "stripe" : "electronic";
   await db
     .update(invitations)
     .set({
@@ -246,6 +297,96 @@ export async function recordOnsitePayment(
       paidAt: updated?.paidAt ?? null,
       paidMethod: updated?.paidMethod ?? null,
       paidAmount: updated?.paidAmount ?? null,
+    },
+  };
+}
+
+// ============================================================
+// 決済 QR（受付が提示し、ゲストのスマートフォンで読み取ってもらう）
+// ============================================================
+
+export type OnsiteCheckoutResult =
+  | { url: string }
+  /** すでに支払い済みだった（入金記録を反映済み） */
+  | { paid: true; payment: LookupPayment }
+  | { error: string };
+
+/**
+ * 受付で提示する決済 QR 用の Checkout セッションを生成する。
+ * QR には返された URL をそのまま埋め、ゲストは読み取った時点で決済画面に着く。
+ */
+export async function createOnsiteCheckoutSession(
+  eventId: string,
+  invitationId: string,
+): Promise<OnsiteCheckoutResult> {
+  const loaded = await loadPayableInvitation(eventId, invitationId);
+  if ("error" in loaded) return loaded;
+  const { invitation, billing } = loaded;
+
+  if (invitation.status !== "accepted") {
+    return { error: "出席が確定していない招待では決済できません" };
+  }
+
+  const result = await createInvitationCheckoutSession(invitation.token);
+
+  if ("paid" in result) {
+    revalidatePath(`/events/${eventId}/checkin`);
+    revalidatePath(`/events/${eventId}/invitations`);
+    revalidatePath(`/i/${invitation.token}`);
+    const updated = await db.query.invitations.findFirst({
+      where: eq(invitations.id, invitationId),
+    });
+    return {
+      paid: true,
+      payment: {
+        billing,
+        paymentMethod: updated?.paymentMethod ?? invitation.paymentMethod,
+        paidAt: updated?.paidAt ?? null,
+        paidMethod: updated?.paidMethod ?? null,
+        paidAmount: updated?.paidAmount ?? null,
+      },
+    };
+  }
+
+  return result;
+}
+
+/**
+ * 決済 QR を提示している間の入金確認。
+ *
+ * webhook を待たず、保存済みの Checkout セッションを Stripe に直接問い合わせて
+ * 入金を記録する。当日 webhook が遅延・不達でも受付の画面だけで完結させる。
+ */
+export async function getInvitationPaymentStatus(
+  eventId: string,
+  invitationId: string,
+): Promise<{ error: string } | { payment: LookupPayment }> {
+  const loaded = await loadPayableInvitation(eventId, invitationId);
+  if ("error" in loaded) return loaded;
+  const { invitation, billing } = loaded;
+
+  if (invitation.paidAt === null && invitation.stripeCheckoutSessionId) {
+    const paid = await syncCheckoutPayment(
+      invitation.id,
+      invitation.stripeCheckoutSessionId,
+    );
+    if (paid) {
+      revalidatePath(`/events/${eventId}/checkin`);
+      revalidatePath(`/events/${eventId}/invitations`);
+      revalidatePath(`/i/${invitation.token}`);
+    }
+  }
+
+  const current = await db.query.invitations.findFirst({
+    where: eq(invitations.id, invitationId),
+  });
+  return {
+    payment: {
+      billing,
+      paymentMethod: current?.paymentMethod ?? invitation.paymentMethod,
+      paidAt: current?.paidAt ?? null,
+      paidMethod: current?.paidMethod ?? null,
+      paidAmount: current?.paidAmount ?? null,
     },
   };
 }

@@ -1,8 +1,10 @@
 import "server-only";
 
 import { and, eq, isNull } from "drizzle-orm";
+import { after } from "next/server";
 import { db } from "@/db";
 import { invitations } from "@/db/schema";
+import { sendPaymentCompletedMail } from "@/lib/notifications/payment-completed";
 import { calcBilling } from "@/lib/payment";
 
 /**
@@ -150,5 +152,16 @@ export async function recordStripeCheckoutPayment(
     .returning({ id: invitations.id });
 
   // 0 行 = 直前に別経路が記録した（読み取りから UPDATE までの間の競合）
-  return updated.length > 0 ? "recorded" : "already_recorded";
+  if (updated.length === 0) {
+    return "already_recorded";
+  }
+
+  // 決済完了をゲストに知らせる。
+  // 通知の発火をこの関数に置くのは、記録経路が webhook・招待状ページの確認・
+  // 受付の決済 QR と複数あるうえ、今後も増えうるため。呼び出し側に置くと
+  // 追加のたびに通知漏れが起きる。条件付き UPDATE により "recorded" を返すのは
+  // 全経路を通じて 1 回だけなので、ここに置けば二重送信も起きない
+  after(() => sendPaymentCompletedMail(invitation.id));
+
+  return "recorded";
 }

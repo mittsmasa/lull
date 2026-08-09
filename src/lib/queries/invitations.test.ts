@@ -103,6 +103,36 @@ describe("getCheckInSummary / getCheckInList", () => {
     expect(a1?.checkedIn).toBe(true);
     expect(a1?.companions).toHaveLength(2);
   });
+
+  it("inviterDisplayName は現在のメンバー名、削除済みならスナップショット名 + サフィックス", async () => {
+    const user = await createUser();
+    const event = await createEvent();
+    const memberId = await addEventMember({
+      eventId: event.id,
+      userId: user.id,
+      displayName: "現在の名前",
+    });
+    const active = await addInvitation({
+      eventId: event.id,
+      status: "accepted",
+      memberId,
+      inviterDisplayName: "発行時の名前",
+    });
+    const orphaned = await addInvitation({
+      eventId: event.id,
+      status: "accepted",
+      memberId: null,
+      inviterDisplayName: "削除された人",
+    });
+
+    const list = await getCheckInList(event.id);
+    expect(list.find((r) => r.id === active.id)?.inviterDisplayName).toBe(
+      "現在の名前",
+    );
+    expect(list.find((r) => r.id === orphaned.id)?.inviterDisplayName).toBe(
+      "削除された人（削除済み）",
+    );
+  });
 });
 
 describe("getInvitationByToken / getInvitationsByEventId", () => {

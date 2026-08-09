@@ -153,8 +153,11 @@ function formatCheckInTime(ts: number): string {
 
 function CurrentResponseView({
   invitation,
+  stripeEnabled,
 }: {
   invitation: InvitationForResponse;
+  /** オンライン決済が利用できる環境か。未払い時の案内の出し分けに使う */
+  stripeEnabled: boolean;
 }) {
   const { event } = invitation;
   const billing = calcBilling(
@@ -234,11 +237,12 @@ function CurrentResponseView({
           <>
             <dt className="text-xs text-muted-foreground">お支払い</dt>
             <dd className="text-sm">
-              {invitation.paymentMethod === "prepaid"
-                ? "オンライン決済 ・ 未払い"
-                : invitation.paymentMethod === "onsite"
-                  ? "当日支払い"
-                  : "未選択"}
+              {stripeEnabled
+                ? // 支払い方法は選択制をやめオンライン決済に一本化した。
+                  // 廃止前に「当日支払い」を選んだ回答者にも同じ案内を出す
+                  "オンライン決済 ・ 未払い"
+                : // オンライン決済が使えない環境では当日受付での支払いになる
+                  "当日支払い ・ 未払い"}
             </dd>
           </>
         )}
@@ -454,7 +458,10 @@ export default async function InvitationResponsePage(
           inviterName={invitation.inviterDisplayName}
         />
         {event.showProgram && <InvitationProgramView programs={programs} />}
-        <CurrentResponseView invitation={invitation} />
+        <CurrentResponseView
+          invitation={invitation}
+          stripeEnabled={isStripeEnabled()}
+        />
         {receipt}
         <CheckInStatusView invitation={invitation} />
         <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
@@ -481,7 +488,9 @@ export default async function InvitationResponsePage(
     invitation.status === "accepted" &&
     (event.status === "published" || event.status === "ongoing");
 
-  // 「オンラインで支払う」セクション: 未払い + prepaid 選択 + Stripe 有効 + 請求あり
+  // 「オンラインで支払う」セクション: 未払い + Stripe 有効 + 請求あり。
+  // payment_method は問わない — 廃止前に「当日支払い」を選んだ回答者も
+  // この経路でお支払いいただく
   const billingTotal = calcBilling(
     {
       attendanceFee: event.attendanceFee,
@@ -501,7 +510,6 @@ export default async function InvitationResponsePage(
   const showPaymentSection =
     !isInvalidated &&
     invitation.status === "accepted" &&
-    invitation.paymentMethod === "prepaid" &&
     invitation.paidAt === null &&
     billingTotal > 0 &&
     isStripeEnabled();
@@ -535,7 +543,10 @@ export default async function InvitationResponsePage(
       {showCheckInStatus && <CheckInStatusView invitation={invitation} />}
 
       {invitation.status !== "pending" && (
-        <CurrentResponseView invitation={invitation} />
+        <CurrentResponseView
+          invitation={invitation}
+          stripeEnabled={isStripeEnabled()}
+        />
       )}
 
       {receipt}

@@ -3,21 +3,20 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import type Stripe from "stripe";
 import * as z from "zod";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
 import { getBaseUrl } from "@/lib/base-url";
 import { buildInvitationResponseMail } from "@/lib/emails/invitation-response";
 import { MailerConfigError, sendMail } from "@/lib/mailer";
-import { sendPaymentCompletedMail } from "@/lib/notifications/payment-completed";
-import { calcBilling, formatYen, STRIPE_MIN_AMOUNT_JPY } from "@/lib/payment";
+import { calcBilling } from "@/lib/payment";
 import { getConsumedSeats } from "@/lib/queries/invitations";
 import { getStripe, isStripeEnabled } from "@/lib/stripe";
 import {
-  isPaymentSettled,
-  recordStripeCheckoutPayment,
-} from "@/lib/stripe-payment";
+  type CheckoutSessionResult,
+  createInvitationCheckoutSession,
+  syncCheckoutPayment,
+} from "@/lib/stripe-checkout";
 
 // NOTE: 成功時は undefined を返す（既存パターンに統一）
 export type ResponseActionState =
@@ -350,211 +349,28 @@ export async function respondToInvitation(
 // Stripe Checkout セッション生成
 // ============================================================
 
-export type CheckoutSessionResult =
-  | { url: string }
-  /** 決済済みだったため生成せず、入金記録を反映した */
-  | { paid: true }
-  | { error: string };
-
-const CHECKOUT_UNAVAILABLE_ERROR =
-  "決済ページを開けませんでした。時間をおいて再試行してください";
-
+/**
+ * ゲスト自身が招待状ページから支払うための Checkout セッションを生成する。
+ * 生成条件の検証はすべて共通実装側に持たせている。
+ */
 export async function createCheckoutSession(
   token: string,
 ): Promise<CheckoutSessionResult> {
-  const stripe = getStripe();
-  if (!stripe) {
-    return { error: "オンライン決済は現在ご利用いただけません" };
-  }
+  const result = await createInvitationCheckoutSession(token);
 
-  const invitation = await db.query.invitations.findFirst({
-    where: eq(invitations.token, token),
-    with: { event: true, companions: true },
-  });
-
-  if (!invitation) {
-    return { error: "招待が見つかりません" };
-  }
-
-  const { event } = invitation;
-
-  // ガード: 無効化済み招待・回答受付外のイベントステータスでは生成不可
-  if (invitation.invalidatedAt) {
-    return { error: "この招待ではお支払いいただけません" };
-  }
-  if (event.status !== "published" && event.status !== "ongoing") {
-    return { error: "現在お支払いを受け付けていません" };
-  }
-
-  // ガード: 支払済み・事前支払い以外は生成不可
-  if (invitation.paidAt !== null) {
-    return { error: "すでにお支払い済みです" };
-  }
-  if (invitation.paymentMethod !== "prepaid") {
-    return { error: "オンライン決済が選択されていません" };
-  }
-
-  // 請求額は常に現在の設定・回答から算出（保存値を信用しない）
-  const billing = calcBilling(
-    {
-      attendanceFee: event.attendanceFee,
-      afterPartyEnabled: event.afterPartyEnabled,
-      afterPartyFee: event.afterPartyFee,
-    },
-    {
-      status: invitation.status,
-      companionCount: invitation.companions.length,
-      afterPartyAttendance: invitation.afterPartyAttendance,
-      afterPartyCompanionCount: invitation.companions.filter(
-        (c) => c.afterPartyAttending,
-      ).length,
-    },
-  );
-  if (billing.total <= 0) {
-    return { error: "お支払いいただく金額はありません" };
-  }
-  // Stripe Checkout (JPY) は合計 ¥50 未満のセッション生成を拒否する。
-  // 料金設定側でも防いでいるが、導入前に設定された少額料金が残っている場合に
-  // Stripe API エラーへ落とさず案内を返す（防御的チェック）
-  if (billing.total < STRIPE_MIN_AMOUNT_JPY) {
-    return {
-      error: `オンライン決済は合計 ${formatYen(STRIPE_MIN_AMOUNT_JPY)} 以上のお支払いでご利用いただけます。お手数ですが当日会場でのお支払いをご利用ください`,
-    };
-  }
-
-  // 既存の未払いセッションを失効させてから新規生成する（有効なセッションは常に 1 本のみ）。
-  // まず旧セッションの状態を確認する — complete（支払確定済み、または PayPay 等の
-  // 非同期確定待ち）のセッションは expire できず、この状態で新規セッションを作ると
-  // 二重支払いの恐れがあるため生成を中断する
-  if (invitation.stripeCheckoutSessionId) {
-    let oldSession: Stripe.Checkout.Session | null = null;
-    try {
-      oldSession = await stripe.checkout.sessions.retrieve(
-        invitation.stripeCheckoutSessionId,
-      );
-    } catch (err) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? (err as { code?: string }).code
-          : undefined;
-      // セッションが存在しない（テストデータ消去等）なら旧セッションなし扱いで続行
-      if (code !== "resource_missing") {
-        console.error(
-          `[createCheckoutSession] failed to retrieve old session ${invitation.stripeCheckoutSessionId} for invitation ${invitation.id}`,
-          err,
-        );
-        return { error: CHECKOUT_UNAVAILABLE_ERROR };
-      }
-    }
-    if (oldSession?.status === "complete") {
-      // 支払確定済み（webhook 未達・遅延）または非同期確定待ち。
-      // webhook を待たずにこの場で入金記録を試みる — webhook が届かない環境でも
-      // 「支払い済みなのに支払いボタンが出続ける」状態から復帰できるようにする
-      const result = await recordStripeCheckoutPayment(oldSession, {
-        expectedInvitationId: invitation.id,
-      });
-      if (isPaymentSettled(result)) {
-        revalidatePath(`/i/${token}`);
-        revalidatePath(`/events/${event.id}/invitations`);
-        return { paid: true };
-      }
-      // まだ paid になっていない（非同期確定待ち）ので新規セッションは作らない
-      return {
-        error:
-          "お支払いの確認処理中です。しばらくしてからページを再読み込みしてください",
-      };
-    }
-    if (oldSession?.status === "open") {
-      // expire に失敗した場合は新規生成を中断する — 続行すると古い金額のセッションが
-      // 生き残り、過少支払いの抜け穴になるため（安全側に倒す）
-      try {
-        await stripe.checkout.sessions.expire(
-          invitation.stripeCheckoutSessionId,
-        );
-      } catch (err) {
-        // retrieve と expire の間で失効した場合の expire はエラーになるが、
-        // 「有効な旧セッションが残っていない」ことは保証されるため続行してよい
-        const code =
-          err && typeof err === "object" && "code" in err
-            ? (err as { code?: string }).code
-            : undefined;
-        const alreadyExpired =
-          err instanceof Error &&
-          (code === "checkout_session_already_expired" ||
-            /already expired/i.test(err.message));
-        if (!alreadyExpired) {
-          console.error(
-            `[createCheckoutSession] failed to expire old session ${invitation.stripeCheckoutSessionId} for invitation ${invitation.id}`,
-            err,
-          );
-          return { error: CHECKOUT_UNAVAILABLE_ERROR };
-        }
-      }
-    }
-    // expired はそのまま続行（新規セッションを生成する）
-  }
-
-  const baseUrl = getBaseUrl();
-  // JPY は Stripe のゼロ小数通貨: unit_amount には円の整数値をそのまま渡す
-  // （USD/EUR 前提の amount * 100 をすると請求額が 100 倍になる）
-  const lineItems = [
-    {
-      price_data: {
-        currency: "jpy",
-        product_data: { name: `参加費（${event.name}）` },
-        unit_amount: billing.attendanceFee,
-      },
-      quantity: billing.attendeeCount,
-    },
-    {
-      price_data: {
-        currency: "jpy",
-        product_data: { name: `懇親会費（${event.name}）` },
-        unit_amount: billing.afterPartyFee,
-      },
-      quantity: billing.afterPartyCount,
-    },
-  ].filter((item) => item.price_data.unit_amount > 0 && item.quantity > 0);
-
-  let sessionUrl: string;
-  try {
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      // コンビニ等の遅延決済（payment_status: unpaid のまま completed 発火）を
-      // 排除するため即時決済手段のみに明示制限する。
-      // "paypay" は本番アカウントで未有効化のため除外中（有効化審査の通過後に
-      // 復帰させる。指定すると sessions.create が invalid で失敗する）
-      // https://docs.stripe.com/payments/paypay/accept-a-payment
-      payment_method_types: ["card"],
-      line_items: lineItems,
-      metadata: { invitationId: invitation.id },
-      success_url: `${baseUrl}/i/${token}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/i/${token}?payment=cancelled`,
-      ...(invitation.guestEmail
-        ? { customer_email: invitation.guestEmail }
-        : {}),
+  // 支払い済みが判明して入金を記録した場合は表示を更新する
+  if ("paid" in result) {
+    const invitation = await db.query.invitations.findFirst({
+      where: eq(invitations.token, token),
+      columns: { eventId: true },
     });
-    if (!session.url) {
-      console.error(
-        `[createCheckoutSession] session created without url for invitation ${invitation.id}`,
-      );
-      return { error: CHECKOUT_UNAVAILABLE_ERROR };
+    revalidatePath(`/i/${token}`);
+    if (invitation) {
+      revalidatePath(`/events/${invitation.eventId}/invitations`);
     }
-    // 新セッションの ID を保存（失効管理・webhook 冪等性のため）
-    await db
-      .update(invitations)
-      .set({ stripeCheckoutSessionId: session.id })
-      .where(eq(invitations.id, invitation.id));
-    sessionUrl = session.url;
-  } catch (err) {
-    console.error(
-      `[createCheckoutSession] failed to create session for invitation ${invitation.id}`,
-      err,
-    );
-    return { error: CHECKOUT_UNAVAILABLE_ERROR };
   }
 
-  return { url: sessionUrl };
+  return result;
 }
 
 // ============================================================
@@ -576,12 +392,6 @@ export async function confirmCheckoutPayment(
   token: string,
   sessionId: string,
 ): Promise<ConfirmPaymentResult> {
-  const stripe = getStripe();
-  if (!stripe) return { paid: false };
-
-  // 明らかに Checkout セッション ID でないものは Stripe に問い合わせない
-  if (!sessionId.startsWith("cs_")) return { paid: false };
-
   const invitation = await db.query.invitations.findFirst({
     where: eq(invitations.token, token),
     columns: { id: true, eventId: true, paidAt: true },
@@ -589,29 +399,11 @@ export async function confirmCheckoutPayment(
   if (!invitation) return { paid: false };
   if (invitation.paidAt !== null) return { paid: true };
 
-  let session: Stripe.Checkout.Session;
-  try {
-    session = await stripe.checkout.sessions.retrieve(sessionId);
-  } catch (err) {
-    console.error(
-      `[confirmCheckoutPayment] failed to retrieve session ${sessionId} for invitation ${invitation.id}`,
-      err,
-    );
-    return { paid: false };
-  }
-
-  // セッションが本当にこの招待のものかは metadata で検証する
-  // （招待トークンの持ち主が任意のセッション ID を渡しても他招待は書き換わらない）
-  const result = await recordStripeCheckoutPayment(session, {
-    expectedInvitationId: invitation.id,
-  });
-  if (result === "recorded") {
-    // 記録できたのはこの経路（webhook 未達・遅延）。通知もここから出す。
-    // webhook が先に記録していれば "already_recorded" になり二重には送られない
-    after(() => sendPaymentCompletedMail(invitation.id));
+  const paid = await syncCheckoutPayment(invitation.id, sessionId);
+  if (paid) {
     revalidatePath(`/i/${token}`);
     revalidatePath(`/events/${invitation.eventId}/invitations`);
   }
 
-  return { paid: isPaymentSettled(result) };
+  return { paid };
 }
