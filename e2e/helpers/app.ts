@@ -174,7 +174,6 @@ export type GuestResponse = {
   companions?: string[];
   afterParty?: boolean;
   afterPartyCompanions?: string[];
-  payment?: "prepaid" | "onsite";
 };
 
 // 招待ページの回答フォームを入力する（送信はしない）。
@@ -207,15 +206,19 @@ export async function fillGuestResponse(page: Page, response: GuestResponse) {
   for (const companion of response.afterPartyCompanions ?? []) {
     await form.getByLabel(companion).check();
   }
-  if (response.payment) {
-    await form
-      .getByText(
-        response.payment === "prepaid"
-          ? "事前支払い（オンライン決済）"
-          : "当日支払い",
-        { exact: true },
-      )
-      .click();
+  // 支払い方法は選択制が廃止され（#334）、Stripe 有効時は自動で
+  // オンライン決済になる。Stripe 無効環境でのみ残る「当日支払い」radio は
+  // required なので、存在するときだけクリックする（キーがあれば radio は
+  // 出ないため確認自体を省く）
+  if (!process.env.STRIPE_SECRET_KEY) {
+    const onsiteRadio = form.getByText("当日支払い", { exact: true });
+    const visible = await onsiteRadio
+      .waitFor({ state: "visible", timeout: 2_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (visible) {
+      await onsiteRadio.click();
+    }
   }
 }
 

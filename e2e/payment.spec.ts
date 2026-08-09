@@ -73,7 +73,6 @@ test("D0: 決済ありイベントとゲスト回答を準備する", async ({
     name: "決済太郎",
     email: "pay-test@example.com",
     attendance: "accept",
-    payment: "prepaid",
   });
   await context.close();
 });
@@ -101,12 +100,15 @@ test("D1+F1+D2+D4: Checkout 遷移 → 拒否カード → リトライ成功 �
   // F1 続き: 同一セッション内でカードを差し替えてリトライ
   await fillAndSubmitCheckout(page, VALID_CARD);
 
-  // D4: ?payment=success リダイレクト経路で反映される（webhook なし）
+  // D4: ?payment=success リダイレクト経路で反映される（webhook なし）。
+  // 決済直後は支払い控え（#335）に完了メッセージと受領記録が出る
   await page.waitForURL(/payment=success/, { timeout: 60_000 });
-  await expect(
-    page.getByText(/支払済み（オンライン決済）/).first(),
-  ).toBeVisible({ timeout: 45_000 });
+  // 控えとトーストの両方に同文言が出ることがあるため first で拾う
+  await expect(page.getByText("お支払いが完了しました").first()).toBeVisible({
+    timeout: 45_000,
+  });
   await expect(page.getByText("¥500").first()).toBeVisible();
+  await expect(page.getByText(/オンライン決済 ・ .+ 受領/)).toBeVisible();
 
   // D5: 決済成功後は支払いボタンが再表示されない
   await page.reload();
@@ -124,7 +126,6 @@ test("D6: 主催者が手動で入金済みにできる", async ({ browser, page
     name: "現金花子",
     email: "cash@example.com",
     attendance: "accept",
-    payment: "onsite",
   });
   await context.close();
 

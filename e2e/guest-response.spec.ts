@@ -50,9 +50,6 @@ test("C2: 同伴者・懇親会つきの出席回答で金額内訳が計算さ�
     companions: ["佐藤良子"],
     afterParty: true,
     afterPartyCompanions: ["佐藤良子"],
-    // 「事前支払い」radio は Stripe キーがある環境のみ表示されるため、
-    // キー非依存のこの spec では当日支払いを選ぶ（prepaid は payment.spec が担う）
-    payment: "onsite",
   });
   // 参加費 ¥1,000×2 + 懇親会 ¥2,000×2 = ¥6,000
   await expect(page.getByText("¥6,000").first()).toBeVisible();
@@ -72,7 +69,6 @@ test("C3: 辞退への変更で座席が解放される", async ({ browser, page
     email: "ichiro@example.com",
     attendance: "accept",
     afterParty: false,
-    payment: "onsite",
   });
 
   await page.goto(`/events/${eventId}/invitations`);
