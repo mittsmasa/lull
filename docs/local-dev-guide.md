@@ -125,6 +125,26 @@ Checkout ではカードに加えて PayPay を選択できる（`payment_method
 
 テストモードでは Checkout 画面で PayPay を選ぶと決済のシミュレート画面（承認/拒否）が表示される。決済確定は `checkout.session.completed`（即時）または `checkout.session.async_payment_succeeded`（非同期確定）の webhook で反映されるため、上記の `stripe listen` を起動した状態で確認する。
 
+## e2e テスト（Playwright）
+
+CI（`.github/workflows/e2e.yml`）は job 内で SQLite + OAuth エミュレータ + `next start` を立てて実行する。ローカルで同じものを回すには:
+
+```bash
+# 1. 専用 DB を用意（dev 用 local.db とは別ファイル。再実行時は作り直す）
+rm -f e2e-local.db* && TURSO_DATABASE_URL=file:e2e-local.db pnpm db:migrate
+
+# 2. エミュレータ入りの本番ビルド
+NEXT_PUBLIC_VERCEL_ENV=preview pnpm build
+
+# 3. 実行（port 3000 を使うので dev サーバーは止めておく）
+STRIPE_SECRET_KEY=sk_test_... pnpm test:e2e
+```
+
+- サーバー起動と環境変数の注入は `playwright.config.ts` の `webServer` が行う。DB は常に `file:e2e-local.db` に固定される
+- `STRIPE_SECRET_KEY` はテストキー（`sk_test_`）のみ。未設定だと決済系 spec が失敗する
+- 決済反映の検証はリダイレクト経路（上記 2）のみで行い、webhook は使わない
+- CI の Stripe キーはリポジトリ secrets の `STRIPE_SECRET_KEY_TEST`
+
 ## よくあるハマりどころ
 
 ### DB 関連のエラーが出る
