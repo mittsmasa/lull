@@ -4,6 +4,7 @@ import {
   User,
   UsersThree,
 } from "@phosphor-icons/react/dist/ssr";
+import { InvitationPaymentReceipt } from "@/app/_components/invitation-payment-receipt";
 import { InvitationPaymentSection } from "@/app/_components/invitation-payment-section";
 import { InvitationProgramView } from "@/app/_components/invitation-program-view";
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
@@ -16,7 +17,6 @@ import {
   calcBilling,
   formatYen,
   isPaid as isPaymentRecorded,
-  PAID_METHOD_LABELS,
 } from "@/lib/payment";
 import {
   getInvitationByToken,
@@ -226,21 +226,19 @@ function CurrentResponseView({
                   </span>
                 )}
             </dd>
+          </>
+        )}
+        {/* 支払済みの表示は控えセクション（InvitationPaymentReceipt）が担う。
+            ここでは未払いのときの予定だけを出す */}
+        {showPayment && !paid && (
+          <>
             <dt className="text-xs text-muted-foreground">お支払い</dt>
             <dd className="text-sm">
-              {paid ? (
-                <span className="text-primary">
-                  ✓ {formatYen(invitation.paidAmount ?? 0)} 支払済み
-                  {invitation.paidMethod &&
-                    `（${PAID_METHOD_LABELS[invitation.paidMethod]}）`}
-                </span>
-              ) : invitation.paymentMethod === "prepaid" ? (
-                "オンライン決済 ・ 未払い"
-              ) : invitation.paymentMethod === "onsite" ? (
-                "当日支払い"
-              ) : (
-                "未選択"
-              )}
+              {invitation.paymentMethod === "prepaid"
+                ? "オンライン決済 ・ 未払い"
+                : invitation.paymentMethod === "onsite"
+                  ? "当日支払い"
+                  : "未選択"}
             </dd>
           </>
         )}
@@ -401,6 +399,18 @@ export default async function InvitationResponsePage(
   const { event } = invitation;
   const isInvalidated = !!invitation.invalidatedAt;
 
+  // 支払済みの控え。paid_method が無い記録は控えとして成立しないため出さない
+  const receipt =
+    invitation.paidAt !== null && invitation.paidMethod !== null ? (
+      <InvitationPaymentReceipt
+        paidAmount={invitation.paidAmount ?? 0}
+        paidMethod={invitation.paidMethod}
+        paidAt={invitation.paidAt}
+        // 決済から戻った直後だけ完了を明示する。後日の再訪では静かに表示する
+        justPaid={paymentQuery === "success"}
+      />
+    ) : null;
+
   if (event.status === "draft") {
     return (
       <ErrorView
@@ -445,6 +455,7 @@ export default async function InvitationResponsePage(
         />
         {event.showProgram && <InvitationProgramView programs={programs} />}
         <CurrentResponseView invitation={invitation} />
+        {receipt}
         <CheckInStatusView invitation={invitation} />
         <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
           このイベントは終了しました。お越しいただきありがとうございました
@@ -526,6 +537,8 @@ export default async function InvitationResponsePage(
       {invitation.status !== "pending" && (
         <CurrentResponseView invitation={invitation} />
       )}
+
+      {receipt}
 
       {showPaymentSection && (
         <InvitationPaymentSection

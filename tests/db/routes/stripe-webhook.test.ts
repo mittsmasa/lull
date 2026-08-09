@@ -10,6 +10,8 @@ import {
   createEvent,
   createUser,
 } from "../factories";
+import { clearAfterTasks, flushAfter } from "../helpers/after";
+import { clearSentMails, sentMails } from "../helpers/mail";
 
 type MockStripe = {
   webhooks: { constructEventAsync: ReturnType<typeof vi.fn> };
@@ -25,6 +27,9 @@ function enableStripe(): MockStripe {
 
 beforeEach(() => {
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  // 直前のテストの積み残しを持ち込まない
+  clearAfterTasks();
+  clearSentMails();
 });
 
 afterEach(() => {
@@ -276,6 +281,78 @@ describe("stripe webhook", () => {
     expect(after?.paidAt).toBe(11111);
     expect(after?.paidAmount).toBe(3000);
     expect(after?.stripeCheckoutSessionId).toBe("cs_test_first");
+  });
+
+  it("記録できたときだけゲストに決済完了メールを送る", async () => {
+    const stripe = enableStripe();
+    // 参加費 500×2 + 懇親会 1000×2 = 3000（amount_total と一致 → 内訳を載せる）
+    const { inv } = await setupInvitation({
+      guestName: "山田花子",
+      guestEmail: "hanako@example.com",
+    });
+    await addCompanion({ invitationId: inv.id, afterPartyAttending: true });
+    stripe.webhooks.constructEventAsync.mockResolvedValue(
+      completedEvent({ metadata: { invitationId: inv.id } }),
+    );
+
+    const res = await postWebhook();
+    expect(res.status).toBe(200);
+
+    // 送信は after() 経由でレスポンス後に走るため、完了を待ってから検証する
+    await flushAfter();
+    expect(sentMails()).toHaveLength(1);
+    const mail = sentMails()[0];
+    expect(mail.to).toBe("hanako@example.com");
+    expect(mail.subject).toContain("お支払いを承りました");
+    expect(mail.text).toContain("- 受領額: ¥3,000");
+    expect(mail.text).toContain("- お支払い方法: オンライン決済");
+    expect(mail.text).toContain("■ 内訳");
+  });
+
+  it("同一セッションの再送ではメールを送らない", async () => {
+    const stripe = enableStripe();
+    const { inv } = await setupInvitation({
+      guestName: "山田花子",
+      guestEmail: "hanako@example.com",
+      paidAt: 11111,
+      paidMethod: "stripe",
+      paidAmount: 3000,
+      stripeCheckoutSessionId: "cs_test_paid",
+    });
+    stripe.webhooks.constructEventAsync.mockResolvedValue(
+      completedEvent({ metadata: { invitationId: inv.id } }),
+    );
+
+    const res = await postWebhook();
+    expect(res.status).toBe(200);
+
+    // 記録済み（already_recorded）なので通知もしない
+    await flushAfter();
+    expect(sentMails()).toHaveLength(0);
+  });
+
+  it("メールアドレス未登録の招待では送信をスキップする（記録は行う）", async () => {
+    const stripe = enableStripe();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { inv } = await setupInvitation({ guestEmail: null });
+    stripe.webhooks.constructEventAsync.mockResolvedValue(
+      completedEvent({ metadata: { invitationId: inv.id } }),
+    );
+
+    const res = await postWebhook();
+    expect(res.status).toBe(200);
+
+    await flushAfter();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("has no guest email"),
+    );
+    warnSpy.mockRestore();
+    expect(sentMails()).toHaveLength(0);
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after?.paidAt).toBeTruthy();
   });
 
   it("amount_total が現請求額と不一致でも額面どおり記録し警告ログを残す", async () => {

@@ -1,5 +1,7 @@
 import { Hono } from "hono";
+import { after } from "next/server";
 import type Stripe from "stripe";
+import { sendPaymentCompletedMail } from "@/lib/notifications/payment-completed";
 import { getStripe } from "@/lib/stripe";
 import { recordStripeCheckoutPayment } from "@/lib/stripe-payment";
 
@@ -69,6 +71,23 @@ const app = new Hono().post("/webhook", async (c) => {
 
   const session = event.data.object as Stripe.Checkout.Session;
   const result = await recordStripeCheckoutPayment(session);
+
+  // 今回の呼び出しで記録できたときだけ通知する。招待状ページからの確認経路と
+  // 同時に走っても "recorded" は片方にしか返らないため、メールは 1 通に収まる
+  if (result === "recorded") {
+    const invitationId = session.metadata?.invitationId;
+    if (invitationId) {
+      try {
+        // 応答を返してから送る。送信失敗で Stripe にリトライさせない
+        after(() => sendPaymentCompletedMail(invitationId));
+      } catch (err) {
+        console.error(
+          `[stripe-webhook] failed to schedule payment mail for invitation ${invitationId}`,
+          err,
+        );
+      }
+    }
+  }
 
   if (result === "not_paid") {
     console.warn(

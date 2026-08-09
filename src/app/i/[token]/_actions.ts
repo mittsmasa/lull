@@ -7,8 +7,10 @@ import type Stripe from "stripe";
 import * as z from "zod";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
+import { getBaseUrl } from "@/lib/base-url";
 import { buildInvitationResponseMail } from "@/lib/emails/invitation-response";
 import { MailerConfigError, sendMail } from "@/lib/mailer";
+import { sendPaymentCompletedMail } from "@/lib/notifications/payment-completed";
 import { calcBilling, formatYen, STRIPE_MIN_AMOUNT_JPY } from "@/lib/payment";
 import { getConsumedSeats } from "@/lib/queries/invitations";
 import { getStripe, isStripeEnabled } from "@/lib/stripe";
@@ -16,18 +18,6 @@ import {
   isPaymentSettled,
   recordStripeCheckoutPayment,
 } from "@/lib/stripe-payment";
-
-function getBaseUrl(): string {
-  // 明示設定（trim 後の非空）が最優先
-  const explicit =
-    process.env.APP_PUBLIC_URL?.trim() || process.env.BETTER_AUTH_URL?.trim();
-  if (explicit) return explicit;
-  // Vercel の preview deploy 等では VERCEL_BRANCH_URL / VERCEL_URL を使う
-  // （src/lib/auth.ts の組み立て方と揃える）
-  const vercelHost = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
-  if (vercelHost) return `https://${vercelHost}`;
-  return "http://localhost:3000";
-}
 
 // NOTE: 成功時は undefined を返す（既存パターンに統一）
 export type ResponseActionState =
@@ -616,6 +606,9 @@ export async function confirmCheckoutPayment(
     expectedInvitationId: invitation.id,
   });
   if (result === "recorded") {
+    // 記録できたのはこの経路（webhook 未達・遅延）。通知もここから出す。
+    // webhook が先に記録していれば "already_recorded" になり二重には送られない
+    after(() => sendPaymentCompletedMail(invitation.id));
     revalidatePath(`/i/${token}`);
     revalidatePath(`/events/${invitation.eventId}/invitations`);
   }

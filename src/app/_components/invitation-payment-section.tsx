@@ -42,6 +42,9 @@ export function InvitationPaymentSection({
   const [pollCount, setPollCount] = useState(0);
   const confirming = paymentStatus === "success" && pollCount < POLL_MAX_COUNT;
   const pollCountRef = useRef(0);
+  // 反映（= このセクションのアンマウント）までにポーリングが再度走ることが
+  // あるため、完了トーストは 1 回に限定する
+  const notifiedRef = useRef(false);
 
   useEffect(() => {
     if (paymentStatus !== "success") return;
@@ -52,7 +55,11 @@ export function InvitationPaymentSection({
     const sync = async () => {
       if (sessionId) {
         try {
-          await confirmCheckoutPayment(token, sessionId);
+          const result = await confirmCheckoutPayment(token, sessionId);
+          if (result.paid && !notifiedRef.current && !cancelled) {
+            notifiedRef.current = true;
+            toast.success("お支払いが完了しました");
+          }
         } catch {
           // 確認に失敗しても webhook 経由の反映があり得るのでポーリングは続ける
         }
