@@ -6,6 +6,7 @@ import { after } from "next/server";
 import * as z from "zod";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
+import { getBaseUrl } from "@/lib/base-url";
 import { buildInvitationResponseMail } from "@/lib/emails/invitation-response";
 import { MailerConfigError, sendMail } from "@/lib/mailer";
 import { calcBilling } from "@/lib/payment";
@@ -14,7 +15,6 @@ import { getStripe, isStripeEnabled } from "@/lib/stripe";
 import {
   type CheckoutSessionResult,
   createInvitationCheckoutSession,
-  getBaseUrl,
   syncCheckoutPayment,
 } from "@/lib/stripe-checkout";
 

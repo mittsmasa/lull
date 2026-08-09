@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { confirmCheckoutPayment } from "@/app/i/[token]/_actions";
 import { db } from "@/db";
 import { invitations } from "@/db/schema";
@@ -10,6 +10,8 @@ import {
   createEvent,
   createUser,
 } from "../factories";
+import { clearAfterTasks, flushAfter } from "../helpers/after";
+import { clearSentMails, sentMails } from "../helpers/mail";
 
 type MockStripe = {
   checkout: { sessions: { retrieve: ReturnType<typeof vi.fn> } };
@@ -22,6 +24,12 @@ function enableStripe(): MockStripe {
   (globalThis as { __mockStripe?: unknown }).__mockStripe = mock;
   return mock;
 }
+
+beforeEach(() => {
+  // 直前のテストの積み残しを持ち込まない
+  clearAfterTasks();
+  clearSentMails();
+});
 
 afterEach(() => {
   delete (globalThis as { __mockStripe?: unknown }).__mockStripe;
@@ -169,6 +177,49 @@ describe("confirmCheckoutPayment", () => {
       where: eq(invitations.id, inv.id),
     });
     expect(after?.paidAt).toBeNull();
+  });
+
+  it("この経路で記録できたときはゲストに決済完了メールを送る", async () => {
+    const stripe = enableStripe();
+    const { inv } = await setupInvitation({
+      guestName: "山田花子",
+      guestEmail: "hanako@example.com",
+    });
+    await addCompanion({ invitationId: inv.id, afterPartyAttending: true });
+    stripe.checkout.sessions.retrieve.mockResolvedValue(
+      paidSession({ metadata: { invitationId: inv.id } }),
+    );
+
+    await confirmCheckoutPayment(inv.token, "cs_test_paid");
+
+    // 送信は after() 経由なので完了を待ってから検証する
+    await flushAfter();
+    expect(sentMails()).toHaveLength(1);
+    expect(sentMails()[0].to).toBe("hanako@example.com");
+  });
+
+  it("webhook が先に記録していればメールを送らない（二重送信しない）", async () => {
+    const stripe = enableStripe();
+    // webhook 側が記録済みの状態を再現
+    const { inv } = await setupInvitation({
+      guestName: "山田花子",
+      guestEmail: "hanako@example.com",
+      paidAt: 11111,
+      paidMethod: "stripe",
+      paidAmount: 3000,
+    });
+    stripe.checkout.sessions.retrieve.mockResolvedValue(
+      paidSession({ metadata: { invitationId: inv.id } }),
+    );
+
+    const res = await confirmCheckoutPayment(inv.token, "cs_test_paid");
+    expect(res).toEqual({ paid: true });
+
+    // 支払済みの招待は Stripe に問い合わせる前に早期 return するため、
+    // 通知のコードパスに到達しない
+    expect(stripe.checkout.sessions.retrieve).not.toHaveBeenCalled();
+    await flushAfter();
+    expect(sentMails()).toHaveLength(0);
   });
 
   it("Stripe 無効環境では何もしない", async () => {

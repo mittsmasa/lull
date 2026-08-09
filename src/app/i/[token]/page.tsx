@@ -4,6 +4,7 @@ import {
   User,
   UsersThree,
 } from "@phosphor-icons/react/dist/ssr";
+import { InvitationPaymentReceipt } from "@/app/_components/invitation-payment-receipt";
 import { InvitationPaymentSection } from "@/app/_components/invitation-payment-section";
 import { InvitationProgramView } from "@/app/_components/invitation-program-view";
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
@@ -16,7 +17,6 @@ import {
   calcBilling,
   formatYen,
   isPaid as isPaymentRecorded,
-  PAID_METHOD_LABELS,
 } from "@/lib/payment";
 import {
   getInvitationByToken,
@@ -229,22 +229,20 @@ function CurrentResponseView({
                   </span>
                 )}
             </dd>
+          </>
+        )}
+        {/* 支払済みの表示は控えセクション（InvitationPaymentReceipt）が担う。
+            ここでは未払いのときの予定だけを出す */}
+        {showPayment && !paid && (
+          <>
             <dt className="text-xs text-muted-foreground">お支払い</dt>
             <dd className="text-sm">
-              {paid ? (
-                <span className="text-primary">
-                  ✓ {formatYen(invitation.paidAmount ?? 0)} 支払済み
-                  {invitation.paidMethod &&
-                    `（${PAID_METHOD_LABELS[invitation.paidMethod]}）`}
-                </span>
-              ) : stripeEnabled ? (
-                // 支払い方法は選択制をやめオンライン決済に一本化した。
-                // 廃止前に「当日支払い」を選んだ回答者にも同じ案内を出す
-                "オンライン決済 ・ 未払い"
-              ) : (
-                // オンライン決済が使えない環境では当日受付での支払いになる
-                "当日支払い ・ 未払い"
-              )}
+              {stripeEnabled
+                ? // 支払い方法は選択制をやめオンライン決済に一本化した。
+                  // 廃止前に「当日支払い」を選んだ回答者にも同じ案内を出す
+                  "オンライン決済 ・ 未払い"
+                : // オンライン決済が使えない環境では当日受付での支払いになる
+                  "当日支払い ・ 未払い"}
             </dd>
           </>
         )}
@@ -405,6 +403,18 @@ export default async function InvitationResponsePage(
   const { event } = invitation;
   const isInvalidated = !!invitation.invalidatedAt;
 
+  // 支払済みの控え。paid_method が無い記録は控えとして成立しないため出さない
+  const receipt =
+    invitation.paidAt !== null && invitation.paidMethod !== null ? (
+      <InvitationPaymentReceipt
+        paidAmount={invitation.paidAmount ?? 0}
+        paidMethod={invitation.paidMethod}
+        paidAt={invitation.paidAt}
+        // 決済から戻った直後だけ完了を明示する。後日の再訪では静かに表示する
+        justPaid={paymentQuery === "success"}
+      />
+    ) : null;
+
   if (event.status === "draft") {
     return (
       <ErrorView
@@ -452,6 +462,7 @@ export default async function InvitationResponsePage(
           invitation={invitation}
           stripeEnabled={isStripeEnabled()}
         />
+        {receipt}
         <CheckInStatusView invitation={invitation} />
         <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
           このイベントは終了しました。お越しいただきありがとうございました
@@ -537,6 +548,8 @@ export default async function InvitationResponsePage(
           stripeEnabled={isStripeEnabled()}
         />
       )}
+
+      {receipt}
 
       {showPaymentSection && (
         <InvitationPaymentSection
