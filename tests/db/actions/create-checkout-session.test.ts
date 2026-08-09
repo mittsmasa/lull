@@ -123,15 +123,14 @@ describe("createCheckoutSession - ガード条件", () => {
     expect(mock.checkout.sessions.create).toHaveBeenCalledTimes(1);
   });
 
-  it("payment_method が prepaid でない場合は生成できない", async () => {
-    enableStripe();
+  it("payment_method が onsite でも生成できる（当日支払いの廃止前に回答した招待の救済）", async () => {
+    const mock = enableStripe();
     const { inv } = await setupInvitation({
       invitationOverrides: { paymentMethod: "onsite" },
     });
     const res = await createCheckoutSession(inv.token);
-    expect(res).toEqual({
-      error: expect.stringContaining("オンライン決済が選択されていません"),
-    });
+    expect(res).toEqual({ url: "https://checkout.stripe.com/test" });
+    expect(mock.checkout.sessions.create).toHaveBeenCalledTimes(1);
   });
 
   it("無効化済みの招待では生成できない", async () => {

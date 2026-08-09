@@ -8,6 +8,7 @@ import {
   getEventForInvitationManagement,
 } from "@/lib/queries/invitations";
 import { requireSession } from "@/lib/session";
+import { isStripeEnabled } from "@/lib/stripe";
 
 export default async function CheckInPage(
   props: PageProps<"/events/[eventId]/checkin">,
@@ -27,7 +28,12 @@ export default async function CheckInPage(
   return (
     <>
       <HeaderConfig showBackButton />
-      <CheckInView event={event} summary={summary} initialList={checkInList} />
+      <CheckInView
+        event={event}
+        summary={summary}
+        initialList={checkInList}
+        stripeEnabled={isStripeEnabled()}
+      />
     </>
   );
 }

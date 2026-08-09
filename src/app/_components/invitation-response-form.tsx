@@ -146,7 +146,14 @@ export function InvitationResponseForm({
           attendance === "accepted" && event.afterPartyEnabled
             ? afterParty
             : null,
-        paymentMethod: billing.total > 0 ? paymentMethod : null,
+        // 支払い方法は選択制をやめ、オンライン決済に一本化した。
+        // Stripe が使えない環境でのみ、従来の当日支払いを選択肢として残す
+        paymentMethod:
+          billing.total > 0
+            ? stripeEnabled
+              ? "prepaid"
+              : paymentMethod
+            : null,
       });
 
       if (result) {
@@ -436,41 +443,36 @@ export function InvitationResponseForm({
                 <span>{formatYen(billing.total)}</span>
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-3">
-              {stripeEnabled && (
+            {/* 支払い方法は選ばせない。会費はオンライン決済のみで受け付ける */}
+            {stripeEnabled ? (
+              <div className="flex flex-col gap-1 border-t border-border/50 pt-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                  お支払い
+                </p>
+                <p className="font-serif">オンライン決済（カード）</p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  回答後、このページからお支払いいただけます
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3">
                 <label className="block cursor-pointer rounded-sm border border-border/50 p-4 text-left transition-colors has-[input:checked]:border-foreground has-[input:checked]:bg-foreground/[0.03] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
                   <input
                     type="radio"
                     name="paymentMethod"
-                    value="prepaid"
+                    value="onsite"
                     required
-                    checked={paymentMethod === "prepaid"}
-                    onChange={() => setPaymentMethod("prepaid")}
+                    checked={paymentMethod === "onsite"}
+                    onChange={() => setPaymentMethod("onsite")}
                     className="sr-only"
                   />
-                  <p className="font-serif">事前支払い（オンライン決済）</p>
+                  <p className="font-serif">当日支払い</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    回答後、このページからカードまたは PayPay
-                    でお支払いいただけます
+                    当日受付にてお支払いください
                   </p>
                 </label>
-              )}
-              <label className="block cursor-pointer rounded-sm border border-border/50 p-4 text-left transition-colors has-[input:checked]:border-foreground has-[input:checked]:bg-foreground/[0.03] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="onsite"
-                  required
-                  checked={paymentMethod === "onsite"}
-                  onChange={() => setPaymentMethod("onsite")}
-                  className="sr-only"
-                />
-                <p className="font-serif">当日支払い</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  当日受付にて現金・電子決済でお支払いください
-                </p>
-              </label>
-            </div>
+              </div>
+            )}
             {fieldErrors.paymentMethod && (
               <p className="text-xs text-destructive">
                 {fieldErrors.paymentMethod}

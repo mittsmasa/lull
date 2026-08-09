@@ -16,6 +16,29 @@ export function formatDatetime(datetime: string): string {
 }
 
 /**
+ * epoch ミリ秒を表示用にフォーマット
+ * 1773055200000 → "2026/03/15 14:00"
+ *
+ * DB に epoch ms で保存されている時刻（paid_at 等）の表示に使う。
+ * SSR 環境（UTC）でもゲスト・主催者に同じ時刻を見せるため timeZone を明示する
+ */
+export function formatEpochDatetime(ts: number): string {
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Tokyo",
+  }).formatToParts(new Date(ts));
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  // ロケール依存の区切り文字を経由せず組み立てる（"2026/03/15 14:00" に固定）
+  return `${get("year")}/${get("month")}/${get("day")} ${get("hour")}:${get("minute")}`;
+}
+
+/**
  * datetime 文字列から日付部分を抽出
  * "2026-03-15T14:00" → "2026/03/15"
  */

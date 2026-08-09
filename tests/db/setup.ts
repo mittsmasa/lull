@@ -37,19 +37,36 @@ vi.mock("next/navigation", () => ({
 
 // Server Action 内で next/server の `after` を使うが、テストはリクエスト
 // スコープを持たないため本物を呼ぶと throw する。コールバックを安全に
-// 実行できる no-op 相当に差し替える
+// 実行できる no-op 相当に差し替える。
+// 実行中の Promise は globalThis に積み、完了を待ちたいテストは
+// helpers/after.ts の flushAfter() を使う（時間待ちに頼らないため）
 vi.mock("next/server", () => ({
   after: (fn: () => unknown | Promise<unknown>) => {
-    Promise.resolve()
-      .then(() => fn())
-      .catch(() => {});
+    const g = globalThis as { __afterTasks?: Promise<unknown>[] };
+    g.__afterTasks ??= [];
+    g.__afterTasks.push(
+      Promise.resolve()
+        .then(() => fn())
+        .catch(() => {}),
+    );
   },
 }));
 
-// メール送信ユーティリティはテスト中は no-op で十分（送信の有無や引数を
-// 検証したいケースが出てきたら vi.fn().mockResolvedValue(...) に差し替える）
+// メール送信ユーティリティはテスト中は送信せず、送信内容を globalThis に記録する。
+//
+// 記録先を vi.fn() の呼び出し履歴ではなく globalThis にしているのは、
+// db プロジェクトが isolate: false でモジュールキャッシュを共有する一方、
+// vi.mock のインスタンスはテストファイルごとに分かれるため。
+// 「テスト対象が別ファイル経由で呼んだ sendMail」を呼び出し元のファイルから
+// 観測するには、インスタンスに依存しない記録先が要る。
+// 検証は helpers/mail.ts の sentMails() / clearSentMails() を使う
 vi.mock("@/lib/mailer", () => ({
-  sendMail: async () => {},
+  sendMail: async (input: { to: string; subject: string; text: string }) => {
+    const g = globalThis as { __sentMails?: unknown[] };
+    g.__sentMails ??= [];
+    g.__sentMails.push(input);
+  },
+  MailerConfigError: class MailerConfigError extends Error {},
 }));
 
 // Stripe SDK の差し替え。__mockSession と同じグローバル制御パターン。
