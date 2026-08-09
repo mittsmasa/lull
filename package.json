@@ -16,6 +16,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test": "vitest",
+    "test:e2e": "playwright test",
     "test:unit": "vitest run --project unit",
     "test:db": "vitest run --project db",
     "test:vrt": "VRT=1 vitest run --project storybook",
@@ -62,6 +63,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
+    "@playwright/test": "1.61.1",
     "@serwist/build": "9.5.7",
     "@serwist/cli": "9.5.7",
     "@storybook/addon-a11y": "10.5.6",

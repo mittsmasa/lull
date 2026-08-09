@@ -39,6 +39,8 @@ const handlersPromise: Promise<EmulateHandlers> =
           new Set(
             [
               "http://localhost:3000/api/auth/oauth2/callback/google",
+              process.env.BETTER_AUTH_URL &&
+                `${process.env.BETTER_AUTH_URL}/api/auth/oauth2/callback/google`,
               branchUrl && `${branchUrl}/api/auth/oauth2/callback/google`,
               deploymentUrl &&
                 `${deploymentUrl}/api/auth/oauth2/callback/google`,

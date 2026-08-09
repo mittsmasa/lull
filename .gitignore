@@ -39,6 +39,11 @@ storybook-static/
 # playwright-cli artifacts
 .playwright-cli/
 
+# playwright e2e
+playwright-report/
+test-results/
+e2e/.auth/
+
 # claude code
 .claude/
 

@@ -11,7 +11,10 @@ const withHttps = (host: string | undefined) =>
 const previewBranchUrl = withHttps(process.env.VERCEL_BRANCH_URL);
 const previewDeploymentUrl = withHttps(process.env.VERCEL_URL);
 const previewBaseUrl =
-  previewBranchUrl ?? previewDeploymentUrl ?? "http://localhost:3000";
+  previewBranchUrl ??
+  previewDeploymentUrl ??
+  process.env.BETTER_AUTH_URL ??
+  "http://localhost:3000";
 const previewTrustedOrigins = [previewBranchUrl, previewDeploymentUrl].filter(
   (v): v is string => Boolean(v),
 );
