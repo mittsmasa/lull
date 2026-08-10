@@ -19,6 +19,7 @@ import {
   calcDue,
   formatYen,
   isPaid as isPaymentRecorded,
+  STRIPE_MIN_AMOUNT_JPY,
 } from "@/lib/payment";
 import {
   getInvitationByToken,
@@ -180,6 +181,8 @@ function CurrentResponseView({
   const paid = isPaymentRecorded(invitation);
   // 受領後に回答が増えた場合の未払い残額（差額）
   const due = calcDue(invitation, billing.total);
+  // Stripe は ¥50 未満のセッションを作れない。少額の残りは当日受付で受け取る
+  const canPayOnline = stripeEnabled && due >= STRIPE_MIN_AMOUNT_JPY;
   // 懇親会が無効化されても、回答済みの情報は表示し続ける
   const showAfterParty =
     invitation.status === "accepted" &&
@@ -253,16 +256,22 @@ function CurrentResponseView({
           <>
             <dt className="text-xs text-muted-foreground">お支払い</dt>
             <dd className="text-sm">
-              {stripeEnabled
+              {canPayOnline
                 ? // 支払い方法は選択制をやめオンライン決済に一本化した。
                   // 廃止前に「当日支払い」を選んだ回答者にも同じ案内を出す
                   "オンライン決済 ・ 未払い"
-                : // オンライン決済が使えない環境では当日受付での支払いになる
+                : // オンライン決済が使えない（未設定、または ¥50 未満で
+                  // セッションを作れない）場合は当日受付での支払いになる
                   "当日支払い ・ 未払い"}
             </dd>
           </>
         )}
       </dl>
+      {paid && due > 0 && !canPayOnline && (
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          差額は当日受付でお支払いください
+        </p>
+      )}
       {showPayment && !paid && event.paymentNote && (
         <p className="text-muted-foreground text-xs leading-relaxed">
           {event.paymentNote}
@@ -523,12 +532,14 @@ export default async function InvitationResponsePage(
     },
   ).total;
 
-  // 受領済みでも、回答変更で増えた差額が残っていれば決済できる
+  // 受領済みでも、回答変更で増えた差額が残っていれば決済できる。
+  // ただし Stripe は ¥50 未満のセッションを作れないため、必ず失敗する金額では
+  // ボタン自体を出さない（当日受付での支払いに倒す）
   const due = calcDue(invitation, billingTotal);
   const showPaymentSection =
     !isInvalidated &&
     invitation.status === "accepted" &&
-    due > 0 &&
+    due >= STRIPE_MIN_AMOUNT_JPY &&
     isStripeEnabled();
 
   const passCaption =
