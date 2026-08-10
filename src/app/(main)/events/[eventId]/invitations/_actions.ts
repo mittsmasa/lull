@@ -302,7 +302,8 @@ async function requireOrganizerMember(eventId: string) {
 
 /**
  * 手動の入金済みマーク（銀行振込等の例外対応・webhook 不達時のフォールバック）。
- * 受領額には記録時点の請求額を記録する
+ * 受領額には記録時点の請求額を記録する。
+ * 一部受領済み（回答変更で請求額が増えた）の招待では差額の受領記録にもなる
  */
 export async function markInvitationPaid(
   eventId: string,
@@ -323,10 +324,6 @@ export async function markInvitationPaid(
   if (!invitation) {
     return { error: "招待が見つかりません" };
   }
-  if (invitation.paidAt !== null) {
-    return { error: "すでに入金済みです。変更するには先に解除してください" };
-  }
-
   const billing = calcBilling(
     {
       attendanceFee: invitation.event.attendanceFee,
@@ -345,12 +342,20 @@ export async function markInvitationPaid(
   if (billing.total <= 0) {
     return { error: "請求額がないため入金を記録できません" };
   }
+  if ((invitation.paidAmount ?? 0) >= billing.total) {
+    return {
+      error: "すでに全額受領済みです。変更するには先に解除してください",
+    };
+  }
 
   await db
     .update(invitations)
     .set({
+      // 受領額は累計なので、日時も最後に受領した時刻に合わせる
       paidAt: Date.now(),
-      paidMethod: "manual",
+      // 一部を Stripe で受領済みなら、その内訳を記録に残すため上書きしない
+      paidMethod: invitation.paidMethod === "stripe" ? "stripe" : "manual",
+      // 受領額は累計。差額を手動記録した時点で現請求額に追いつく
       paidAmount: billing.total,
     })
     .where(eq(invitations.id, invitationId));
@@ -361,7 +366,8 @@ export async function markInvitationPaid(
 /**
  * 入金済みの解除。記録の訂正のみで Stripe の返金は実行しない
  * （実返金は Stripe ダッシュボードから行い、その後この操作で記録を解除する運用）。
- * stripe_checkout_session_id は監査用に保持する
+ * stripe_checkout_session_id と決済済みセッション ID の履歴は監査用に保持する
+ * （履歴を消すと、webhook の再送で解除済みの受領額が復活してしまう）
  */
 export async function unmarkInvitationPaid(
   eventId: string,

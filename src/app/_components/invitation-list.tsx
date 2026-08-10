@@ -196,6 +196,8 @@ function InvitationRow({
   });
   const isRowPaid = invitation.paidAt !== null;
   const hasAmountDiff = isRowPaid && invitation.paidAmount !== billing.total;
+  // 未受領の残額（回答変更で請求額が増えたときの差額）
+  const rowShortfall = billing.total - (invitation.paidAmount ?? 0);
 
   const isInvalidated = !!invitation.invalidatedAt;
   const isFinished = eventStatus === "finished";
@@ -218,8 +220,9 @@ function InvitationRow({
     !isInvalidated;
   const showDelete = !isFinished && isInvalidated && canControl;
   // 手動の入金済みマーク/解除は organizer のみ。
-  // 支払済みの招待にはマークを出さない（変更するには先に解除が必要）
-  const showMarkPaid = isOrganizer && !isRowPaid && billing.total > 0;
+  // 全額受領済みの招待にはマークを出さない（変更するには先に解除が必要）。
+  // 一部受領済み（差額あり）では差額の受領記録として出す
+  const showMarkPaid = isOrganizer && billing.total > 0 && rowShortfall > 0;
   const showUnmarkPaid = isOrganizer && isRowPaid;
 
   const hasMenu =
@@ -442,7 +445,7 @@ function InvitationRow({
             {showMarkPaid && (
               <DropdownMenuItem onSelect={() => setMarkPaidOpen(true)}>
                 <CurrencyJpy className="size-4" aria-hidden />
-                入金済みにする
+                {isRowPaid ? "差額を受領済みにする" : "入金済みにする"}
               </DropdownMenuItem>
             )}
             {showUnmarkPaid && (
@@ -557,9 +560,15 @@ function InvitationRow({
         <AlertDialog open={markPaidOpen} onOpenChange={setMarkPaidOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>入金済みにしますか？</AlertDialogTitle>
+              <AlertDialogTitle>
+                {isRowPaid
+                  ? "差額を受領済みにしますか？"
+                  : "入金済みにしますか？"}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                {`受領額として現在の請求額 ${formatYen(billing.total)} を記録します。銀行振込などアプリ外での受け取りを確認してから操作してください。`}
+                {isRowPaid
+                  ? `差額 ${formatYen(rowShortfall)} を受け取ったものとして、受領額を現在の請求額 ${formatYen(billing.total)} に更新します。銀行振込などアプリ外での受け取りを確認してから操作してください。`
+                  : `受領額として現在の請求額 ${formatYen(billing.total)} を記録します。銀行振込などアプリ外での受け取りを確認してから操作してください。`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

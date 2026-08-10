@@ -130,6 +130,32 @@ export function calcShortfall(
   return billingTotal - (record.paidAmount ?? 0);
 }
 
+/**
+ * 未受領の請求額（差額決済で回収する額）。過受領時は 0 とする
+ */
+export function calcDue(record: PaymentRecord, billingTotal: number): number {
+  return Math.max(0, calcShortfall(record, billingTotal));
+}
+
+/**
+ * ゲスト自身の回答変更で下回れない請求額。
+ *
+ * 増額方向（差額決済で解消できる）は許可し、減額方向は許可しない。
+ * 減額は返金・キャンセル対応を伴うため、主催者への問い合わせ / 当日相談に倒す。
+ * 現請求額と受領額の大きい方を下限にすることで、一部受領済み（差額あり）でも
+ * 「今の請求額より安くなる変更」を防ぐ
+ */
+export function calcChangeFloor(
+  record: PaymentRecord,
+  currentBillingTotal: number,
+): number {
+  return Math.max(currentBillingTotal, record.paidAmount ?? 0);
+}
+
+/** 減額方向の変更を断るときの案内文（サーバー・フォームで共有） */
+export const BILLING_REDUCTION_BLOCKED_MESSAGE =
+  "ご請求額が減る変更は、こちらの画面では承れません。恐れ入りますが招待者・主催者へお問い合わせいただくか、当日受付でご相談ください";
+
 /** 入金記録があるか */
 export function isPaid(record: PaymentRecord): boolean {
   return record.paidAt !== null;

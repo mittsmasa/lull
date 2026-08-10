@@ -15,6 +15,8 @@ import type { EventStatus } from "@/db/schema";
 import { formatDate, formatDatetime, formatTime } from "@/lib/format";
 import {
   calcBilling,
+  calcChangeFloor,
+  calcDue,
   formatYen,
   isPaid as isPaymentRecorded,
 } from "@/lib/payment";
@@ -176,6 +178,8 @@ function CurrentResponseView({
     },
   );
   const paid = isPaymentRecorded(invitation);
+  // 受領後に回答が増えた場合の未払い残額（差額）
+  const due = calcDue(invitation, billing.total);
   // 懇親会が無効化されても、回答済みの情報は表示し続ける
   const showAfterParty =
     invitation.status === "accepted" &&
@@ -228,6 +232,18 @@ function CurrentResponseView({
                     {formatYen(billing.afterPartySubtotal)}）
                   </span>
                 )}
+            </dd>
+          </>
+        )}
+        {/* 一部受領済み（回答変更で請求額が増えた）のときの残額 */}
+        {paid && due > 0 && (
+          <>
+            <dt className="text-xs text-muted-foreground">未払いの差額</dt>
+            <dd className="text-sm">
+              {formatYen(due)}
+              <span className="text-muted-foreground text-xs">
+                （受領済み {formatYen(invitation.paidAmount ?? 0)}）
+              </span>
             </dd>
           </>
         )}
@@ -507,11 +523,12 @@ export default async function InvitationResponsePage(
     },
   ).total;
 
+  // 受領済みでも、回答変更で増えた差額が残っていれば決済できる
+  const due = calcDue(invitation, billingTotal);
   const showPaymentSection =
     !isInvalidated &&
     invitation.status === "accepted" &&
-    invitation.paidAt === null &&
-    billingTotal > 0 &&
+    due > 0 &&
     isStripeEnabled();
 
   const passCaption =
@@ -554,7 +571,8 @@ export default async function InvitationResponsePage(
       {showPaymentSection && (
         <InvitationPaymentSection
           token={token}
-          amount={billingTotal}
+          amount={due}
+          isAdditional={(invitation.paidAmount ?? 0) > 0}
           paymentStatus={paymentQuery}
           sessionId={sessionId}
         />
@@ -567,6 +585,7 @@ export default async function InvitationResponsePage(
             invitation={invitation}
             event={event}
             stripeEnabled={isStripeEnabled()}
+            changeFloor={calcChangeFloor(invitation, billingTotal)}
           />
         </div>
       )}

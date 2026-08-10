@@ -74,10 +74,15 @@ async function setupInvitation(opts: {
 }
 
 describe("createCheckoutSession - ガード条件", () => {
-  it("支払済みの招待では生成できない", async () => {
+  it("全額受領済みの招待では生成できない", async () => {
     enableStripe();
+    // 参加費 500 + 懇親会 1000 = 1500 を全額受領済み
     const { inv } = await setupInvitation({
-      invitationOverrides: { paidAt: 1000, paidMethod: "stripe" },
+      invitationOverrides: {
+        paidAt: 1000,
+        paidMethod: "stripe",
+        paidAmount: 1500,
+      },
     });
     const res = await createCheckoutSession(inv.token);
     expect(res).toEqual({ error: expect.stringContaining("お支払い済み") });
@@ -210,6 +215,52 @@ describe("createCheckoutSession - 正常系と金額", () => {
       where: eq(invitations.id, inv.id),
     });
     expect(after?.stripeCheckoutSessionId).toBe("cs_test_new");
+  });
+
+  it("一部受領済みなら差額 1 行の明細で生成する", async () => {
+    const stripe = enableStripe();
+    // 参加費 500 + 懇親会 1000 = 1500 のうち 500 受領済み → 差額 1000
+    const { inv } = await setupInvitation({
+      invitationOverrides: {
+        paidAt: 12345,
+        paidMethod: "stripe",
+        paidAmount: 500,
+        stripeCheckoutSessionId: "cs_test_settled",
+        settledCheckoutSessionIds: ",cs_test_settled,",
+      },
+    });
+
+    const res = await createCheckoutSession(inv.token);
+    expect(res).toEqual({ url: "https://checkout.stripe.com/test" });
+
+    // 記録済みのセッションは失効対象ではない（retrieve / expire しない）
+    expect(stripe.checkout.sessions.retrieve).not.toHaveBeenCalled();
+    expect(stripe.checkout.sessions.expire).not.toHaveBeenCalled();
+
+    const args = stripe.checkout.sessions.create.mock.calls[0][0];
+    expect(args.line_items).toHaveLength(1);
+    expect(args.line_items[0].price_data.unit_amount).toBe(1000);
+    expect(args.line_items[0].quantity).toBe(1);
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after?.stripeCheckoutSessionId).toBe("cs_test_new");
+  });
+
+  it("差額が ¥50 未満なら生成できない", async () => {
+    const mock = enableStripe();
+    // 請求 1500 に対し 1480 受領済み → 差額 20
+    const { inv } = await setupInvitation({
+      invitationOverrides: {
+        paidAt: 12345,
+        paidMethod: "manual",
+        paidAmount: 1480,
+      },
+    });
+    const res = await createCheckoutSession(inv.token);
+    expect(res).toEqual({ error: expect.stringContaining("¥50") });
+    expect(mock.checkout.sessions.create).not.toHaveBeenCalled();
   });
 
   it("懇親会不参加なら line item は参加費のみ", async () => {

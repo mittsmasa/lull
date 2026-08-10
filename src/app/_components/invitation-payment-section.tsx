@@ -16,7 +16,10 @@ const POLL_MAX_COUNT = 20; // 約 1 分で打ち切り
 
 type InvitationPaymentSectionProps = {
   token: string;
+  /** 決済する金額。一部受領済みなら差額 */
   amount: number;
+  /** 受領済みの追加分（差額）の決済か */
+  isAdditional: boolean;
   /** URL クエリ（?payment=...）。表示の出し分けにのみ使い、支払済み判定には使わない */
   paymentStatus: "success" | "cancelled" | null;
   /** success_url に付与された Checkout セッション ID（?session_id=...） */
@@ -25,7 +28,8 @@ type InvitationPaymentSectionProps = {
 
 /**
  * 招待状ページの「オンラインで支払う」セクション。
- * 未払い + prepaid 選択時のみサーバー側でレンダリング判定される。
+ * 未払い、または回答変更で増えた差額が残っている場合のみ
+ * サーバー側でレンダリング判定される。
  * 決済から戻った直後（?payment=success）は、セッション ID を使って
  * サーバー側で入金確認を行いつつ、DB の paid_at 反映
  * （= このコンポーネントが消えること）をポーリングで待つ。
@@ -34,6 +38,7 @@ type InvitationPaymentSectionProps = {
 export function InvitationPaymentSection({
   token,
   amount,
+  isAdditional,
   paymentStatus,
   sessionId,
 }: InvitationPaymentSectionProps) {
@@ -133,6 +138,11 @@ export function InvitationPaymentSection({
           お支払いはキャンセルされました。あらためてお手続きいただけます
         </p>
       )}
+      {isAdditional && (
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          回答の変更でご請求額が増えました。差額のみお支払いいただけます
+        </p>
+      )}
       <Button
         type="button"
         onClick={handlePay}
@@ -141,7 +151,7 @@ export function InvitationPaymentSection({
       >
         {isPending
           ? "決済ページを開いています..."
-          : `オンラインで支払う ${formatYen(amount)}`}
+          : `${isAdditional ? "差額をオンラインで支払う" : "オンラインで支払う"} ${formatYen(amount)}`}
       </Button>
       <p className="text-muted-foreground text-xs">
         カード決済（Stripe）のページへ移動します

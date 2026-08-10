@@ -236,6 +236,7 @@ describe("stripe webhook", () => {
       paidMethod: "stripe",
       paidAmount: 3000,
       stripeCheckoutSessionId: "cs_test_paid",
+      settledCheckoutSessionIds: ",cs_test_paid,",
     });
     stripe.webhooks.constructEventAsync.mockResolvedValue(
       completedEvent({ metadata: { invitationId: inv.id } }),
@@ -251,36 +252,36 @@ describe("stripe webhook", () => {
     expect(after?.paidAmount).toBe(3000);
   });
 
-  it("支払済みへの別セッション completed は上書きせず 200 + エラーログ", async () => {
+  it("受領済みの招待への別セッション completed は差額として加算する", async () => {
     const stripe = enableStripe();
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { inv } = await setupInvitation({
       paidAt: 11111,
       paidMethod: "stripe",
-      paidAmount: 3000,
+      paidAmount: 2000,
       stripeCheckoutSessionId: "cs_test_first",
+      settledCheckoutSessionIds: ",cs_test_first,",
     });
     stripe.webhooks.constructEventAsync.mockResolvedValue(
       completedEvent({
         id: "cs_test_second",
-        amount_total: 4500,
+        amount_total: 1000,
         metadata: { invitationId: inv.id },
       }),
     );
 
     const res = await postWebhook();
     expect(res.status).toBe(200);
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("already paid"),
-    );
-    errorSpy.mockRestore();
 
     const after = await db.query.invitations.findFirst({
       where: eq(invitations.id, inv.id),
     });
-    expect(after?.paidAt).toBe(11111);
+    // 受領額は積み上がり、日時は最後の受領時刻に更新される
     expect(after?.paidAmount).toBe(3000);
-    expect(after?.stripeCheckoutSessionId).toBe("cs_test_first");
+    expect(after?.paidAt).toBeGreaterThan(11111);
+    expect(after?.stripeCheckoutSessionId).toBe("cs_test_second");
+    expect(after?.settledCheckoutSessionIds).toBe(
+      ",cs_test_first,cs_test_second,",
+    );
   });
 
   it("記録できたときだけゲストに決済完了メールを送る", async () => {
@@ -318,6 +319,7 @@ describe("stripe webhook", () => {
       paidMethod: "stripe",
       paidAmount: 3000,
       stripeCheckoutSessionId: "cs_test_paid",
+      settledCheckoutSessionIds: ",cs_test_paid,",
     });
     stripe.webhooks.constructEventAsync.mockResolvedValue(
       completedEvent({ metadata: { invitationId: inv.id } }),

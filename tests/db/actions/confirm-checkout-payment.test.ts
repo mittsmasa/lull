@@ -136,12 +136,13 @@ describe("confirmCheckoutPayment", () => {
     }
   });
 
-  it("すでに支払済みなら Stripe に問い合わせず paid を返す", async () => {
+  it("このセッションを記録済みなら Stripe に問い合わせず paid を返す", async () => {
     const stripe = enableStripe();
     const { inv } = await setupInvitation({
       paidAt: 11111,
       paidMethod: "stripe",
       paidAmount: 3000,
+      settledCheckoutSessionIds: ",cs_test_paid,",
     });
 
     const res = await confirmCheckoutPayment(inv.token, "cs_test_paid");
@@ -207,6 +208,7 @@ describe("confirmCheckoutPayment", () => {
       paidAt: 11111,
       paidMethod: "stripe",
       paidAmount: 3000,
+      settledCheckoutSessionIds: ",cs_test_paid,",
     });
     stripe.checkout.sessions.retrieve.mockResolvedValue(
       paidSession({ metadata: { invitationId: inv.id } }),
@@ -215,7 +217,7 @@ describe("confirmCheckoutPayment", () => {
     const res = await confirmCheckoutPayment(inv.token, "cs_test_paid");
     expect(res).toEqual({ paid: true });
 
-    // 支払済みの招待は Stripe に問い合わせる前に早期 return するため、
+    // 記録済みセッションは Stripe に問い合わせる前に早期 return するため、
     // 通知のコードパスに到達しない
     expect(stripe.checkout.sessions.retrieve).not.toHaveBeenCalled();
     await flushAfter();

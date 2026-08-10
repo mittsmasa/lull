@@ -23,6 +23,7 @@ import {
   createInvitationCheckoutSession,
   syncCheckoutPayment,
 } from "@/lib/stripe-checkout";
+import { isCheckoutSessionSettled } from "@/lib/stripe-payment";
 
 export type LookupPayment = {
   /** 現在の設定・回答から算出した請求内訳 */
@@ -178,6 +179,7 @@ type PayableInvitation = {
     paidMethod: PaidMethod | null;
     paidAmount: number | null;
     stripeCheckoutSessionId: string | null;
+    settledCheckoutSessionIds: string | null;
   };
   billing: Billing;
 };
@@ -365,7 +367,15 @@ export async function getInvitationPaymentStatus(
   if ("error" in loaded) return loaded;
   const { invitation, billing } = loaded;
 
-  if (invitation.paidAt === null && invitation.stripeCheckoutSessionId) {
+  // 「支払済みか」ではなく「保存中のセッションを記録済みか」で判定する
+  // （差額決済では受領記録がある状態で次のセッションを提示している）
+  if (
+    invitation.stripeCheckoutSessionId &&
+    !isCheckoutSessionSettled(
+      invitation.settledCheckoutSessionIds,
+      invitation.stripeCheckoutSessionId,
+    )
+  ) {
     const paid = await syncCheckoutPayment(
       invitation.id,
       invitation.stripeCheckoutSessionId,

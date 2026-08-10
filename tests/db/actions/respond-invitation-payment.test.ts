@@ -4,6 +4,7 @@ import { respondToInvitation } from "@/app/i/[token]/_actions";
 import { db } from "@/db";
 import { companions, invitations } from "@/db/schema";
 import {
+  addCompanion,
   addEventMember,
   addInvitation,
   createEvent,
@@ -209,8 +210,13 @@ describe("respondToInvitation - 入金記録の保全とリセット", () => {
     });
   });
 
-  it("出席 → 欠席で afterPartyAttendance / paymentMethod が null にリセットされる（入金記録は保持）", async () => {
-    const { event, memberId } = await setupEvent();
+  it("出席 → 欠席で afterPartyAttendance / paymentMethod が null にリセットされる", async () => {
+    // 会費 0 円のイベントで検証する。有料イベントでは辞退が減額にあたるため、
+    // ゲスト自身の回答変更としては受け付けない（別 describe で検証）
+    const { event, memberId } = await setupEvent({
+      attendanceFee: 0,
+      afterPartyFee: 0,
+    });
     const inv = await addInvitation({
       eventId: event.id,
       memberId,
@@ -218,9 +224,6 @@ describe("respondToInvitation - 入金記録の保全とリセット", () => {
       guestEmail: baseGuestInfo.guestEmail,
       afterPartyAttendance: "attending",
       paymentMethod: "onsite",
-      paidAt: 12345,
-      paidMethod: "cash",
-      paidAmount: 3000,
     });
 
     const res = await respondToInvitation(inv.token, {
@@ -239,10 +242,143 @@ describe("respondToInvitation - 入金記録の保全とリセット", () => {
       status: "declined",
       afterPartyAttendance: null,
       paymentMethod: null,
+    });
+  });
+});
+
+describe("respondToInvitation - 減額方向の変更", () => {
+  it("受領済みの招待で懇親会 参加 → 不参加（減額）は拒否される", async () => {
+    const { event, memberId } = await setupEvent();
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      guestEmail: baseGuestInfo.guestEmail,
+      afterPartyAttendance: "attending",
+      paymentMethod: "prepaid",
+      paidAt: 12345,
+      paidMethod: "stripe",
+      paidAmount: 1500,
+    });
+
+    const res = await respondToInvitation(inv.token, {
+      ...baseGuestInfo,
+      attendance: "accepted",
+      companions: [],
+      afterPartyAttendance: "declined",
+      paymentMethod: "prepaid",
+    });
+    expect(res?.error).toContain("減る変更");
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after?.afterPartyAttendance).toBe("attending");
+  });
+
+  it("未払いでも同伴者を減らす（減額）変更は拒否される", async () => {
+    const { event, memberId } = await setupEvent();
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      guestEmail: baseGuestInfo.guestEmail,
+      afterPartyAttendance: "declined",
+      paymentMethod: "prepaid",
+    });
+    await addCompanion({ invitationId: inv.id });
+
+    const res = await respondToInvitation(inv.token, {
+      ...baseGuestInfo,
+      attendance: "accepted",
+      companions: [],
+      afterPartyAttendance: "declined",
+      paymentMethod: "prepaid",
+    });
+    expect(res?.error).toContain("減る変更");
+  });
+
+  it("増額方向（懇親会 不参加 → 参加）は受領済みでも受け付ける", async () => {
+    const { event, memberId } = await setupEvent();
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      guestEmail: baseGuestInfo.guestEmail,
+      afterPartyAttendance: "declined",
+      paymentMethod: "onsite",
+      paidAt: 12345,
+      paidMethod: "stripe",
+      paidAmount: 500,
+    });
+
+    const res = await respondToInvitation(inv.token, {
+      ...baseGuestInfo,
+      attendance: "accepted",
+      companions: [],
+      afterPartyAttendance: "attending",
+      paymentMethod: "onsite",
+    });
+    expect(res).toBeUndefined();
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    // 受領記録はそのまま。差額 1000 円は別途決済してもらう
+    expect(after).toMatchObject({
+      afterPartyAttendance: "attending",
+      paidAmount: 500,
+    });
+  });
+
+  it("受領済みの招待は辞退（全額減）に変更できない", async () => {
+    const { event, memberId } = await setupEvent();
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      guestEmail: baseGuestInfo.guestEmail,
+      afterPartyAttendance: "attending",
+      paymentMethod: "onsite",
       paidAt: 12345,
       paidMethod: "cash",
-      paidAmount: 3000,
+      paidAmount: 1500,
     });
+
+    const res = await respondToInvitation(inv.token, {
+      ...baseGuestInfo,
+      attendance: "declined",
+      companions: [],
+      afterPartyAttendance: null,
+      paymentMethod: null,
+    });
+    expect(res?.error).toContain("減る変更");
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after).toMatchObject({
+      status: "accepted",
+      paidAmount: 1500,
+    });
+  });
+
+  it("初回回答（pending）の辞退は下限の対象外", async () => {
+    const { event, memberId } = await setupEvent();
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "pending",
+    });
+
+    const res = await respondToInvitation(inv.token, {
+      ...baseGuestInfo,
+      attendance: "declined",
+      companions: [],
+      afterPartyAttendance: null,
+      paymentMethod: null,
+    });
+    expect(res).toBeUndefined();
   });
 });
 
@@ -320,6 +456,7 @@ describe("respondToInvitation - Checkout セッション失効", () => {
       paidMethod: "stripe",
       paidAmount: 500,
       stripeCheckoutSessionId: "cs_test_paid",
+      settledCheckoutSessionIds: ",cs_test_paid,",
     });
 
     const res = await respondToInvitation(inv.token, {

@@ -9,6 +9,7 @@ import {
   newGuestContext,
   ORGANIZER_STATE,
   respondAsGuest,
+  runInvitationAction,
   setEventFees,
   submitGuestResponse,
 } from "./helpers/app";
@@ -60,7 +61,10 @@ test("C2: 同伴者・懇親会つきの出席回答で金額内訳が計算さ�
   await context.close();
 });
 
-test("C3: 辞退への変更で座席が解放される", async ({ browser, page }) => {
+test("C3: 有料イベントの減額変更はゲスト自身では行えず、代理辞退で座席が解放される", async ({
+  browser,
+  page,
+}) => {
   suzukiPath = await inviteGuest(page, eventId, "鈴木一郎");
   const context = await newGuestContext(browser);
   const guestPage = await context.newPage();
@@ -74,14 +78,26 @@ test("C3: 辞退への変更で座席が解放される", async ({ browser, page
   await page.goto(`/events/${eventId}/invitations`);
   await expectInvitationStat(page, "残り", "0");
 
-  await respondAsGuest(guestPage, suzukiPath, {
+  // 辞退（= 請求額が減る変更）は送信自体できない
+  await guestPage.goto(suzukiPath);
+  await fillGuestResponse(guestPage, {
     name: "鈴木一郎",
     email: "ichiro@example.com",
     attendance: "decline",
   });
+  await expect(
+    guestPage.getByText("ご請求額が減る変更は").first(),
+  ).toBeVisible();
+  await expect(
+    guestPage.getByRole("button", { name: "回答を変更する" }).last(),
+  ).toBeDisabled();
+  await context.close();
+
+  // 主催者の代理変更なら辞退にでき、座席も解放される
+  await page.goto(`/events/${eventId}/invitations`);
+  await runInvitationAction(page, "鈴木一郎", "辞退に変更", "辞退に変更");
   await page.goto(`/events/${eventId}/invitations`);
   await expectInvitationStat(page, "残り", "1");
-  await context.close();
 });
 
 test("C4: 満席でも辞退回答は受理される", async ({ browser, page }) => {
