@@ -102,10 +102,16 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook
 
 ### 決済完了の反映経路（webhook が届かない場合）
 
-入金記録（`paid_at`）への反映経路は 2 つあり、どちらも `recordStripeCheckoutPayment`（`src/lib/stripe-payment.ts`）を通る。処理は冪等なので両方走っても二重記録にならない。
+入金記録（`paid_at` / `paid_amount`）への反映経路は 2 つあり、どちらも `recordStripeCheckoutPayment`（`src/lib/stripe-payment.ts`）を通る。冪等性は「決済済みセッション ID を `settled_checkout_session_ids` に積む条件付き UPDATE」で担保しているので、両方走っても二重記録にならない。
 
 1. **webhook**: `checkout.session.completed` / `checkout.session.async_payment_succeeded`
 2. **決済完了後の確認**: Checkout から `/i/[token]?payment=success&session_id=...` に戻った直後に、招待状ページが `confirmCheckoutPayment` でセッションを直接照会して記録する。既存の未払いセッションが `complete` の状態で支払いボタンを押したときも同様に記録する
+
+### 差額決済
+
+請求額は保存せず常に動的算出するため、支払い後にゲストが回答を変更すると受領額との差額が生まれる。差額は「請求額 − 受領額」だけを乗せた Checkout セッションで回収し、`paid_amount` は上書きではなく**加算**する（1 招待に複数の決済セッションがぶら下がる）。招待状ページの支払いボタンと受付の決済 QR は、どちらもこの差額を見て出し分ける。
+
+減る方向の変更（辞退・人数減・懇親会不参加）は返金対応を伴うため、ゲスト自身の回答変更としては受け付けない（`calcChangeFloor`）。主催者の代理変更・入金済み解除で対応する。
 
 webhook を張り忘れている / 配信に失敗している環境でも 2 の経路でゲスト側の表示は正しくなるが、**Checkout 画面を閉じて招待状に戻ってこなかったケースは 2 では拾えない**ため、本番では webhook の設定（エンドポイント URL・購読イベント・`STRIPE_WEBHOOK_SECRET`）を必ず確認すること。
 

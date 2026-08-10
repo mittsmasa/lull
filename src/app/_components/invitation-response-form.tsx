@@ -13,7 +13,11 @@ import type {
   InvitationStatus,
   PaymentMethod,
 } from "@/db/schema";
-import { calcBilling, formatYen } from "@/lib/payment";
+import {
+  BILLING_REDUCTION_BLOCKED_MESSAGE,
+  calcBilling,
+  formatYen,
+} from "@/lib/payment";
 
 type InvitationResponseFormProps = {
   token: string;
@@ -33,6 +37,11 @@ type InvitationResponseFormProps = {
     afterPartyFee: number;
   };
   stripeEnabled: boolean;
+  /**
+   * 変更後の請求額がこれを下回る変更は受け付けない（サーバー側と同じ下限）。
+   * 増額は差額決済で解消できるが、減額は返金対応が要るため主催者へ回す
+   */
+  changeFloor: number;
 };
 
 type CompanionEntry = {
@@ -51,6 +60,7 @@ export function InvitationResponseForm({
   invitation,
   event,
   stripeEnabled,
+  changeFloor,
 }: InvitationResponseFormProps) {
   const isUpdate = invitation.status !== "pending";
 
@@ -96,6 +106,9 @@ export function InvitationResponseForm({
       ).length,
     },
   );
+
+  // 減額方向の変更。送信前に止めて理由を出す（サーバー側でも同じ判定で弾く）
+  const isBillingReduction = isUpdate && billing.total < changeFloor;
 
   const handleAddCompanion = () => {
     if (companions.length >= 4) return;
@@ -199,6 +212,12 @@ export function InvitationResponseForm({
         <h2 className="font-serif text-2xl leading-tight">
           {isUpdate ? "回答を変更する" : "出欠をお聞かせください"}
         </h2>
+        {isUpdate && changeFloor > 0 && (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            人数の追加・懇親会への参加など、ご請求額が増える変更はこの画面で承ります（差額はオンラインでお支払いいただけます）。
+            ご請求額が減る変更は、招待者・主催者へお問い合わせください
+          </p>
+        )}
       </div>
 
       <fieldset
@@ -482,9 +501,18 @@ export function InvitationResponseForm({
         )}
       </fieldset>
 
+      {isBillingReduction && (
+        <p className="rounded-sm border border-destructive/40 bg-destructive/5 p-4 text-xs leading-relaxed text-destructive">
+          {BILLING_REDUCTION_BLOCKED_MESSAGE}
+          <br />
+          現在のご請求 {formatYen(changeFloor)} ／ 変更後{" "}
+          {formatYen(billing.total)}
+        </p>
+      )}
+
       <Button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || isBillingReduction}
         className="h-12 w-full bg-foreground text-background tracking-[0.15em] hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isPending

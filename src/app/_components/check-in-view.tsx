@@ -1041,14 +1041,12 @@ function PaymentPanel({
   const shortfall = billing.total - (payment.paidAmount ?? 0);
 
   // オンライン決済で回収できる条件。満たさない場合のみ手動の受領記録を出す。
-  // 一部入金済み（差額あり）は Checkout セッションを組めないため対象外にする
+  // 一部入金済み（差額あり）でも、差額分の Checkout セッションを組める
   const canUseCheckout =
-    stripeEnabled && !paid && billing.total >= STRIPE_MIN_AMOUNT_JPY;
+    stripeEnabled && !fullyPaid && shortfall >= STRIPE_MIN_AMOUNT_JPY;
   const unavailableReason = !stripeEnabled
     ? "オンライン決済が設定されていません"
-    : paid
-      ? "一部入金済みのため、差額は決済 QR で回収できません"
-      : `オンライン決済は合計 ${formatYen(STRIPE_MIN_AMOUNT_JPY)} 以上でご利用いただけます`;
+    : `オンライン決済は ${formatYen(STRIPE_MIN_AMOUNT_JPY)} 以上のお支払いでご利用いただけます`;
 
   // QR 提示中は入金を定期確認する。webhook の到達を待たずに受付で完結させる。
   // 打ち切り後は「待っています」を出し続けず、確認できていないことを明示する
@@ -1148,7 +1146,7 @@ function PaymentPanel({
       <CheckoutQrPanel
         state={qrState}
         guestName={guestName}
-        amount={billing.total}
+        amount={shortfall}
         paidAmount={payment.paidAmount ?? 0}
         onRecheck={() =>
           setQrState((prev) =>
@@ -1243,7 +1241,9 @@ function PaymentPanel({
           <QrCode className="size-4" />
           {qrState.mode === "creating"
             ? "決済 QR を準備中..."
-            : "決済 QR を表示"}
+            : paid
+              ? `差額 ${formatYen(shortfall)} の決済 QR を表示`
+              : "決済 QR を表示"}
         </Button>
       ) : (
         <div className="space-y-1.5">

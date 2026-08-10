@@ -124,7 +124,25 @@ describe("createOnsiteCheckoutSession", () => {
     });
   });
 
-  it("支払済みの招待では生成できない", async () => {
+  it("一部受領済みなら差額分の決済 URL を生成できる", async () => {
+    const mock = enableStripe();
+    // 請求 500 のうち 100 受領済み → 差額 400
+    const { event, inv } = await setup({
+      invitationOverrides: {
+        paidAt: 1000,
+        paidMethod: "electronic",
+        paidAmount: 100,
+      },
+    });
+
+    const res = await createOnsiteCheckoutSession(event.id, inv.id);
+    expect(res).toEqual({ url: "https://checkout.stripe.com/onsite" });
+    const args = mock.checkout.sessions.create.mock.calls[0][0];
+    expect(args.line_items).toHaveLength(1);
+    expect(args.line_items[0].price_data.unit_amount).toBe(400);
+  });
+
+  it("全額受領済みの招待では生成できない", async () => {
     enableStripe();
     const { event, inv } = await setup({
       invitationOverrides: {

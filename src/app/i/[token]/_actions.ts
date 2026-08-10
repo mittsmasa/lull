@@ -9,7 +9,11 @@ import { companions, invitations } from "@/db/schema";
 import { getBaseUrl } from "@/lib/base-url";
 import { buildInvitationResponseMail } from "@/lib/emails/invitation-response";
 import { MailerConfigError, sendMail } from "@/lib/mailer";
-import { calcBilling } from "@/lib/payment";
+import {
+  BILLING_REDUCTION_BLOCKED_MESSAGE,
+  calcBilling,
+  calcChangeFloor,
+} from "@/lib/payment";
 import { getConsumedSeats } from "@/lib/queries/invitations";
 import { getStripe, isStripeEnabled } from "@/lib/stripe";
 import {
@@ -17,6 +21,7 @@ import {
   createInvitationCheckoutSession,
   syncCheckoutPayment,
 } from "@/lib/stripe-checkout";
+import { isCheckoutSessionSettled } from "@/lib/stripe-payment";
 
 // NOTE: 成功時は undefined を返す（既存パターンに統一）
 export type ResponseActionState =
@@ -81,7 +86,11 @@ export async function respondToInvitation(
 ): Promise<ResponseActionState> {
   const invitation = await db.query.invitations.findFirst({
     where: eq(invitations.token, token),
-    with: { event: true, companions: { columns: { id: true } } },
+    with: {
+      event: true,
+      // 変更前の請求額を出すため、懇親会の参加状況まで取る
+      companions: { columns: { id: true, afterPartyAttending: true } },
+    },
   });
 
   if (!invitation) {
@@ -200,6 +209,34 @@ export async function respondToInvitation(
     },
   );
 
+  // ------------------------------------------------------------
+  // 減額方向の変更はセルフサービスで受け付けない
+  // ------------------------------------------------------------
+  //
+  // 増額（同伴者追加・懇親会参加への変更など）は差額決済で解消できるが、
+  // 減額は返金・キャンセル対応を伴うため主催者の判断が要る。
+  // 下限は「変更前の請求額」と「受領額」の大きい方（= calcChangeFloor）。
+  // 初回回答（pending）と会費 0 円のイベントでは下限が 0 になるため素通りする
+  const currentBilling = calcBilling(
+    {
+      attendanceFee: event.attendanceFee,
+      afterPartyEnabled: event.afterPartyEnabled,
+      afterPartyFee: event.afterPartyFee,
+    },
+    {
+      status: invitation.status,
+      companionCount: invitation.companions.length,
+      afterPartyAttendance: invitation.afterPartyAttendance,
+      afterPartyCompanionCount: invitation.companions.filter(
+        (c) => c.afterPartyAttending,
+      ).length,
+    },
+  );
+  const changeFloor = calcChangeFloor(invitation, currentBilling.total);
+  if (billing.total < changeFloor) {
+    return { error: BILLING_REDUCTION_BLOCKED_MESSAGE };
+  }
+
   // 請求額 0 なら支払い方法は不要（指定されていても無視）
   const paymentMethod = billing.total > 0 ? parsed.data.paymentMethod : null;
 
@@ -220,6 +257,17 @@ export async function respondToInvitation(
       };
     }
   }
+
+  // 未決済のまま残っている Checkout セッション（あれば失効させる対象）。
+  // 決済済みのセッション ID は監査用の保存値なので触らない
+  const pendingSessionId =
+    invitation.stripeCheckoutSessionId &&
+    !isCheckoutSessionSettled(
+      invitation.settledCheckoutSessionIds,
+      invitation.stripeCheckoutSessionId,
+    )
+      ? invitation.stripeCheckoutSessionId
+      : null;
 
   // DB 更新（トランザクションで座席競合を防止）
   const txError = await db.transaction(async (tx) => {
@@ -244,10 +292,9 @@ export async function respondToInvitation(
 
     // 招待ステータス更新。
     // 入金記録（paidAt / paidMethod / paidAmount）には一切触れない（受領記録は不変）。
-    // 未払いの Checkout セッションは回答変更で請求額が変わり得るため ID をクリアし、
-    // トランザクション成功後に expire する
-    const shouldExpireSession =
-      invitation.paidAt === null && invitation.stripeCheckoutSessionId !== null;
+    // 未決済の Checkout セッションは回答変更で請求額が変わり得るため ID をクリアし、
+    // トランザクション成功後に expire する。
+    // 入金記録済みのセッション ID は監査用にそのまま残す
     await tx
       .update(invitations)
       .set({
@@ -256,7 +303,7 @@ export async function respondToInvitation(
         afterPartyAttendance,
         paymentMethod,
         respondedAt: Date.now(),
-        ...(shouldExpireSession ? { stripeCheckoutSessionId: null } : {}),
+        ...(pendingSessionId ? { stripeCheckoutSessionId: null } : {}),
         ...(attendance === "declined"
           ? { checkedIn: false, checkedInAt: null }
           : {}),
@@ -281,21 +328,16 @@ export async function respondToInvitation(
     return { error: txError };
   }
 
-  // 未払いの古い Checkout セッションを失効させる（古い金額では支払えないように）。
+  // 未決済の古い Checkout セッションを失効させる（古い金額では支払えないように）。
   // expire の失敗は回答処理を止めない（webhook の金額照合・差額表示が後段の防御）
-  if (
-    invitation.paidAt === null &&
-    invitation.stripeCheckoutSessionId !== null
-  ) {
+  if (pendingSessionId) {
     const stripe = getStripe();
     if (stripe) {
       try {
-        await stripe.checkout.sessions.expire(
-          invitation.stripeCheckoutSessionId,
-        );
+        await stripe.checkout.sessions.expire(pendingSessionId);
       } catch (err) {
         console.error(
-          `[respondToInvitation] failed to expire checkout session ${invitation.stripeCheckoutSessionId} for invitation ${invitation.id}`,
+          `[respondToInvitation] failed to expire checkout session ${pendingSessionId} for invitation ${invitation.id}`,
           err,
         );
       }
@@ -394,10 +436,18 @@ export async function confirmCheckoutPayment(
 ): Promise<ConfirmPaymentResult> {
   const invitation = await db.query.invitations.findFirst({
     where: eq(invitations.token, token),
-    columns: { id: true, eventId: true, paidAt: true },
+    columns: {
+      id: true,
+      eventId: true,
+      paidAt: true,
+      settledCheckoutSessionIds: true,
+    },
   });
   if (!invitation) return { paid: false };
-  if (invitation.paidAt !== null) return { paid: true };
+  // 「支払済みか」ではなく「このセッションを記録済みか」で判定する。
+  // 差額決済では 1 回目の受領があるまま 2 回目の決済から戻ってくる
+  if (isCheckoutSessionSettled(invitation.settledCheckoutSessionIds, sessionId))
+    return { paid: true };
 
   const paid = await syncCheckoutPayment(invitation.id, sessionId);
   if (paid) {

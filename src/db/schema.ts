@@ -248,13 +248,19 @@ export const invitations = sqliteTable(
     }),
     // 支払いは参加費+懇親会費を合算し招待単位で一括管理（ゲストがまとめて支払う）
     paymentMethod: text("payment_method", { enum: PAYMENT_METHODS }),
+    // 初回受領日時（差額を追加受領しても更新しない）
     paidAt: integer("paid_at"),
     paidMethod: text("paid_method", { enum: PAID_METHODS }),
-    // 受領額（記録時点の請求額）。後から会費設定・回答が変わっても記録は不変
+    // 受領額の累計。差額決済・差額の受領記録のたびに積み上がる。
+    // 請求額は常に動的算出のため、この値との差が「差額」になる
     paidAmount: integer("paid_amount"),
     // 最新の Checkout セッション ID。未払い段階でも生成時に保存（失効管理用）、
-    // 支払済み後は決済に使われたセッション ID（webhook 冪等性・監査用）
+    // 支払済み後は決済に使われたセッション ID（監査用）
     stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+    // 入金記録済みの Checkout セッション ID を ",cs_a,cs_b," 形式で連結したもの。
+    // 差額決済で 1 招待に複数セッションがぶら下がるため、webhook 再送・
+    // 成功ページからの確認との二重記録はこのリストで防ぐ（冪等性キー）
+    settledCheckoutSessionIds: text("settled_checkout_session_ids"),
     invalidatedAt: integer("invalidated_at"),
     respondedAt: integer("responded_at"),
     createdAt: integer("created_at")

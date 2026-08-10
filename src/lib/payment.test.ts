@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   calcBilling,
+  calcChangeFloor,
+  calcDue,
   calcShortfall,
   formatYen,
   isFullyPaid,
@@ -135,6 +137,24 @@ describe("支払い状態", () => {
     expect(calcShortfall(paid3000, 2000)).toBe(-1000);
     expect(calcShortfall(paid3000, 3000)).toBe(0);
     expect(calcShortfall(unpaid, 500)).toBe(500);
+  });
+
+  it("calcDue: 差額決済で回収する額。過受領は 0", () => {
+    expect(calcDue(paid3000, 4500)).toBe(1500);
+    expect(calcDue(paid3000, 3000)).toBe(0);
+    expect(calcDue(paid3000, 2000)).toBe(0);
+    expect(calcDue(unpaid, 500)).toBe(500);
+  });
+
+  it("calcChangeFloor: 現請求額と受領額の大きい方", () => {
+    // 未払い: 現請求額を下回る変更は不可
+    expect(calcChangeFloor(unpaid, 1500)).toBe(1500);
+    // 一部受領済み（差額あり）: 現請求額が下限
+    expect(calcChangeFloor(paid3000, 4500)).toBe(4500);
+    // 過受領: 受領額が下限（これ以上返金額を増やさない）
+    expect(calcChangeFloor(paid3000, 2000)).toBe(3000);
+    // 無料イベントでは下限なし
+    expect(calcChangeFloor(unpaid, 0)).toBe(0);
   });
 });
 

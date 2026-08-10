@@ -5,16 +5,25 @@ import type Stripe from "stripe";
 import { db } from "@/db";
 import { invitations } from "@/db/schema";
 import { getBaseUrl } from "@/lib/base-url";
-import { calcBilling, formatYen, STRIPE_MIN_AMOUNT_JPY } from "@/lib/payment";
+import {
+  calcBilling,
+  calcDue,
+  formatYen,
+  STRIPE_MIN_AMOUNT_JPY,
+} from "@/lib/payment";
 import { getStripe } from "@/lib/stripe";
 import {
+  isCheckoutSessionSettled,
   isPaymentSettled,
   recordStripeCheckoutPayment,
 } from "@/lib/stripe-payment";
 
 export type CheckoutSessionResult =
   | { url: string }
-  /** 決済済みだったため生成せず、入金記録を反映した */
+  /**
+   * 直前のセッションが決済済みだったため生成せず、入金記録を反映した。
+   * 反映後にまだ差額が残る場合は、呼び出し側が再表示したうえで再度生成する
+   */
   | { paid: true }
   | { error: string };
 
@@ -29,7 +38,9 @@ const CHECKOUT_UNAVAILABLE_ERROR =
  * 決済後のゲストは自分の招待状に着地する。
  *
  * 有効なセッションは常に 1 本だけに保つ（旧セッションを失効させてから生成）。
- * 支払い済みだった場合は生成せず `{ paid: true }` を返す。
+ * 決済するのは「現請求額 − 受領額」の差額のため、回答変更で金額が増えた
+ * 支払済みの招待でも、増えた分だけをこの経路で追加決済できる。
+ * 差額が残っていない場合は生成せず、エラーまたは `{ paid: true }` を返す。
  *
  * 呼び出し側の責務: 権限チェックとイベントステータスの検証。
  */
@@ -60,13 +71,6 @@ export async function createInvitationCheckoutSession(
     return { error: "現在お支払いを受け付けていません" };
   }
 
-  // ガード: 支払済みでは生成不可。
-  // payment_method（prepaid / onsite）は問わない — 当日支払いを選んでいた
-  // 既存の回答者も、この経路でオンライン決済できるようにする
-  if (invitation.paidAt !== null) {
-    return { error: "すでにお支払い済みです" };
-  }
-
   // 請求額は常に現在の設定・回答から算出（保存値を信用しない）
   const billing = calcBilling(
     {
@@ -83,28 +87,45 @@ export async function createInvitationCheckoutSession(
       ).length,
     },
   );
-  if (billing.total <= 0) {
-    return { error: "お支払いいただく金額はありません" };
-  }
-  // Stripe Checkout (JPY) は合計 ¥50 未満のセッション生成を拒否する。
-  // 料金設定側でも防いでいるが、導入前に設定された少額料金が残っている場合に
-  // Stripe API エラーへ落とさず案内を返す（防御的チェック）
-  if (billing.total < STRIPE_MIN_AMOUNT_JPY) {
+  // 実際に決済するのは未受領分だけ（差額決済）
+  const received = invitation.paidAmount ?? 0;
+  const due = calcDue(invitation, billing.total);
+  if (due <= 0) {
     return {
-      error: `オンライン決済は合計 ${formatYen(STRIPE_MIN_AMOUNT_JPY)} 以上のお支払いでご利用いただけます`,
+      error:
+        received > 0
+          ? "すでにお支払い済みです"
+          : "お支払いいただく金額はありません",
+    };
+  }
+  // Stripe Checkout (JPY) は ¥50 未満のセッション生成を拒否する。
+  // 料金設定側でも防いでいるが、導入前に設定された少額料金や手動の受領記録で
+  // 差額が少額になった場合に、Stripe API エラーへ落とさず案内を返す
+  if (due < STRIPE_MIN_AMOUNT_JPY) {
+    return {
+      error: `オンライン決済は ${formatYen(STRIPE_MIN_AMOUNT_JPY)} 以上のお支払いでご利用いただけます`,
     };
   }
 
-  // 既存の未払いセッションを失効させてから新規生成する（有効なセッションは常に 1 本のみ）。
+  // 既存の未決済セッションを失効させてから新規生成する（有効なセッションは常に 1 本のみ）。
+  // 入金記録済みのセッション ID は監査用に残っているだけなので対象外にする
+  // （差額決済では「支払済みのセッション」と「これから作るセッション」が併存する）
+  const pendingSessionId =
+    invitation.stripeCheckoutSessionId &&
+    !isCheckoutSessionSettled(
+      invitation.settledCheckoutSessionIds,
+      invitation.stripeCheckoutSessionId,
+    )
+      ? invitation.stripeCheckoutSessionId
+      : null;
+
   // まず旧セッションの状態を確認する — complete（支払確定済み、または PayPay 等の
   // 非同期確定待ち）のセッションは expire できず、この状態で新規セッションを作ると
   // 二重支払いの恐れがあるため生成を中断する
-  if (invitation.stripeCheckoutSessionId) {
+  if (pendingSessionId) {
     let oldSession: Stripe.Checkout.Session | null = null;
     try {
-      oldSession = await stripe.checkout.sessions.retrieve(
-        invitation.stripeCheckoutSessionId,
-      );
+      oldSession = await stripe.checkout.sessions.retrieve(pendingSessionId);
     } catch (err) {
       const code =
         err && typeof err === "object" && "code" in err
@@ -113,7 +134,7 @@ export async function createInvitationCheckoutSession(
       // セッションが存在しない（テストデータ消去等）なら旧セッションなし扱いで続行
       if (code !== "resource_missing") {
         console.error(
-          `[createInvitationCheckoutSession] failed to retrieve old session ${invitation.stripeCheckoutSessionId} for invitation ${invitation.id}`,
+          `[createInvitationCheckoutSession] failed to retrieve old session ${pendingSessionId} for invitation ${invitation.id}`,
           err,
         );
         return { error: CHECKOUT_UNAVAILABLE_ERROR };
@@ -139,9 +160,7 @@ export async function createInvitationCheckoutSession(
       // expire に失敗した場合は新規生成を中断する — 続行すると古い金額のセッションが
       // 生き残り、過少支払いの抜け穴になるため（安全側に倒す）
       try {
-        await stripe.checkout.sessions.expire(
-          invitation.stripeCheckoutSessionId,
-        );
+        await stripe.checkout.sessions.expire(pendingSessionId);
       } catch (err) {
         // retrieve と expire の間で失効した場合の expire はエラーになるが、
         // 「有効な旧セッションが残っていない」ことは保証されるため続行してよい
@@ -155,7 +174,7 @@ export async function createInvitationCheckoutSession(
             /already expired/i.test(err.message));
         if (!alreadyExpired) {
           console.error(
-            `[createInvitationCheckoutSession] failed to expire old session ${invitation.stripeCheckoutSessionId} for invitation ${invitation.id}`,
+            `[createInvitationCheckoutSession] failed to expire old session ${pendingSessionId} for invitation ${invitation.id}`,
             err,
           );
           return { error: CHECKOUT_UNAVAILABLE_ERROR };
@@ -167,25 +186,42 @@ export async function createInvitationCheckoutSession(
 
   const baseUrl = getBaseUrl();
   // JPY は Stripe のゼロ小数通貨: unit_amount には円の整数値をそのまま渡す
-  // （USD/EUR 前提の amount * 100 をすると請求額が 100 倍になる）
-  const lineItems = [
-    {
-      price_data: {
-        currency: "jpy",
-        product_data: { name: `参加費（${event.name}）` },
-        unit_amount: billing.attendanceFee,
-      },
-      quantity: billing.attendeeCount,
-    },
-    {
-      price_data: {
-        currency: "jpy",
-        product_data: { name: `懇親会費（${event.name}）` },
-        unit_amount: billing.afterPartyFee,
-      },
-      quantity: billing.afterPartyCount,
-    },
-  ].filter((item) => item.price_data.unit_amount > 0 && item.quantity > 0);
+  // （USD/EUR 前提の amount * 100 をすると請求額が 100 倍になる）。
+  //
+  // 一部受領済みのときは内訳どおりの明細を組めないため（受領分がどの費目に
+  // 充当されたかは持たない）、差額 1 行の明細にする
+  const lineItems =
+    received > 0
+      ? [
+          {
+            price_data: {
+              currency: "jpy",
+              product_data: { name: `追加のお支払い（${event.name}）` },
+              unit_amount: due,
+            },
+            quantity: 1,
+          },
+        ]
+      : [
+          {
+            price_data: {
+              currency: "jpy",
+              product_data: { name: `参加費（${event.name}）` },
+              unit_amount: billing.attendanceFee,
+            },
+            quantity: billing.attendeeCount,
+          },
+          {
+            price_data: {
+              currency: "jpy",
+              product_data: { name: `懇親会費（${event.name}）` },
+              unit_amount: billing.afterPartyFee,
+            },
+            quantity: billing.afterPartyCount,
+          },
+        ].filter(
+          (item) => item.price_data.unit_amount > 0 && item.quantity > 0,
+        );
 
   try {
     const session = await stripe.checkout.sessions.create({
