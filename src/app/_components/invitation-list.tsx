@@ -53,16 +53,13 @@ import { buildShareUrl } from "@/lib/share-url";
 import { cn } from "@/lib/utils";
 import { ParticipantAvatar } from "./participant-avatar";
 
-type View = "all" | "mine";
-
 type Props = {
   eventId: string;
   eventStatus: EventStatus;
+  /** 自分が発行した招待のみ */
   invitations: InvitationItem[];
   feeSettings: FeeSettings;
-  currentMemberId: string;
   isOrganizer: boolean;
-  view: View;
 };
 
 export function InvitationList({
@@ -70,25 +67,18 @@ export function InvitationList({
   eventStatus,
   invitations,
   feeSettings,
-  currentMemberId,
   isOrganizer,
-  view,
 }: Props) {
-  const visible =
-    view === "mine"
-      ? invitations.filter((i) => i.memberId === currentMemberId)
-      : invitations;
-
   const sortedByCreated = (a: InvitationItem, b: InvitationItem) =>
     a.createdAt - b.createdAt;
 
-  const pendingItems = visible
+  const pendingItems = invitations
     .filter((i) => i.status === "pending" && !i.invalidatedAt)
     .sort(sortedByCreated);
-  const acceptedItems = visible
+  const acceptedItems = invitations
     .filter((i) => i.status === "accepted")
     .sort(sortedByCreated);
-  const declinedOrInvalidatedItems = visible
+  const declinedOrInvalidatedItems = invitations
     .filter((i) => i.status === "declined" || !!i.invalidatedAt)
     .sort(sortedByCreated);
 
@@ -99,7 +89,6 @@ export function InvitationList({
       eventStatus={eventStatus}
       invitation={invitation}
       feeSettings={feeSettings}
-      currentMemberId={currentMemberId}
       isOrganizer={isOrganizer}
       section={section}
     />
@@ -167,7 +156,6 @@ function InvitationRow({
   eventStatus,
   invitation,
   feeSettings,
-  currentMemberId,
   isOrganizer,
   section,
 }: {
@@ -175,7 +163,6 @@ function InvitationRow({
   eventStatus: EventStatus;
   invitation: InvitationItem;
   feeSettings: FeeSettings;
-  currentMemberId: string;
   isOrganizer: boolean;
   section: SectionKind;
 }) {
@@ -202,12 +189,10 @@ function InvitationRow({
   const isInvalidated = !!invitation.invalidatedAt;
   const isFinished = eventStatus === "finished";
   const canModify = eventStatus === "published" || eventStatus === "ongoing";
-  const isMine = invitation.memberId === currentMemberId;
-  const canControl = isOrganizer || isMine;
 
-  // メニュー出し分け（plan の表に従う）
+  // 一覧には自分が発行した招待しか並ばないため、無効化・削除は所有者判定なしで出す
   const showCopy = !isInvalidated;
-  const showInvalidate = canModify && canControl && !isInvalidated;
+  const showInvalidate = canModify && !isInvalidated;
   const showProxyToDeclined =
     canModify &&
     isOrganizer &&
@@ -218,7 +203,7 @@ function InvitationRow({
     isOrganizer &&
     invitation.status === "declined" &&
     !isInvalidated;
-  const showDelete = !isFinished && isInvalidated && canControl;
+  const showDelete = !isFinished && isInvalidated;
   // 手動の入金済みマーク/解除は organizer のみ。
   // 全額受領済みの招待にはマークを出さない（変更するには先に解除が必要）。
   // 一部受領済み（差額あり）では差額の受領記録として出す
@@ -313,8 +298,8 @@ function InvitationRow({
     });
   };
 
-  // メタテキスト構築
-  const metaParts: string[] = [`招待: ${invitation.inviterDisplayName}`];
+  // メタテキスト構築。一覧は自分が発行した招待のみのため招待元は出さない
+  const metaParts: string[] = [];
   if (invitation.status === "declined" && !isInvalidated) {
     metaParts.push("辞退");
   } else if (isInvalidated) {
@@ -366,9 +351,11 @@ function InvitationRow({
         >
           {guestDisplayName}
         </div>
-        <div className="mt-0.5 text-[11px] text-muted-foreground">
-          {metaParts.join(" · ")}
-        </div>
+        {metaParts.length > 0 && (
+          <div className="mt-0.5 text-[11px] text-muted-foreground">
+            {metaParts.join(" · ")}
+          </div>
+        )}
         {showPaymentLine && (
           <div className="mt-0.5 text-[11px]">
             <span
