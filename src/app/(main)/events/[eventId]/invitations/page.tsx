@@ -32,15 +32,30 @@ export default async function InvitationsPage(
     getPaymentSummary(eventId),
   ]);
 
+  // 一覧は自分が発行した招待のみ。他メンバーの招待はクライアントへ渡さない
+  const myInvitations = allInvitations.filter(
+    (i) => i.memberId === membership.id,
+  );
+
+  // サマリは一覧と非連動でイベント全体を集計する
+  const accepted = allInvitations.filter((i) => i.status === "accepted");
+  const responseSummary = {
+    acceptedCount:
+      accepted.length + accepted.reduce((sum, i) => sum + i.companionCount, 0),
+    pendingCount: allInvitations.filter(
+      (i) => i.status === "pending" && !i.invalidatedAt,
+    ).length,
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
       <HeaderConfig showBackButton />
       <InvitationManagement
         event={event}
-        invitations={allInvitations}
+        invitations={myInvitations}
         seatSummary={seatSummary}
         paymentSummary={paymentSummary}
-        currentMemberId={membership.id}
+        responseSummary={responseSummary}
         currentUserRole={membership.role}
       />
     </div>

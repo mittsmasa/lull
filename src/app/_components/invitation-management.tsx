@@ -1,10 +1,8 @@
 "use client";
 
 import { Envelope } from "@phosphor-icons/react";
-import { useState } from "react";
 import { CreateInvitationDialog } from "@/app/_components/create-invitation-dialog";
 import { InvitationList } from "@/app/_components/invitation-list";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { EventStatus, MemberRole } from "@/db/schema";
 import { statusDotClass, statusLabels } from "@/lib/event-status";
 import { formatYen } from "@/lib/payment";
@@ -14,7 +12,11 @@ import type {
   SeatSummary,
 } from "@/lib/queries/invitations";
 
-type View = "all" | "mine";
+/** イベント全体の回答状況（一覧の絞り込みとは非連動） */
+export type ResponseSummary = {
+  acceptedCount: number;
+  pendingCount: number;
+};
 
 type InvitationManagementProps = {
   event: {
@@ -26,10 +28,11 @@ type InvitationManagementProps = {
     afterPartyEnabled: boolean;
     afterPartyFee: number;
   };
+  /** 自分が発行した招待のみ */
   invitations: InvitationItem[];
   seatSummary: SeatSummary;
   paymentSummary: PaymentSummary;
-  currentMemberId: string;
+  responseSummary: ResponseSummary;
   currentUserRole: MemberRole;
 };
 
@@ -38,27 +41,11 @@ export function InvitationManagement({
   invitations,
   seatSummary,
   paymentSummary,
-  currentMemberId,
+  responseSummary,
   currentUserRole,
 }: InvitationManagementProps) {
   const isOrganizer = currentUserRole === "organizer";
   const canIssue = event.status === "published" || event.status === "ongoing";
-
-  const [view, setView] = useState<View>(isOrganizer ? "all" : "mine");
-
-  // サマリは view 非連動で全体集計
-  const accepted = invitations.filter((i) => i.status === "accepted");
-  const acceptedCount =
-    accepted.length + accepted.reduce((sum, i) => sum + i.companionCount, 0);
-  const pendingCount = invitations.filter(
-    (i) => i.status === "pending" && !i.invalidatedAt,
-  ).length;
-
-  const visibleInvitations =
-    view === "mine"
-      ? invitations.filter((i) => i.memberId === currentMemberId)
-      : invitations;
-  const visibleCount = visibleInvitations.length;
 
   return (
     <div className="flex flex-col gap-8">
@@ -79,7 +66,7 @@ export function InvitationManagement({
         </div>
       </header>
 
-      {/* サマリ（4 セル、view 非連動で全体） */}
+      {/* サマリ（4 セル、一覧の絞り込みと非連動でイベント全体） */}
       <div className="grid grid-cols-4 border-y py-5 text-center">
         <SummaryCell
           label="総座席"
@@ -96,8 +83,16 @@ export function InvitationManagement({
           }
           bordered
         />
-        <SummaryCell label="出席" value={String(acceptedCount)} bordered />
-        <SummaryCell label="回答待ち" value={String(pendingCount)} bordered />
+        <SummaryCell
+          label="出席"
+          value={String(responseSummary.acceptedCount)}
+          bordered
+        />
+        <SummaryCell
+          label="回答待ち"
+          value={String(responseSummary.pendingCount)}
+          bordered
+        />
       </div>
 
       {/* 懇親会・入金サマリ（会費設定または入金記録があるときのみ） */}
@@ -140,26 +135,6 @@ export function InvitationManagement({
         </div>
       )}
 
-      {/* ビュー切替（招待が 1 件以上あるときのみ） */}
-      {invitations.length > 0 && (
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          value={view}
-          onValueChange={(v) => {
-            if (v === "all" || v === "mine") setView(v);
-          }}
-          className="self-start"
-        >
-          <ToggleGroupItem value="mine" className="min-h-[40px]">
-            自分の招待
-          </ToggleGroupItem>
-          <ToggleGroupItem value="all" className="min-h-[40px]">
-            全体
-          </ToggleGroupItem>
-        </ToggleGroup>
-      )}
-
       {/* 表示分岐 */}
       {invitations.length === 0 ? (
         event.status === "finished" ? (
@@ -169,10 +144,6 @@ export function InvitationManagement({
         ) : event.status === "draft" ? null : (
           <NoInvitationsEmpty eventId={event.id} canIssue={canIssue} />
         )
-      ) : visibleCount === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">
-          あなたが発行した招待はまだありません
-        </p>
       ) : (
         <InvitationList
           eventId={event.id}
@@ -183,9 +154,7 @@ export function InvitationManagement({
             afterPartyEnabled: event.afterPartyEnabled,
             afterPartyFee: event.afterPartyFee,
           }}
-          currentMemberId={currentMemberId}
           isOrganizer={isOrganizer}
-          view={view}
         />
       )}
     </div>
