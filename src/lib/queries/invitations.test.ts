@@ -175,7 +175,7 @@ describe("getInvitationByToken / getInvitationsByEventId", () => {
 });
 
 describe("getPaymentSummary", () => {
-  it("懇親会参加人数（本人 + 同伴者）と入金件数・合計額を集計する", async () => {
+  it("懇親会参加人数（本人 + 同伴者）を集計する", async () => {
     const event = await createEvent({
       attendanceFee: 500,
       afterPartyEnabled: true,
@@ -216,8 +216,6 @@ describe("getPaymentSummary", () => {
       afterPartyGuestCount: 1,
       afterPartyCompanionCount: 1,
       afterPartyTotalCount: 2,
-      paidCount: 2,
-      paidTotalAmount: 3500,
     });
   });
 
@@ -228,8 +226,6 @@ describe("getPaymentSummary", () => {
       afterPartyGuestCount: 0,
       afterPartyCompanionCount: 0,
       afterPartyTotalCount: 0,
-      paidCount: 0,
-      paidTotalAmount: 0,
     });
   });
 });

@@ -46,6 +46,7 @@ import {
   calcBilling,
   type FeeSettings,
   formatYen,
+  isUnderpaid,
   PAID_METHOD_LABELS,
 } from "@/lib/payment";
 import type { InvitationItem } from "@/lib/queries/invitations";
@@ -75,9 +76,25 @@ export function InvitationList({
   const pendingItems = invitations
     .filter((i) => i.status === "pending" && !i.invalidatedAt)
     .sort(sortedByCreated);
-  const acceptedItems = invitations
+  // 出席のうち未受領の残額があるものは独立セクションへ。
+  // セクションが出ていないこと自体が「回収漏れなし」のサインになる
+  const unpaidItems: InvitationItem[] = [];
+  const acceptedItems: InvitationItem[] = [];
+  for (const invitation of invitations
     .filter((i) => i.status === "accepted")
-    .sort(sortedByCreated);
+    .sort(sortedByCreated)) {
+    const billingTotal = calcBilling(feeSettings, {
+      status: invitation.status,
+      companionCount: invitation.companionCount,
+      afterPartyAttendance: invitation.afterPartyAttendance,
+      afterPartyCompanionCount: invitation.afterPartyCompanionCount,
+    }).total;
+    if (isUnderpaid(invitation, billingTotal)) {
+      unpaidItems.push(invitation);
+    } else {
+      acceptedItems.push(invitation);
+    }
+  }
   const declinedOrInvalidatedItems = invitations
     .filter((i) => i.status === "declined" || !!i.invalidatedAt)
     .sort(sortedByCreated);
@@ -99,6 +116,11 @@ export function InvitationList({
       {pendingItems.length > 0 && (
         <Section label="回答待ち" count={pendingItems.length}>
           {pendingItems.map((i) => renderRow(i, "pending"))}
+        </Section>
+      )}
+      {unpaidItems.length > 0 && (
+        <Section label="未払い" count={unpaidItems.length}>
+          {unpaidItems.map((i) => renderRow(i, "unpaid"))}
         </Section>
       )}
       {acceptedItems.length > 0 && (
@@ -149,7 +171,7 @@ function Section({
 // InvitationRow
 // ============================================================
 
-type SectionKind = "pending" | "accepted" | "declined-invalidated";
+type SectionKind = "pending" | "unpaid" | "accepted" | "declined-invalidated";
 
 function InvitationRow({
   eventId,
@@ -207,7 +229,8 @@ function InvitationRow({
   // 手動の入金済みマーク/解除は organizer のみ。
   // 全額受領済みの招待にはマークを出さない（変更するには先に解除が必要）。
   // 一部受領済み（差額あり）では差額の受領記録として出す
-  const showMarkPaid = isOrganizer && billing.total > 0 && rowShortfall > 0;
+  // 未払い判定はセクション分割と同じ述語を通し、行と一覧で食い違わないようにする
+  const showMarkPaid = isOrganizer && isUnderpaid(invitation, billing.total);
   const showUnmarkPaid = isOrganizer && isRowPaid;
 
   const hasMenu =
@@ -358,8 +381,13 @@ function InvitationRow({
         )}
         {showPaymentLine && (
           <div className="mt-0.5 text-[11px]">
+            {/* 未払いは要対応として琥珀。差額あり（一部受領）の注記と同系色で揃える */}
             <span
-              className={isRowPaid ? "text-primary" : "text-muted-foreground"}
+              className={
+                isRowPaid
+                  ? "text-primary"
+                  : "text-amber-600 dark:text-amber-500"
+              }
             >
               {paymentLabel}
             </span>
@@ -375,27 +403,28 @@ function InvitationRow({
             )}
           </div>
         )}
-        {section === "accepted" && invitation.companionNames.length > 0 && (
-          <Collapsible>
-            <CollapsibleTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-1 h-auto p-0 text-[11px] text-muted-foreground hover:text-foreground"
-              >
-                同伴者を表示
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <ul className="mt-1 flex flex-col gap-0.5 pl-3 text-[12px] text-muted-foreground">
-                {invitation.companionNames.map((name, idx) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: 同伴者名は同名の可能性があるため name 単体では一意にならない
-                  <li key={`${name}-${idx}`}>{name}</li>
-                ))}
-              </ul>
-            </CollapsibleContent>
-          </Collapsible>
-        )}
+        {(section === "accepted" || section === "unpaid") &&
+          invitation.companionNames.length > 0 && (
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-1 h-auto p-0 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  同伴者を表示
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <ul className="mt-1 flex flex-col gap-0.5 pl-3 text-[12px] text-muted-foreground">
+                  {invitation.companionNames.map((name, idx) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: 同伴者名は同名の可能性があるため name 単体では一意にならない
+                    <li key={`${name}-${idx}`}>{name}</li>
+                  ))}
+                </ul>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
       </div>
       {hasMenu && (
         <DropdownMenu>

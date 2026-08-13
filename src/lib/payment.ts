@@ -138,6 +138,18 @@ export function calcDue(record: PaymentRecord, billingTotal: number): number {
 }
 
 /**
+ * 未受領の残額があるか（請求額 > 受領額）。
+ * 請求 0 円と過受領はいずれも false になる。
+ * 一覧の未払い判定・セクション分割はすべてこの述語を通す
+ */
+export function isUnderpaid(
+  record: PaymentRecord,
+  billingTotal: number,
+): boolean {
+  return calcDue(record, billingTotal) > 0;
+}
+
+/**
  * ゲスト自身の回答変更で下回れない請求額。
  *
  * 増額方向（差額決済で解消できる）は許可し、減額方向は許可しない。
@@ -167,6 +179,46 @@ export function isFullyPaid(
   billingTotal: number,
 ): boolean {
   return isPaid(record) && (record.paidAmount ?? 0) >= billingTotal;
+}
+
+// ============================================================
+// イベント全体の集計
+// ============================================================
+
+/** 集計対象の招待 1 件分（回答状況 + 受領記録） */
+export type BillingSummaryInput = BillingAnswer & PaymentRecord;
+
+export type BillingTotals = {
+  /** 出席者への請求総額 */
+  billingTotal: number;
+  /** 出席者からの受領総額 */
+  paidTotal: number;
+};
+
+/**
+ * イベント全体の請求総額・受領総額を集計する。
+ *
+ * 母集団は accepted のみ。辞退者に入金記録が残る場合（返金対応待ち）は請求も受領も数えない。
+ * 受領額を全件から集めると未返金分が受領を膨らませ、回収漏れを隠す方向に働くため。
+ *
+ * 合算値は概況把握の補助指標であることに注意。過受領と過小受領が別々の招待にあると
+ * 相殺されて差がゼロに見える。個別の回収漏れ検知は一覧の未払いセクションが一次手段
+ */
+export function summarizeBilling(
+  invitations: BillingSummaryInput[],
+  settings: FeeSettings,
+): BillingTotals {
+  return invitations.reduce<BillingTotals>(
+    (totals, invitation) => {
+      if (invitation.status !== "accepted") return totals;
+      return {
+        billingTotal:
+          totals.billingTotal + calcBilling(settings, invitation).total,
+        paidTotal: totals.paidTotal + (invitation.paidAmount ?? 0),
+      };
+    },
+    { billingTotal: 0, paidTotal: 0 },
+  );
 }
 
 export const PAID_METHOD_LABELS: Record<PaidMethod, string> = {
