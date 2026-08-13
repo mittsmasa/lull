@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { HeaderConfig } from "@/app/_components/header-config";
 import { InvitationManagement } from "@/app/_components/invitation-management";
+import { summarizeBilling } from "@/lib/payment";
 import { getEventMembership } from "@/lib/queries/events";
 import {
   getEventForInvitationManagement,
@@ -47,6 +48,13 @@ export default async function InvitationsPage(
     ).length,
   };
 
+  // 請求額は保存値がないため、イベント全体でも calcBilling を通して集計する
+  const billingTotals = summarizeBilling(allInvitations, {
+    attendanceFee: event.attendanceFee,
+    afterPartyEnabled: event.afterPartyEnabled,
+    afterPartyFee: event.afterPartyFee,
+  });
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
       <HeaderConfig showBackButton />
@@ -56,6 +64,7 @@ export default async function InvitationsPage(
         seatSummary={seatSummary}
         paymentSummary={paymentSummary}
         responseSummary={responseSummary}
+        billingTotals={billingTotals}
         currentUserRole={membership.role}
       />
     </div>

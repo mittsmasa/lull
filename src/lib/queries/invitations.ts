@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, eq, sql, sum } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   type AfterPartyAttendance,
@@ -384,13 +384,12 @@ export type PaymentSummary = {
   /** 懇親会参加の同伴者数（本人が参加のときのみ数える） */
   afterPartyCompanionCount: number;
   afterPartyTotalCount: number;
-  /** 入金記録のある招待数 */
-  paidCount: number;
-  /** 受領額の合計（円） */
-  paidTotalAmount: number;
 };
 
-/** 懇親会参加人数・入金状況のサマリー取得 */
+/**
+ * 懇親会参加人数のサマリー取得。
+ * 請求・受領の集計は請求額の動的計算が必要なため summarizeBilling（payment.ts）が担う
+ */
 export async function getPaymentSummary(
   eventId: string,
 ): Promise<PaymentSummary> {
@@ -399,8 +398,6 @@ export async function getPaymentSummary(
       afterParty: count(
         sql`CASE WHEN ${invitations.status} = 'accepted' AND ${invitations.afterPartyAttendance} = 'attending' THEN 1 END`,
       ),
-      paidCount: count(invitations.paidAt),
-      paidTotal: sum(invitations.paidAmount),
     })
     .from(invitations)
     .where(eq(invitations.eventId, eventId))
@@ -423,7 +420,5 @@ export async function getPaymentSummary(
     afterPartyGuestCount,
     afterPartyCompanionCount,
     afterPartyTotalCount: afterPartyGuestCount + afterPartyCompanionCount,
-    paidCount: guestStats?.paidCount ?? 0,
-    paidTotalAmount: Number(guestStats?.paidTotal ?? 0),
   };
 }

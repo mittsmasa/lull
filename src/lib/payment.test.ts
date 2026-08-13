@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type BillingSummaryInput,
   calcBilling,
   calcChangeFloor,
   calcDue,
@@ -7,6 +8,8 @@ import {
   formatYen,
   isFullyPaid,
   isPaid,
+  isUnderpaid,
+  summarizeBilling,
 } from "./payment";
 
 const settings = {
@@ -146,6 +149,19 @@ describe("支払い状態", () => {
     expect(calcDue(unpaid, 500)).toBe(500);
   });
 
+  it("isUnderpaid: 未受領の残額があるときのみ true", () => {
+    // 一部受領（差額あり）
+    expect(isUnderpaid(paid3000, 4500)).toBe(true);
+    // 全額未収
+    expect(isUnderpaid(unpaid, 500)).toBe(true);
+    // 完済
+    expect(isUnderpaid(paid3000, 3000)).toBe(false);
+    // 過受領（返金対応であって未払いではない）
+    expect(isUnderpaid(paid3000, 2000)).toBe(false);
+    // 請求 0 円は未払いにならない
+    expect(isUnderpaid(unpaid, 0)).toBe(false);
+  });
+
   it("calcChangeFloor: 現請求額と受領額の大きい方", () => {
     // 未払い: 現請求額を下回る変更は不可
     expect(calcChangeFloor(unpaid, 1500)).toBe(1500);
@@ -155,6 +171,95 @@ describe("支払い状態", () => {
     expect(calcChangeFloor(paid3000, 2000)).toBe(3000);
     // 無料イベントでは下限なし
     expect(calcChangeFloor(unpaid, 0)).toBe(0);
+  });
+});
+
+describe("summarizeBilling", () => {
+  const attendee = (
+    override: Partial<BillingSummaryInput> = {},
+  ): BillingSummaryInput => ({
+    status: "accepted",
+    companionCount: 0,
+    afterPartyAttendance: "declined",
+    afterPartyCompanionCount: 0,
+    paidAt: null,
+    paidMethod: null,
+    paidAmount: null,
+    ...override,
+  });
+
+  it("accepted のみ集計し、辞退者に残る入金記録は含めない", () => {
+    const totals = summarizeBilling(
+      [
+        attendee({ paidAt: 1000, paidMethod: "cash", paidAmount: 500 }),
+        attendee(),
+        // 辞退後も返金対応待ちで入金記録が残るケース
+        attendee({
+          status: "declined",
+          paidAt: 2000,
+          paidMethod: "stripe",
+          paidAmount: 3000,
+        }),
+        attendee({ status: "pending" }),
+      ],
+      settings,
+    );
+    expect(totals).toEqual({ billingTotal: 1000, paidTotal: 500 });
+  });
+
+  it("一部受領があると受領総額が請求総額を下回る", () => {
+    const totals = summarizeBilling(
+      [
+        attendee({
+          afterPartyAttendance: "attending",
+          paidAt: 1000,
+          paidMethod: "stripe",
+          paidAmount: 500,
+        }),
+      ],
+      settings,
+    );
+    // 請求 500 + 1000 に対し受領 500
+    expect(totals).toEqual({ billingTotal: 1500, paidTotal: 500 });
+  });
+
+  it("過受領と過小受領が相殺され、合算差分がゼロになることがある", () => {
+    const totals = summarizeBilling(
+      [
+        attendee({
+          afterPartyAttendance: "attending",
+          paidAt: 1000,
+          paidMethod: "stripe",
+          paidAmount: 2500,
+        }),
+        attendee({
+          afterPartyAttendance: "attending",
+          paidAt: 2000,
+          paidMethod: "cash",
+          paidAmount: 500,
+        }),
+      ],
+      settings,
+    );
+    // 個別には +1000 / -1000 で両方要対応だが、合算では差が消える。
+    // この限界があるため、個別検知は一覧の未払いセクションが担う
+    expect(totals).toEqual({ billingTotal: 3000, paidTotal: 3000 });
+    expect(totals.billingTotal - totals.paidTotal).toBe(0);
+  });
+
+  it("請求が 0 円でも受領額は集計する（値下げ後の過受領）", () => {
+    const totals = summarizeBilling(
+      [attendee({ paidAt: 1000, paidMethod: "cash", paidAmount: 3000 })],
+      { attendanceFee: 0, afterPartyEnabled: false, afterPartyFee: 0 },
+    );
+    expect(totals).toEqual({ billingTotal: 0, paidTotal: 3000 });
+  });
+
+  it("該当なしなら 0", () => {
+    expect(summarizeBilling([], settings)).toEqual({
+      billingTotal: 0,
+      paidTotal: 0,
+    });
   });
 });
 

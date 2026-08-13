@@ -5,7 +5,7 @@ import { CreateInvitationDialog } from "@/app/_components/create-invitation-dial
 import { InvitationList } from "@/app/_components/invitation-list";
 import type { EventStatus, MemberRole } from "@/db/schema";
 import { statusDotClass, statusLabels } from "@/lib/event-status";
-import { formatYen } from "@/lib/payment";
+import { type BillingTotals, formatYen } from "@/lib/payment";
 import type {
   InvitationItem,
   PaymentSummary,
@@ -33,6 +33,8 @@ type InvitationManagementProps = {
   seatSummary: SeatSummary;
   paymentSummary: PaymentSummary;
   responseSummary: ResponseSummary;
+  /** 出席者への請求総額と受領総額（辞退者の入金記録は含まない） */
+  billingTotals: BillingTotals;
   currentUserRole: MemberRole;
 };
 
@@ -42,6 +44,7 @@ export function InvitationManagement({
   seatSummary,
   paymentSummary,
   responseSummary,
+  billingTotals,
   currentUserRole,
 }: InvitationManagementProps) {
   const isOrganizer = currentUserRole === "organizer";
@@ -95,11 +98,13 @@ export function InvitationManagement({
         />
       </div>
 
-      {/* 懇親会・入金サマリ（会費設定または入金記録があるときのみ） */}
+      {/* 懇親会・入金サマリ（会費設定または入金記録があるときのみ）。
+          受領合計は「受領 / 請求」で、差があれば出席者からの回収漏れを示す。
+          辞退者に残る入金記録（返金対応待ち）は含めず、一覧の行で追う */}
       {(event.attendanceFee > 0 ||
         event.afterPartyEnabled ||
-        paymentSummary.paidCount > 0) && (
-        <div className="-mt-4 grid grid-cols-3 border-b pb-5 text-center">
+        billingTotals.paidTotal > 0) && (
+        <div className="-mt-4 grid grid-cols-2 border-b pb-5 text-center">
           <SummaryCell
             label="懇親会参加"
             value={
@@ -109,13 +114,13 @@ export function InvitationManagement({
             }
           />
           <SummaryCell
-            label="入金"
-            value={String(paymentSummary.paidCount)}
-            bordered
-          />
-          <SummaryCell
             label="受領合計"
-            value={formatYen(paymentSummary.paidTotalAmount)}
+            value={
+              billingTotals.billingTotal > 0
+                ? `${formatYen(billingTotals.paidTotal)} / ${formatYen(billingTotals.billingTotal)}`
+                : formatYen(billingTotals.paidTotal)
+            }
+            valueClassName="text-base"
             bordered
           />
         </div>
@@ -170,11 +175,14 @@ function SummaryCell({
   value,
   bordered,
   className,
+  valueClassName,
 }: {
   label: string;
   value: string;
   bordered?: boolean;
   className?: string;
+  /** 値の文字サイズ調整用（既定の text-xl では長すぎる金額など） */
+  valueClassName?: string;
 }) {
   const muted = value === "0" || value === "—";
   return (
@@ -182,9 +190,9 @@ function SummaryCell({
       className={`flex flex-col justify-center ${bordered ? "border-l" : ""} ${className ?? ""}`}
     >
       <div
-        className={`text-xl font-light tabular-nums leading-none tracking-tight ${
-          muted ? "text-muted-foreground" : ""
-        }`}
+        className={`font-light tabular-nums leading-none tracking-tight ${
+          valueClassName ?? "text-xl"
+        } ${muted ? "text-muted-foreground" : ""}`}
       >
         {value}
       </div>
