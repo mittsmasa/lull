@@ -96,11 +96,13 @@ function PerformerInvitationHeader({
               {event.address}
             </span>
           )}
+          <VenueLink
+            venue={event.venue}
+            address={event.address}
+            className="mt-1.5"
+          />
         </dd>
       </dl>
-      <div className="animate-in fade-in slide-in-from-bottom-1 duration-500 delay-200 fill-mode-both motion-reduce:animate-none motion-reduce:delay-0">
-        <VenueLink venue={event.venue} address={event.address} />
-      </div>
     </header>
   );
 }

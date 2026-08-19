@@ -110,6 +110,11 @@ function EventInfoHeader({
               {event.address}
             </span>
           )}
+          <VenueLink
+            venue={event.venue}
+            address={event.address}
+            className="mt-1.5"
+          />
         </dd>
         <dt className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
           日時
@@ -121,9 +126,6 @@ function EventInfoHeader({
           <span>開演 {formatTime(event.startDatetime)}</span>
         </dd>
       </dl>
-      <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-300 motion-reduce:animate-none motion-reduce:delay-0">
-        <VenueLink venue={event.venue} address={event.address} />
-      </div>
     </header>
   );
 }

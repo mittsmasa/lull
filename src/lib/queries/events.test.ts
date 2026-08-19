@@ -173,6 +173,8 @@ describe("getEventStats", () => {
       invitationAccepted: 2,
       invitationPending: 1,
       invitationDeclined: 1,
+      acceptedCompanions: 3,
+      expectedAttendees: 5,
       checkedInGuests: 1,
       checkedInCompanions: 2,
       totalAttendees: 3,
@@ -198,6 +200,8 @@ describe("getEventStats", () => {
 
     const stats = await getEventStats(event.id);
     expect(stats.checkedInCompanions).toBe(0);
+    expect(stats.acceptedCompanions).toBe(0);
+    expect(stats.expectedAttendees).toBe(0);
     expect(stats.invitationTotal).toBe(0);
   });
 
@@ -211,6 +215,8 @@ describe("getEventStats", () => {
       invitationAccepted: 0,
       invitationPending: 0,
       invitationDeclined: 0,
+      acceptedCompanions: 0,
+      expectedAttendees: 0,
       checkedInGuests: 0,
       checkedInCompanions: 0,
       totalAttendees: 0,
