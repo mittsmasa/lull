@@ -103,6 +103,10 @@ export type EventStats = {
   invitationAccepted: number;
   invitationPending: number;
   invitationDeclined: number;
+  /** accepted 招待に紐づく同伴者数（無効化済み招待は除外） */
+  acceptedCompanions: number;
+  /** 出席予定の総人数（accepted 本人 + その同伴者） */
+  expectedAttendees: number;
   checkedInGuests: number;
   checkedInCompanions: number;
   totalAttendees: number;
@@ -158,6 +162,7 @@ export async function getEventStats(eventId: string): Promise<EventStats> {
         .get(),
       db
         .select({
+          total: count(),
           checkedIn: count(
             sql`CASE WHEN ${companions.checkedIn} = 1 THEN 1 END`,
           ),
@@ -174,6 +179,8 @@ export async function getEventStats(eventId: string): Promise<EventStats> {
         .get(),
     ]);
 
+  const invitationAccepted = invitationStats?.accepted ?? 0;
+  const acceptedCompanions = companionStats?.total ?? 0;
   const checkedInGuests = invitationStats?.checkedInGuests ?? 0;
   const checkedInCompanions = companionStats?.checkedIn ?? 0;
 
@@ -181,9 +188,11 @@ export async function getEventStats(eventId: string): Promise<EventStats> {
     programCount: programStats?.total ?? 0,
     performerCount: performerStats?.total ?? 0,
     invitationTotal: invitationStats?.total ?? 0,
-    invitationAccepted: invitationStats?.accepted ?? 0,
+    invitationAccepted,
     invitationPending: invitationStats?.pending ?? 0,
     invitationDeclined: invitationStats?.declined ?? 0,
+    acceptedCompanions,
+    expectedAttendees: invitationAccepted + acceptedCompanions,
     checkedInGuests,
     checkedInCompanions,
     totalAttendees: checkedInGuests + checkedInCompanions,

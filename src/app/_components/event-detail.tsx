@@ -192,60 +192,64 @@ export function EventDetail({
         </div>
 
         {!isEditing && (
-          <>
-            <dl className="grid gap-6 border-border/60 border-y py-6 md:grid-cols-3">
+          <dl className="grid gap-6 border-border/60 border-y py-6 md:grid-cols-3">
+            <FactItem
+              icon={<CalendarBlank className="h-4 w-4" aria-hidden />}
+              label="日時"
+              value={
+                <div className="flex flex-col gap-1">
+                  {event.openDatetime && (
+                    <span>開場 {formatDatetime(event.openDatetime)}</span>
+                  )}
+                  <span>開演 {formatDatetime(event.startDatetime)}</span>
+                </div>
+              }
+            />
+            <FactItem
+              icon={<MapPin className="h-4 w-4" aria-hidden />}
+              label="会場"
+              value={event.venue}
+              sub={
+                <div className="flex flex-col gap-1.5">
+                  {event.address && <span>{event.address}</span>}
+                  <VenueLink
+                    venue={event.venue}
+                    address={event.address}
+                    variant="inline"
+                  />
+                </div>
+              }
+            />
+            <FactItem
+              icon={<IdentificationCard className="h-4 w-4" aria-hidden />}
+              label="座席"
+              value={
+                event.totalSeats === 0 ? "無制限" : `${event.totalSeats} 席`
+              }
+            />
+            {(event.attendanceFee > 0 || event.afterPartyEnabled) && (
               <FactItem
-                icon={<CalendarBlank className="h-4 w-4" aria-hidden />}
-                label="日時"
+                icon={<CurrencyJpy className="h-4 w-4" aria-hidden />}
+                label="会費"
                 value={
                   <div className="flex flex-col gap-1">
-                    {event.openDatetime && (
-                      <span>開場 {formatDatetime(event.openDatetime)}</span>
+                    <span>参加費 {formatYen(event.attendanceFee)}/人</span>
+                    {event.afterPartyEnabled && (
+                      <span>
+                        懇親会 {formatYen(event.afterPartyFee)}
+                        /人
+                      </span>
                     )}
-                    <span>開演 {formatDatetime(event.startDatetime)}</span>
                   </div>
                 }
-              />
-              <FactItem
-                icon={<MapPin className="h-4 w-4" aria-hidden />}
-                label="会場"
-                value={event.venue}
-                sub={event.address ?? null}
-              />
-              <FactItem
-                icon={<IdentificationCard className="h-4 w-4" aria-hidden />}
-                label="座席"
-                value={
-                  event.totalSeats === 0 ? "無制限" : `${event.totalSeats} 席`
+                sub={
+                  event.afterPartyEnabled && event.afterPartyVenue
+                    ? `懇親会: ${event.afterPartyVenue}${event.afterPartyStartTime ? ` ${event.afterPartyStartTime}〜` : ""}`
+                    : null
                 }
               />
-              {(event.attendanceFee > 0 || event.afterPartyEnabled) && (
-                <FactItem
-                  icon={<CurrencyJpy className="h-4 w-4" aria-hidden />}
-                  label="会費"
-                  value={
-                    <div className="flex flex-col gap-1">
-                      <span>参加費 {formatYen(event.attendanceFee)}/人</span>
-                      {event.afterPartyEnabled && (
-                        <span>
-                          懇親会 {formatYen(event.afterPartyFee)}
-                          /人
-                        </span>
-                      )}
-                    </div>
-                  }
-                  sub={
-                    event.afterPartyEnabled && event.afterPartyVenue
-                      ? `懇親会: ${event.afterPartyVenue}${event.afterPartyStartTime ? ` ${event.afterPartyStartTime}〜` : ""}`
-                      : null
-                  }
-                />
-              )}
-            </dl>
-            <div className="pt-2">
-              <VenueLink venue={event.venue} address={event.address} />
-            </div>
-          </>
+            )}
+          </dl>
         )}
       </header>
 
@@ -571,7 +575,7 @@ function ManageHub({ eventId, stats }: { eventId: string; stats: EventStats }) {
           primary={hasAccepted ? `${stats.totalAttendees} 名 来場` : "受付なし"}
           hint={
             hasAccepted
-              ? `出席予定 ${stats.invitationAccepted} 名`
+              ? `出席予定 ${stats.expectedAttendees} 名（同伴者含む）`
               : "出席者が確定したら受付できます"
           }
         />
