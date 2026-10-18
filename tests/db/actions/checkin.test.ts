@@ -160,7 +160,7 @@ describe("lookupInvitationByToken", () => {
     expect(result).toEqual({ error: expect.stringContaining("無効") });
   });
 
-  it("ongoing 以外のイベントではエラー", async () => {
+  it("開催前（published）のイベントではエラー", async () => {
     const { event, memberId } = await setupMember({ status: "published" });
     await addInvitation({
       eventId: event.id,
@@ -169,7 +169,20 @@ describe("lookupInvitationByToken", () => {
       token: "tok-x",
     });
     const result = await lookupInvitationByToken(event.id, "tok-x");
-    expect(result).toEqual({ error: expect.stringContaining("開催中") });
+    expect(result).toEqual({ error: expect.stringContaining("開催を開始") });
+  });
+
+  it("finished のイベントでも招待を返す", async () => {
+    const { event, memberId } = await setupMember({ status: "finished" });
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      token: "tok-finished",
+    });
+    const result = await lookupInvitationByToken(event.id, "tok-finished");
+    if ("error" in result) throw new Error(result.error);
+    expect(result.invitation.id).toBe(inv.id);
   });
 
   it("非メンバーは検索不可", async () => {
@@ -316,7 +329,7 @@ describe("performCheckIn", () => {
     expect(result).toEqual({ error: expect.stringContaining("同伴者") });
   });
 
-  it("ongoing 以外のイベントではエラー", async () => {
+  it("開催前（published）のイベントではエラー", async () => {
     const { event, memberId } = await setupMember({ status: "published" });
     const inv = await addInvitation({
       eventId: event.id,
@@ -324,7 +337,25 @@ describe("performCheckIn", () => {
       status: "accepted",
     });
     const result = await performCheckIn(event.id, inv.id, "guest");
-    expect(result).toEqual({ error: expect.stringContaining("開催中") });
+    expect(result).toEqual({ error: expect.stringContaining("開催を開始") });
+  });
+
+  it("finished のイベントでもチェックインできる", async () => {
+    const { event, memberId } = await setupMember({ status: "finished" });
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+    });
+
+    const result = await performCheckIn(event.id, inv.id, "guest");
+    if ("error" in result) throw new Error(result.error);
+    expect(result.summary).toMatchObject({ checkedInGuests: 1 });
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after).toMatchObject({ checkedIn: true });
   });
 
   it("accepted 以外の招待にはチェックインできない", async () => {
@@ -470,8 +501,8 @@ describe("undoCheckIn", () => {
     expect(stillCheckedIn).toMatchObject({ checkedIn: true, checkedInAt: 100 });
   });
 
-  it("ongoing 以外（finished 含む）では取り消し不可", async () => {
-    const { event, memberId } = await setupMember({ status: "finished" });
+  it("開催前（published）では取り消し不可", async () => {
+    const { event, memberId } = await setupMember({ status: "published" });
     const inv = await addInvitation({
       eventId: event.id,
       memberId,
@@ -480,7 +511,27 @@ describe("undoCheckIn", () => {
       checkedInAt: 1,
     });
     const result = await undoCheckIn(event.id, inv.id, "guest");
-    expect(result).toEqual({ error: expect.stringContaining("開催中") });
+    expect(result).toEqual({ error: expect.stringContaining("開催を開始") });
+  });
+
+  it("finished のイベントでも取り消せる", async () => {
+    const { event, memberId } = await setupMember({ status: "finished" });
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+      checkedIn: true,
+      checkedInAt: 1,
+    });
+
+    const result = await undoCheckIn(event.id, inv.id, "guest");
+    if ("error" in result) throw new Error(result.error);
+    expect(result.summary).toMatchObject({ checkedInGuests: 0 });
+
+    const after = await db.query.invitations.findFirst({
+      where: eq(invitations.id, inv.id),
+    });
+    expect(after).toMatchObject({ checkedIn: false, checkedInAt: null });
   });
 
   it("非メンバーは取り消し不可", async () => {
@@ -685,7 +736,7 @@ describe("performBulkCheckIn", () => {
     expect(result.companions).toEqual([]);
   });
 
-  it("ongoing 以外のイベントではエラー", async () => {
+  it("開催前（published）のイベントではエラー", async () => {
     const { event, memberId } = await setupMember({ status: "published" });
     const inv = await addInvitation({
       eventId: event.id,
@@ -693,7 +744,26 @@ describe("performBulkCheckIn", () => {
       status: "accepted",
     });
     const result = await performBulkCheckIn(event.id, inv.id);
-    expect(result).toEqual({ error: expect.stringContaining("開催中") });
+    expect(result).toEqual({ error: expect.stringContaining("開催を開始") });
+  });
+
+  it("finished のイベントでも一括チェックインできる", async () => {
+    const { event, memberId } = await setupMember({ status: "finished" });
+    const inv = await addInvitation({
+      eventId: event.id,
+      memberId,
+      status: "accepted",
+    });
+    const comp = await addCompanion({ invitationId: inv.id });
+
+    const result = await performBulkCheckIn(event.id, inv.id);
+    if ("error" in result) throw new Error(result.error);
+    expect(result.guest.updated).toBe(true);
+    expect(result.companions).toEqual([{ id: comp.id, updated: true }]);
+    expect(result.summary).toMatchObject({
+      checkedInGuests: 1,
+      checkedInCompanions: 1,
+    });
   });
 
   it("accepted 以外の招待にはチェックインできない", async () => {
