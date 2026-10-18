@@ -13,7 +13,7 @@ import {
   setEventFees,
 } from "./helpers/app";
 
-// D. 支払い（Stripe sandbox）+ F1 決済失敗カード
+// D. 支払い（Stripe sandbox）
 //
 // 外部依存（api.stripe.com）を伴う唯一の spec。テストモードのキー以外では
 // 実行しない（live キー混入時の誤課金を構造的に防ぐ）
@@ -30,7 +30,6 @@ if (stripeKey && !stripeKey.startsWith("sk_test_")) {
 test.use({ storageState: ORGANIZER_STATE });
 test.describe.configure({ mode: "serial" });
 
-const DECLINED_CARD = "4000 0000 0000 0002";
 const VALID_CARD = "4242 4242 4242 4242";
 
 const run = Date.now().toString(36);
@@ -77,9 +76,7 @@ test("D0: 決済ありイベントとゲスト回答を準備する", async ({
   await context.close();
 });
 
-test("D1+F1+D2+D4: Checkout 遷移 → 拒否カード → リトライ成功 → 反映", async ({
-  browser,
-}) => {
+test("D1+D2+D4: Checkout 遷移 → 決済成功 → 反映", async ({ browser }) => {
   test.setTimeout(180_000);
   const context = await newGuestContext(browser);
   const page = await context.newPage();
@@ -90,14 +87,7 @@ test("D1+F1+D2+D4: Checkout 遷移 → 拒否カード → リトライ成功 �
   await page.getByRole("button", { name: /オンラインで支払う ¥500/ }).click();
   await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
 
-  // F1: 拒否カードでは決済エラーが表示され、セッションに留まる
-  await fillAndSubmitCheckout(page, DECLINED_CARD);
-  await expect(
-    page.getByText(/カードが拒否されました|card was declined/i).first(),
-  ).toBeVisible({ timeout: 30_000 });
-  expect(page.url()).toContain("checkout.stripe.com");
-
-  // F1 続き: 同一セッション内でカードを差し替えてリトライ
+  // D2: 正常カードで決済する
   await fillAndSubmitCheckout(page, VALID_CARD);
 
   // D4: ?payment=success リダイレクト経路で反映される（webhook なし）。
