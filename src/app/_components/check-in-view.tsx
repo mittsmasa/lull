@@ -43,7 +43,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { EventStatus } from "@/db/schema";
-import { statusLabels, statusVariants } from "@/lib/event-status";
+import {
+  canCheckIn,
+  canReceivePayment,
+  statusLabels,
+  statusVariants,
+} from "@/lib/event-status";
 import {
   calcBilling,
   formatYen,
@@ -452,8 +457,8 @@ export function CheckInView({
   const totalArrived = summary.checkedInGuests + summary.checkedInCompanions;
   const totalExpected = summary.totalAccepted + summary.totalCompanions;
 
-  // ongoing 以外はメッセージのみ表示
-  if (event.status !== "ongoing") {
+  // チェックインを受け付けないステータス（draft / published）はメッセージのみ表示
+  if (!canCheckIn(event.status)) {
     return (
       <div className="mx-auto max-w-md px-4 py-12">
         <div>
@@ -468,7 +473,7 @@ export function CheckInView({
         <Card className="mt-6">
           <CardContent className="pt-6">
             <p className="text-muted-foreground text-center">
-              チェックインは開催中のイベントでのみ利用できます
+              チェックインはイベントの開催を開始してから利用できます
             </p>
           </CardContent>
         </Card>
@@ -492,6 +497,12 @@ export function CheckInView({
           </Badge>
         </div>
       </div>
+
+      {event.status === "finished" && (
+        <p className="text-muted-foreground border-muted-foreground/30 mb-2 border-l-2 px-3 py-2 text-xs">
+          このイベントは終了しています。記録の追加・修正のみ行えます
+        </p>
+      )}
 
       {viewState.mode === "scanning" ? (
         <ScanningView
@@ -585,6 +596,7 @@ export function CheckInView({
               eventId={event.id}
               invitation={viewState.invitation}
               stripeEnabled={stripeEnabled}
+              paymentEnabled={canReceivePayment(event.status)}
               processing={processing}
               onCheckIn={handleCheckIn}
               onUndo={handleUndo}
@@ -881,6 +893,8 @@ type FoundPanelProps = {
   eventId: string;
   invitation: LookupInvitation;
   stripeEnabled: boolean;
+  /** 会費を受領できるか。false なら決済操作は出さず、記録の表示だけ残す */
+  paymentEnabled: boolean;
   processing: string | null;
   onCheckIn: (
     invitationId: string,
@@ -901,6 +915,7 @@ function FoundPanel({
   eventId,
   invitation: inv,
   stripeEnabled,
+  paymentEnabled,
   processing,
   onCheckIn,
   onUndo,
@@ -976,6 +991,7 @@ function FoundPanel({
         invitationId={inv.id}
         guestName={inv.guestName}
         stripeEnabled={stripeEnabled}
+        paymentEnabled={paymentEnabled}
         afterPartyAttendance={inv.afterPartyAttendance}
         afterPartyCount={inv.afterPartyCount}
         initialPayment={inv.payment}
@@ -1015,6 +1031,8 @@ type PaymentPanelProps = {
   invitationId: string;
   guestName: string | null;
   stripeEnabled: boolean;
+  /** 会費を受領できるか。false なら決済操作は出さず、記録の表示だけ残す */
+  paymentEnabled: boolean;
   afterPartyAttendance: "attending" | "declined" | null;
   afterPartyCount: number;
   initialPayment: LookupPayment;
@@ -1025,6 +1043,7 @@ function PaymentPanel({
   invitationId,
   guestName,
   stripeEnabled,
+  paymentEnabled,
   afterPartyAttendance,
   afterPartyCount,
   initialPayment,
@@ -1228,7 +1247,11 @@ function PaymentPanel({
         </div>
       )}
 
-      {fullyPaid ? (
+      {!paymentEnabled ? (
+        <p className="text-muted-foreground text-xs">
+          イベント終了後は会費を受領できません
+        </p>
+      ) : fullyPaid ? (
         <p className="text-muted-foreground text-xs">
           取消は招待管理画面の「入金済みを解除」から行えます
         </p>

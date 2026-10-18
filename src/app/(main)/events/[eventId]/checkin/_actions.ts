@@ -12,6 +12,7 @@ import {
   type PaidMethod,
   type PaymentMethod,
 } from "@/db/schema";
+import { canCheckIn, canReceivePayment } from "@/lib/event-status";
 import { type Billing, calcBilling } from "@/lib/payment";
 import {
   type CheckInSummary,
@@ -71,12 +72,12 @@ export async function lookupInvitationByToken(
   });
   if (!member) return { error: "権限がありません" };
 
-  // イベントステータスチェック（ongoing のみ）
+  // イベントステータスチェック（開催中 / 終了後）
   const event = await db.query.events.findFirst({
     where: eq(events.id, eventId),
   });
-  if (!event || event.status !== "ongoing") {
-    return { error: "チェックインは開催中のイベントでのみ利用できます" };
+  if (!event || !canCheckIn(event.status)) {
+    return { error: "チェックインはイベントの開催を開始してから利用できます" };
   }
 
   // トークンで招待を検索
@@ -205,7 +206,7 @@ async function loadPayableInvitation(
   const event = await db.query.events.findFirst({
     where: eq(events.id, eventId),
   });
-  if (event?.status !== "ongoing") {
+  if (!event || !canReceivePayment(event.status)) {
     return { error: "会費の受領は開催中のイベントでのみ記録できます" };
   }
 
@@ -421,12 +422,12 @@ export async function performCheckIn(
   });
   if (!member) return { error: "権限がありません" };
 
-  // イベントステータスチェック
+  // イベントステータスチェック（開催中 / 終了後）
   const event = await db.query.events.findFirst({
     where: eq(events.id, eventId),
   });
-  if (!event || event.status !== "ongoing") {
-    return { error: "チェックインは開催中のイベントでのみ利用できます" };
+  if (!event || !canCheckIn(event.status)) {
+    return { error: "チェックインはイベントの開催を開始してから利用できます" };
   }
 
   const now = Date.now();
@@ -531,10 +532,10 @@ export async function undoCheckIn(
   const event = await db.query.events.findFirst({
     where: eq(events.id, eventId),
   });
-  // 取り消しは ongoing のみ（finished では不可）
-  if (!event || event.status !== "ongoing") {
+  // 取り消しもチェックインと同じ条件（終了後の記録修正を許す）
+  if (!event || !canCheckIn(event.status)) {
     return {
-      error: "チェックインの取り消しは開催中のイベントでのみ可能です",
+      error: "チェックインはイベントの開催を開始してから利用できます",
     };
   }
 
@@ -615,8 +616,8 @@ export async function performBulkCheckIn(
   const event = await db.query.events.findFirst({
     where: eq(events.id, eventId),
   });
-  if (!event || event.status !== "ongoing") {
-    return { error: "チェックインは開催中のイベントでのみ利用できます" };
+  if (!event || !canCheckIn(event.status)) {
+    return { error: "チェックインはイベントの開催を開始してから利用できます" };
   }
 
   const now = Date.now();

@@ -485,6 +485,13 @@ export default async function InvitationResponsePage(
           inviterName={invitation.inviterDisplayName}
         />
         {event.showProgram && <InvitationProgramView programs={programs} />}
+        {/* 受付は終了後もチェックインを記録できるため、パスは出したままにする */}
+        <QrCode
+          path={`/i/${token}`}
+          eventName={event.name}
+          eventDatetime={formatDatetime(event.startDatetime)}
+          caption="スタッフにこのコードをお見せください"
+        />
         <CurrentResponseView
           invitation={invitation}
           stripeEnabled={isStripeEnabled()}

@@ -34,3 +34,14 @@ export const statusDotClass: Record<EventStatus, string> = {
   ongoing: "bg-accent",
   finished: "bg-muted-foreground/25",
 };
+
+/**
+ * チェックイン操作（QR 照合・実行・取り消し・一括）を受け付けるステータスか。
+ * 終了後に判明した来場漏れを後から記録できるよう finished を含む。
+ */
+export const canCheckIn = (status: EventStatus): boolean =>
+  status === "ongoing" || status === "finished";
+
+/** 当日の会費受領を記録できるステータスか。会計は終了とともに締める */
+export const canReceivePayment = (status: EventStatus): boolean =>
+  status === "ongoing";
