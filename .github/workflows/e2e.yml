@@ -42,10 +42,9 @@ jobs:
           NEXT_PUBLIC_VERCEL_ENV: preview
           TURSO_DATABASE_URL: file:e2e-local.db
 
+      # 決済 spec（e2e/payment.spec.ts）を外したため Stripe のキーは渡さない
       - name: Run e2e tests
         run: pnpm test:e2e
-        env:
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
 
       - name: Upload playwright report
         if: failure()
