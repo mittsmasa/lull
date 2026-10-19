@@ -3,7 +3,7 @@
 import { CaretDown, House, SignOut } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { PendingLinkIndicator } from "@/app/_components/pending-link-indicator";
 import {
   Collapsible,
@@ -22,29 +22,32 @@ import type { EventStatus } from "@/db/schema";
 import { authClient } from "@/lib/auth-client";
 import { statusDotClass, statusLabels } from "@/lib/event-status";
 
-const navItems = [
-  { href: "/dashboard", label: "ホーム", icon: House },
-] as const;
-
 export type NavigationEvent = {
   id: string;
   name: string;
   status: EventStatus;
 };
 
+// マイイベント一覧は Server Component から slot として渡るため、シートを閉じる
+// ハンドラを props で届けられない。context で配る
+const SheetCloseContext = createContext<() => void>(() => {});
+
+function useSheetClose() {
+  return useContext(SheetCloseContext);
+}
+
 type NavigationSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  events?: NavigationEvent[];
+  /** マイイベント一覧。Server Component 側で `<Suspense>` に包んで渡す */
+  eventsSlot?: React.ReactNode;
 };
 
 export function NavigationSheet({
   open,
   onOpenChange,
-  events = [],
+  eventsSlot,
 }: NavigationSheetProps) {
-  const pathname = usePathname();
-
   const handleSignOut = async () => {
     await authClient.signOut();
     // セッションは `use cache: private` でブラウザに保持されるため、soft navigation だと
@@ -57,71 +60,88 @@ export function NavigationSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-72 flex-col font-sans">
-        <SheetHeader>
-          <SheetTitle className="font-serif text-lg font-light tracking-widest text-brand">
-            Lull
-          </SheetTitle>
-          <SheetDescription className="sr-only">
-            サイト内のページとマイイベントへのナビゲーション
-          </SheetDescription>
-        </SheetHeader>
+        <SheetCloseContext.Provider value={close}>
+          <SheetHeader>
+            <SheetTitle className="font-serif text-lg font-light tracking-widest text-brand">
+              Lull
+            </SheetTitle>
+            <SheetDescription className="sr-only">
+              サイト内のページとマイイベントへのナビゲーション
+            </SheetDescription>
+          </SheetHeader>
 
-        <nav className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href;
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={close}
-                aria-current={isActive ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors duration-200 ${
-                  isActive
-                    ? "border-l-2 border-primary bg-accent/50 font-medium text-foreground"
-                    : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
-                }`}
-              >
-                <Icon weight="light" className="size-4" />
-                <PendingLinkIndicator>{label}</PendingLinkIndicator>
-              </Link>
-            );
-          })}
+          <nav className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto">
+            <HomeNavLink />
+            {eventsSlot}
+          </nav>
 
-          {events.length > 0 && (
-            <div className="mt-4 flex flex-col gap-1">
-              <p className="px-3 pb-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                マイイベント
+          <div className="mt-auto border-t py-4">
+            <div className="px-3 pb-3">
+              <p className="pb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                表示テーマ
               </p>
-              {events.map((event) => (
-                <EventNavItem
-                  key={event.id}
-                  event={event}
-                  pathname={pathname}
-                  onNavigate={close}
-                />
-              ))}
+              <ThemeToggle />
             </div>
-          )}
-        </nav>
-
-        <div className="mt-auto border-t py-4">
-          <div className="px-3 pb-3">
-            <p className="pb-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-              表示テーマ
-            </p>
-            <ThemeToggle />
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors duration-200 hover:bg-accent/30 hover:text-foreground"
+            >
+              <SignOut weight="light" className="size-4" />
+              ログアウト
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors duration-200 hover:bg-accent/30 hover:text-foreground"
-          >
-            <SignOut weight="light" className="size-4" />
-            ログアウト
-          </button>
-        </div>
+        </SheetCloseContext.Provider>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// `usePathname()` は `SheetContent` の内側でだけ読む。シートを閉じている間は
+// Radix が中身を描画しないため、静的シェルの生成を妨げない
+function HomeNavLink() {
+  const pathname = usePathname();
+  const close = useSheetClose();
+  const isActive = pathname === "/dashboard";
+
+  return (
+    <Link
+      href="/dashboard"
+      onClick={close}
+      aria-current={isActive ? "page" : undefined}
+      className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors duration-200 ${
+        isActive
+          ? "border-l-2 border-primary bg-accent/50 font-medium text-foreground"
+          : "text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+      }`}
+    >
+      <House weight="light" className="size-4" />
+      <PendingLinkIndicator>ホーム</PendingLinkIndicator>
+    </Link>
+  );
+}
+
+/** マイイベント一覧。Server Component から `eventsSlot` として渡す */
+export function NavEventList({ events }: { events: NavigationEvent[] }) {
+  const pathname = usePathname();
+  const close = useSheetClose();
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="mt-4 flex flex-col gap-1">
+      <p className="px-3 pb-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        マイイベント
+      </p>
+      {events.map((event) => (
+        <EventNavItem
+          key={event.id}
+          event={event}
+          pathname={pathname}
+          onNavigate={close}
+        />
+      ))}
+    </div>
   );
 }
 

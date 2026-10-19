@@ -1,25 +1,41 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { CheckInView } from "@/app/_components/check-in-view";
 import { HeaderConfig } from "@/app/_components/header-config";
+import { PageSkeleton } from "@/app/_components/page-skeleton";
 import { getEventMembership } from "@/lib/queries/events";
 import {
   getCheckInList,
   getCheckInSummary,
   getEventForInvitationManagement,
 } from "@/lib/queries/invitations";
-import { requireSession } from "@/lib/session";
+import { requireSessionForRender } from "@/lib/session";
 import { isStripeEnabled } from "@/lib/stripe";
 
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false;
-
-export default async function CheckInPage(
+export default function CheckInPage(
   props: PageProps<"/events/[eventId]/checkin">,
 ) {
-  const { eventId } = await props.params;
-  const session = await requireSession();
+  return (
+    <>
+      <HeaderConfig showBackButton />
+      <Suspense
+        fallback={
+          <div className="mx-auto max-w-md px-4 py-12">
+            <PageSkeleton stats rows={6} />
+          </div>
+        }
+      >
+        <CheckInContent params={props.params} />
+      </Suspense>
+    </>
+  );
+}
+
+async function CheckInContent({
+  params,
+}: Pick<PageProps<"/events/[eventId]/checkin">, "params">) {
+  const { eventId } = await params;
+  const session = await requireSessionForRender();
 
   const membership = await getEventMembership(eventId, session.user.id);
   if (!membership) notFound();
@@ -31,14 +47,11 @@ export default async function CheckInPage(
   const checkInList = await getCheckInList(eventId);
 
   return (
-    <>
-      <HeaderConfig showBackButton />
-      <CheckInView
-        event={event}
-        summary={summary}
-        initialList={checkInList}
-        stripeEnabled={isStripeEnabled()}
-      />
-    </>
+    <CheckInView
+      event={event}
+      summary={summary}
+      initialList={checkInList}
+      stripeEnabled={isStripeEnabled()}
+    />
   );
 }

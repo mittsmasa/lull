@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { NavigationSheet } from "./navigation-sheet";
+import { NavEventList, NavigationSheet } from "./navigation-sheet";
 
 const allStatusEvents = [
   { id: "evt-draft", name: "下書きの発表会", status: "draft" as const },
@@ -37,7 +37,7 @@ export const Default: Story = {
 
 export const AllStatuses: Story = {
   args: {
-    events: allStatusEvents,
+    eventsSlot: <NavEventList events={allStatusEvents} />,
   },
   parameters: {
     nextjs: {
@@ -50,9 +50,13 @@ export const AllStatuses: Story = {
 
 export const SubPageActive: Story = {
   args: {
-    events: [
-      { id: "evt-ongoing", name: "本番進行中の会", status: "ongoing" as const },
-    ],
+    eventsSlot: (
+      <NavEventList
+        events={[
+          { id: "evt-ongoing", name: "本番進行中の会", status: "ongoing" },
+        ]}
+      />
+    ),
   },
   parameters: {
     nextjs: {
