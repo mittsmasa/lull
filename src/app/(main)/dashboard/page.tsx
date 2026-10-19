@@ -3,6 +3,11 @@ import { EventCard } from "@/app/_components/event-card";
 import { getEventsByUserId } from "@/lib/queries/events";
 import { requireSession } from "@/lib/session";
 
+// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
+// Remove this opt-out after verifying the segment passes validation without it.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false;
+
 export default async function DashboardPage() {
   const session = await requireSession();
   const events = await getEventsByUserId(session.user.id);

@@ -11,6 +11,9 @@ const baseConfig: NextConfig = {
   // next dev が CLAUDE.md / AGENTS.md に agent 向けブロックを自動追記するのを止める。
   // 手で管理しているファイルなので、起動のたびに差分が出ると困る。
   agentRules: false,
+  cacheComponents: true,
+  // cacheComponents を立てて未指定にすると warning が出るため明示する。
+  partialPrefetching: true,
   turbopack: {
     resolveAlias: isPreview
       ? {}
