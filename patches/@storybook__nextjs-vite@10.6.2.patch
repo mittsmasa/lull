@@ -1,0 +1,17 @@
+diff --git a/dist/_browser-chunks/chunk-342N7CWU.js b/dist/_browser-chunks/chunk-342N7CWU.js
+index 342f9b9b78c04e71bef8f43a5b6d1a00d14a45c1..895fa77b9eb3ac1f5446946acae27c5c2190bdd6 100644
+--- a/dist/_browser-chunks/chunk-342N7CWU.js
++++ b/dist/_browser-chunks/chunk-342N7CWU.js
+@@ -118,6 +118,12 @@ var getParallelRoutes = (segmentsList) => {
+           // @ts-ignore Only available in Next.js >= v15.1.1
+           parentCacheNode: newLazyCacheNode,
+           // END
++          // START Next.js v16.4 support
++          // next 16.4 の useRouter() は parentRenderTree.data.bfcacheId を
++          // optional chain なしで読むため、未定義だと TypeError になる。
++          // bfcacheId は `?? 0` で既定値に落ちるので data は空でよい。
++          parentRenderTree: { data: {} },
++          // END
+           url: pathname,
+           loading: null
+         }
