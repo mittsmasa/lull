@@ -1,22 +1,11 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { SignInButton } from "@/app/_components/sign-in-button";
+import { SkeletonBlock } from "@/app/_components/skeleton";
 import { GuestInvitationLink } from "@/components/guest-invitation-link";
-import { getSession, validateReturnTo } from "@/lib/session";
+import { getSessionForRender, validateReturnTo } from "@/lib/session";
 
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false;
-
-export default async function Page(props: PageProps<"/">) {
-  const session = await getSession();
-  const { returnTo } = await props.searchParams;
-  const callbackURL = validateReturnTo(returnTo);
-
-  if (session) {
-    redirect(callbackURL);
-  }
-
+export default function Page(props: PageProps<"/">) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8">
       <h1 className="font-serif text-5xl font-light tracking-wide text-brand">
@@ -26,7 +15,23 @@ export default async function Page(props: PageProps<"/">) {
         ひとつの舞台を、もっとあたたかく
       </p>
       <GuestInvitationLink />
-      <SignInButton callbackURL={callbackURL} />
+      <Suspense fallback={<SkeletonBlock className="h-9 w-44 rounded-md" />}>
+        <SignInGate searchParams={props.searchParams} />
+      </Suspense>
     </div>
   );
+}
+
+async function SignInGate({
+  searchParams,
+}: Pick<PageProps<"/">, "searchParams">) {
+  const session = await getSessionForRender();
+  const { returnTo } = await searchParams;
+  const callbackURL = validateReturnTo(returnTo);
+
+  if (session) {
+    redirect(callbackURL);
+  }
+
+  return <SignInButton callbackURL={callbackURL} />;
 }

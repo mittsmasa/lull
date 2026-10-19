@@ -4,11 +4,13 @@ import {
   User,
   UsersThree,
 } from "@phosphor-icons/react/dist/ssr";
+import { Suspense } from "react";
 import { InvitationPaymentReceipt } from "@/app/_components/invitation-payment-receipt";
 import { InvitationPaymentSection } from "@/app/_components/invitation-payment-section";
 import { InvitationProgramView } from "@/app/_components/invitation-program-view";
 import { InvitationResponseForm } from "@/app/_components/invitation-response-form";
 import { QrCode } from "@/app/_components/qr-code";
+import { SkeletonBlock, SkeletonRule } from "@/app/_components/skeleton";
 import { VenueLink } from "@/app/_components/venue-link";
 import { SaveGuestToken } from "@/components/guest-token-store";
 import type { EventStatus } from "@/db/schema";
@@ -27,11 +29,6 @@ import {
 } from "@/lib/queries/invitations";
 import { getProgramsByEventId } from "@/lib/queries/programs";
 import { isStripeEnabled } from "@/lib/stripe";
-
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false;
 
 // ============================================================
 // Shell
@@ -53,17 +50,13 @@ function GuestShell({ children }: { children: React.ReactNode }) {
 
 function ErrorView({ title, message }: { title: string; message: string }) {
   return (
-    <GuestShell>
-      <div className="mt-16 flex flex-col items-center gap-4 text-center animate-in fade-in slide-in-from-bottom-1 duration-700 motion-reduce:animate-none">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          Lull
-        </p>
-        <h1 className="font-serif text-2xl leading-tight">{title}</h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {message}
-        </p>
-      </div>
-    </GuestShell>
+    <div className="mt-16 flex flex-col items-center gap-4 text-center animate-in fade-in slide-in-from-bottom-1 duration-700 motion-reduce:animate-none">
+      <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        Lull
+      </p>
+      <h1 className="font-serif text-2xl leading-tight">{title}</h1>
+      <p className="text-sm leading-relaxed text-muted-foreground">{message}</p>
+    </div>
   );
 }
 
@@ -403,11 +396,43 @@ function StatusNote({
 // Main
 // ============================================================
 
-export default async function InvitationResponsePage(
-  props: PageProps<"/i/[token]">,
-) {
-  const { token } = await props.params;
-  const searchParams = await props.searchParams;
+export default function InvitationResponsePage(props: PageProps<"/i/[token]">) {
+  return (
+    <GuestShell>
+      <Suspense fallback={<InvitationSkeleton />}>
+        <InvitationResponseContent
+          params={props.params}
+          searchParams={props.searchParams}
+        />
+      </Suspense>
+    </GuestShell>
+  );
+}
+
+function InvitationSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col gap-4">
+        <SkeletonBlock className="h-7 w-3/4" />
+        <SkeletonRule className="w-2/3" />
+        <SkeletonRule className="w-1/2" />
+      </div>
+      <div className="flex flex-col gap-4 rounded-md border border-border/50 p-6">
+        <SkeletonBlock className="w-1/3" />
+        <SkeletonRule />
+        <SkeletonRule className="w-5/6" />
+        <SkeletonBlock className="mt-2 h-10 rounded-md" />
+      </div>
+    </>
+  );
+}
+
+async function InvitationResponseContent({
+  params,
+  searchParams: searchParamsPromise,
+}: Pick<PageProps<"/i/[token]">, "params" | "searchParams">) {
+  const { token } = await params;
+  const searchParams = await searchParamsPromise;
   // クエリは表示の出し分けにのみ使う。支払済み判定は常に DB の paid_at
   const paymentQuery =
     searchParams.payment === "success"
@@ -484,7 +509,7 @@ export default async function InvitationResponsePage(
   // finished + accepted → 思い出カード
   if (event.status === "finished") {
     return (
-      <GuestShell>
+      <>
         <EventInfoHeader
           event={event}
           inviterName={invitation.inviterDisplayName}
@@ -506,7 +531,7 @@ export default async function InvitationResponsePage(
         <p className="border-t border-border/50 pt-6 text-xs tracking-wide text-muted-foreground">
           このイベントは終了しました。お越しいただきありがとうございました
         </p>
-      </GuestShell>
+      </>
     );
   }
 
@@ -562,7 +587,7 @@ export default async function InvitationResponsePage(
       : "当日、受付でお見せください";
 
   return (
-    <GuestShell>
+    <>
       <SaveGuestToken token={token} />
       <EventInfoHeader
         event={event}
@@ -618,6 +643,6 @@ export default async function InvitationResponsePage(
       {!canRespond && !canModify && invitation.status !== "pending" && (
         <StatusNote isInvalidated={isInvalidated} eventStatus={event.status} />
       )}
-    </GuestShell>
+    </>
   );
 }
