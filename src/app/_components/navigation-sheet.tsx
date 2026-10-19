@@ -2,7 +2,7 @@
 
 import { CaretDown, House, SignOut } from "@phosphor-icons/react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PendingLinkIndicator } from "@/app/_components/pending-link-indicator";
 import {
@@ -44,11 +44,12 @@ export function NavigationSheet({
   events = [],
 }: NavigationSheetProps) {
   const pathname = usePathname();
-  const router = useRouter();
 
   const handleSignOut = async () => {
     await authClient.signOut();
-    router.push("/");
+    // セッションは `use cache: private` でブラウザに保持されるため、soft navigation だと
+    // 残存したセッションが読まれうる。リロードを挟んで確実に捨てる。
+    window.location.href = "/";
   };
 
   const close = () => onOpenChange(false);

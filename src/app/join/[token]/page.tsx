@@ -1,15 +1,12 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { JoinEventForm } from "@/app/_components/join-event-form";
+import { SkeletonBlock, SkeletonRule } from "@/app/_components/skeleton";
 import { VenueLink } from "@/app/_components/venue-link";
 import { formatDatetime, formatTime } from "@/lib/format";
 import { getEventMembership } from "@/lib/queries/events";
 import { getPerformerInvitationByToken } from "@/lib/queries/members";
-import { getSession } from "@/lib/session";
-
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false;
+import { getSessionForRender } from "@/lib/session";
 
 // ============================================================
 // Shell
@@ -31,17 +28,13 @@ function JoinShell({ children }: { children: React.ReactNode }) {
 
 function ErrorView({ title, message }: { title: string; message: string }) {
   return (
-    <JoinShell>
-      <div className="mt-16 flex flex-col items-center gap-4 text-center animate-in fade-in slide-in-from-bottom-1 duration-700 motion-reduce:animate-none">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          Lull
-        </p>
-        <h1 className="font-serif text-2xl leading-tight">{title}</h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {message}
-        </p>
-      </div>
-    </JoinShell>
+    <div className="mt-16 flex flex-col items-center gap-4 text-center animate-in fade-in slide-in-from-bottom-1 duration-700 motion-reduce:animate-none">
+      <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        Lull
+      </p>
+      <h1 className="font-serif text-2xl leading-tight">{title}</h1>
+      <p className="text-sm leading-relaxed text-muted-foreground">{message}</p>
+    </div>
   );
 }
 
@@ -116,8 +109,37 @@ function PerformerInvitationHeader({
 // Main
 // ============================================================
 
-export default async function JoinPage(props: PageProps<"/join/[token]">) {
-  const { token } = await props.params;
+export default function JoinPage(props: PageProps<"/join/[token]">) {
+  return (
+    <JoinShell>
+      <Suspense fallback={<JoinSkeleton />}>
+        <JoinContent params={props.params} />
+      </Suspense>
+    </JoinShell>
+  );
+}
+
+function JoinSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col gap-4">
+        <SkeletonBlock className="h-7 w-3/4" />
+        <SkeletonRule className="w-2/3" />
+        <SkeletonRule className="w-1/2" />
+      </div>
+      <div className="flex flex-col gap-4 border-t border-border/50 pt-8">
+        <SkeletonBlock className="w-1/3" />
+        <SkeletonRule />
+        <SkeletonBlock className="mt-2 h-10 rounded-md" />
+      </div>
+    </>
+  );
+}
+
+async function JoinContent({
+  params,
+}: Pick<PageProps<"/join/[token]">, "params">) {
+  const { token } = await params;
   const invitation = await getPerformerInvitationByToken(token);
 
   // トークンが存在しない
@@ -150,7 +172,7 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
     );
   }
 
-  const session = await getSession();
+  const session = await getSessionForRender();
 
   // 受諾済みトークンの処理
   if (invitation.status === "accepted") {
@@ -182,7 +204,7 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
   }
 
   return (
-    <JoinShell>
+    <>
       <PerformerInvitationHeader event={invitation.event} />
       <div className="border-t border-border/50 pt-8 animate-in fade-in slide-in-from-bottom-1 duration-500 delay-200 fill-mode-both motion-reduce:animate-none motion-reduce:delay-0">
         <JoinEventForm
@@ -191,6 +213,6 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
           isAuthenticated={!!session}
         />
       </div>
-    </JoinShell>
+    </>
   );
 }

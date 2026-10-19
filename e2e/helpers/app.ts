@@ -180,11 +180,14 @@ export type GuestResponse = {
 // 出欠・懇親会・支払い方法の radio は sr-only input でアクセシブルネームを
 // 持たないため、ラベルテキストのクリックで選択する
 export async function fillGuestResponse(page: Page, response: GuestResponse) {
+  const form = page.locator("form").filter({ hasText: "発表会の出欠" });
   const toggle = page.getByRole("button", { name: "回答を変更する" });
+  // 招待ページは静的シェルを先に返し、本体は後から流れてくる。`isVisible()` は
+  // 待たない即時判定なので、先にどちらかが現れるまで待ってから分岐する
+  await form.or(toggle).first().waitFor();
   if (await toggle.isVisible().catch(() => false)) {
     await toggle.click();
   }
-  const form = page.locator("form").filter({ hasText: "発表会の出欠" });
   await form.getByLabel("お名前").fill(response.name);
   await form.getByLabel("メールアドレス").fill(response.email);
   await form
