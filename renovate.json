@@ -12,9 +12,27 @@
   "minimumReleaseAge": "3 days",
   "packageRules": [
     {
+      "description": "devDependencies の patch / minor は 1 本にまとめる。major はこのルールに当たらず monorepo 単位かパッケージ単位に分かれる",
       "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch", "minor"],
       "groupName": "devDependencies",
       "groupSlug": "dev-dependencies"
+    },
+    {
+      "description": "node (engines) と pnpm (packageManager) の patch / minor は tooling にまとめて自動マージ",
+      "matchDepTypes": ["engines", "packageManager"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "tooling",
+      "groupSlug": "tooling",
+      "automerge": true
+    },
+    {
+      "description": "GitHub Actions と mise の CLI の patch / minor / digest は tooling にまとめて自動マージ",
+      "matchManagers": ["github-actions", "mise"],
+      "matchUpdateTypes": ["patch", "minor", "digest", "pinDigest"],
+      "groupName": "tooling",
+      "groupSlug": "tooling",
+      "automerge": true
     },
     {
       "matchPackageNames": ["@emulators/**"],
