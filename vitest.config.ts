@@ -70,6 +70,16 @@ export default defineConfig({
               contextOptions: { reducedMotion: "reduce" },
             }),
             instances: [{ browser: "chromium" }],
+            commands: {
+              // ポインタをビューポート外へ退避させる。headless chromium は
+              // 仮想ポインタを原点に持つため、原点に重なるストーリーが
+              // :hover 状態のまま描画・撮影されることがある（CI の Linux で
+              // event-card が hover:bg-accent/50 で撮れていた）。
+              // setupFiles の beforeEach から毎テスト呼ぶ
+              resetPointer: async ({ page }) => {
+                await page.mouse.move(-1, -1);
+              },
+            },
           },
           setupFiles: [".storybook/vitest.setup.ts"],
         },
