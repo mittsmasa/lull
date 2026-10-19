@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { HeaderConfig } from "@/app/_components/header-config";
+import { PageSkeleton } from "@/app/_components/page-skeleton";
 import { ProgramManagement } from "@/app/_components/program-management";
 import { getEventMembership } from "@/lib/queries/events";
 import {
@@ -7,18 +9,26 @@ import {
   getEventMembersForSelect,
   getProgramsByEventId,
 } from "@/lib/queries/programs";
-import { requireSession } from "@/lib/session";
+import { requireSessionForRender } from "@/lib/session";
 
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false;
-
-export default async function ProgramsPage(
+export default function ProgramsPage(
   props: PageProps<"/events/[eventId]/programs">,
 ) {
-  const { eventId } = await props.params;
-  const session = await requireSession();
+  return (
+    <div className="mx-auto max-w-4xl px-6 py-12">
+      <HeaderConfig showBackButton />
+      <Suspense fallback={<PageSkeleton rows={5} />}>
+        <ProgramsContent params={props.params} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function ProgramsContent({
+  params,
+}: Pick<PageProps<"/events/[eventId]/programs">, "params">) {
+  const { eventId } = await params;
+  const session = await requireSessionForRender();
 
   const membership = await getEventMembership(eventId, session.user.id);
   if (!membership) {
@@ -36,14 +46,11 @@ export default async function ProgramsPage(
   ]);
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
-      <HeaderConfig showBackButton />
-      <ProgramManagement
-        event={event}
-        programs={programs}
-        members={members}
-        currentUserRole={membership.role}
-      />
-    </div>
+    <ProgramManagement
+      event={event}
+      programs={programs}
+      members={members}
+      currentUserRole={membership.role}
+    />
   );
 }

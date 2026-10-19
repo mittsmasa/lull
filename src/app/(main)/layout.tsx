@@ -1,31 +1,22 @@
+import { Suspense } from "react";
 import { AppHeader } from "@/app/_components/app-header";
 import { HeaderConfigProvider } from "@/app/_components/header-config";
-import type { NavigationEvent } from "@/app/_components/navigation-sheet";
-import { getEventsByUserId } from "@/lib/queries/events";
-import { getSession } from "@/lib/session";
+import { NavEvents, NavEventsSkeleton } from "@/app/_components/nav-events";
 
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false;
-
-export default async function MainLayout({
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getSession();
-  const events: NavigationEvent[] = session
-    ? (await getEventsByUserId(session.user.id)).map((e) => ({
-        id: e.id,
-        name: e.name,
-        status: e.status,
-      }))
-    : [];
-
   return (
     <HeaderConfigProvider>
-      <AppHeader events={events} />
+      <AppHeader
+        eventsSlot={
+          <Suspense fallback={<NavEventsSkeleton />}>
+            <NavEvents />
+          </Suspense>
+        }
+      />
       <main>{children}</main>
     </HeaderConfigProvider>
   );

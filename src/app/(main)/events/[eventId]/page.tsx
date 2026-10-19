@@ -1,25 +1,33 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { EventDetail } from "@/app/_components/event-detail";
 import { HeaderConfig } from "@/app/_components/header-config";
+import { PageSkeleton } from "@/app/_components/page-skeleton";
 import { VALID_TRANSITIONS } from "@/db/schema";
 import {
   getEventDetail,
   getEventMembership,
   getEventStats,
 } from "@/lib/queries/events";
-import { requireSession } from "@/lib/session";
+import { requireSessionForRender } from "@/lib/session";
 import { isStripeEnabled } from "@/lib/stripe";
 
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false;
+export default function EventDetailPage(props: PageProps<"/events/[eventId]">) {
+  return (
+    <div className="mx-auto max-w-4xl px-6 py-12">
+      <HeaderConfig showBackButton />
+      <Suspense fallback={<PageSkeleton stats rows={4} />}>
+        <EventDetailContent params={props.params} />
+      </Suspense>
+    </div>
+  );
+}
 
-export default async function EventDetailPage(
-  props: PageProps<"/events/[eventId]">,
-) {
-  const { eventId } = await props.params;
-  const session = await requireSession();
+async function EventDetailContent({
+  params,
+}: Pick<PageProps<"/events/[eventId]">, "params">) {
+  const { eventId } = await params;
+  const session = await requireSessionForRender();
 
   const member = await getEventMembership(eventId, session.user.id);
   if (!member) {
@@ -37,15 +45,12 @@ export default async function EventDetailPage(
   const availableTransitions = [...VALID_TRANSITIONS[event.status]];
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
-      <HeaderConfig showBackButton />
-      <EventDetail
-        event={event}
-        stats={stats}
-        currentUserRole={member.role}
-        availableTransitions={availableTransitions}
-        stripeEnabled={isStripeEnabled()}
-      />
-    </div>
+    <EventDetail
+      event={event}
+      stats={stats}
+      currentUserRole={member.role}
+      availableTransitions={availableTransitions}
+      stripeEnabled={isStripeEnabled()}
+    />
   );
 }

@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { HeaderConfig } from "@/app/_components/header-config";
 import { InvitationManagement } from "@/app/_components/invitation-management";
+import { PageSkeleton } from "@/app/_components/page-skeleton";
 import { summarizeBilling } from "@/lib/payment";
 import { getEventMembership } from "@/lib/queries/events";
 import {
@@ -9,18 +11,26 @@ import {
   getPaymentSummary,
   getSeatSummary,
 } from "@/lib/queries/invitations";
-import { requireSession } from "@/lib/session";
+import { requireSessionForRender } from "@/lib/session";
 
-// @next-codemod-ignore Cache Components adoption: this segment temporarily allows blocking.
-// Remove this opt-out after verifying the segment passes validation without it.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
-export const instant = false;
-
-export default async function InvitationsPage(
+export default function InvitationsPage(
   props: PageProps<"/events/[eventId]/invitations">,
 ) {
-  const { eventId } = await props.params;
-  const session = await requireSession();
+  return (
+    <div className="mx-auto max-w-4xl px-6 py-12">
+      <HeaderConfig showBackButton />
+      <Suspense fallback={<PageSkeleton stats rows={6} />}>
+        <InvitationsContent params={props.params} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function InvitationsContent({
+  params,
+}: Pick<PageProps<"/events/[eventId]/invitations">, "params">) {
+  const { eventId } = await params;
+  const session = await requireSessionForRender();
 
   const membership = await getEventMembership(eventId, session.user.id);
   if (!membership) {
@@ -61,17 +71,14 @@ export default async function InvitationsPage(
   });
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
-      <HeaderConfig showBackButton />
-      <InvitationManagement
-        event={event}
-        invitations={myInvitations}
-        seatSummary={seatSummary}
-        paymentSummary={paymentSummary}
-        responseSummary={responseSummary}
-        billingTotals={billingTotals}
-        currentUserRole={membership.role}
-      />
-    </div>
+    <InvitationManagement
+      event={event}
+      invitations={myInvitations}
+      seatSummary={seatSummary}
+      paymentSummary={paymentSummary}
+      responseSummary={responseSummary}
+      billingTotals={billingTotals}
+      currentUserRole={membership.role}
+    />
   );
 }
