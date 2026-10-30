@@ -532,6 +532,19 @@ function ManageHub({ eventId, stats }: { eventId: string; stats: EventStats }) {
   const hasInvitations = stats.invitationTotal > 0;
   const hasAccepted = stats.invitationAccepted > 0;
   const hasPending = stats.invitationPending > 0;
+  // ゲストタイルは招待の件数（同伴者を含まない）。人数はチェックインタイルが「名」で示す
+  const guestHint = hasInvitations
+    ? [
+        hasPending
+          ? `回答待ち ${stats.invitationPending} 件`
+          : "すべて回答済み",
+        stats.invitationDeclined > 0
+          ? `辞退 ${stats.invitationDeclined} 件`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("・")
+    : "招待を発行するとここに集計されます";
 
   return (
     <section className="flex flex-col gap-4">
@@ -561,12 +574,10 @@ function ManageHub({ eventId, stats }: { eventId: string; stats: EventStats }) {
           label="ゲスト"
           primary={
             hasInvitations
-              ? `${stats.invitationAccepted} / ${stats.invitationTotal} 出席`
+              ? `出席 ${stats.invitationAccepted} 件 / 招待 ${stats.invitationTotal} 件`
               : "未発行"
           }
-          hint={
-            hasPending ? `未回答 ${stats.invitationPending} 件` : "全員回答済"
-          }
+          hint={guestHint}
         />
         <ManageTile
           href={`/events/${eventId}/checkin`}
