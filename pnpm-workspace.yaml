@@ -1,25 +1,6 @@
 minimumReleaseAge: 4320
 allowBuilds:
   lefthook: true
-  better-sqlite3: true
-  sharp: true
   esbuild: true
-minimumReleaseAgeExclude:
-  # Renovate security update: next@16.2.11
-  - next@16.2.11
-  # Renovate security update: hono@4.12.34
-  - hono@4.12.34
-  # Renovate security update: sharp@0.35.4 || 0.35.5
-  - sharp@0.35.4 || 0.35.5
-  # Renovate security update: vitest@4.1.11
-  - vitest@4.1.11
-  # Renovate security update: better-auth@1.7.7
-  - better-auth@1.7.7
-overrides:
-  "browserslist@<4.28.7": 4.29.5
-  "nanoid@<3.3.18": 3.3.20
-  "postcss@<8.5.18": 8.5.32
-  "sharp@<0.35.0": 0.35.5
-  "ws@>=8.0.0 <8.21.0": 8.22.0
 patchedDependencies:
   "@storybook/nextjs-vite@10.6.2": patches/@storybook__nextjs-vite@10.6.2.patch

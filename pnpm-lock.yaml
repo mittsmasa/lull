@@ -162,13 +162,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  browserslist@<4.28.7: 4.29.5
-  nanoid@<3.3.18: 3.3.20
-  postcss@<8.5.18: 8.5.32
-  sharp@<0.35.0: 0.35.5
-  ws@>=8.0.0 <8.21.0: 8.22.0
-
 patchedDependencies:
   '@storybook/nextjs-vite@10.6.2': 0a5c91ae84862d3dab849c5da5baf1178fb32ee664edc6b2e74226627f8f563d
 
@@ -2624,7 +2617,7 @@ packages:
   '@serwist/utils@9.5.13':
     resolution: {integrity: sha512-jJJSvl0pSc6udJ7pN2u0oduOfQqSY6oJNjbIc82YcVnkpzj1O+qFHYdrR6tu9bspa30Nc8ZVV+VncOcyguvk5w==}
     peerDependencies:
-      browserslist: 4.29.5
+      browserslist: '>=4'
     peerDependenciesMeta:
       browserslist:
         optional: true
@@ -4764,7 +4757,7 @@ packages:
     resolution: {integrity: sha512-t8wonIOdQyOjtPd2VktlBu6QjTVTks6v8bSi7kd0r2Vll8TK1JYDZtRRdbmCHOAMphkZgrzK+L+vXK4pyZ8t4A==}
     hasBin: true
     peerDependencies:
-      browserslist: 4.29.5
+      browserslist: '>= 4.21.0'
 
   update-notifier@7.3.1:
     resolution: {integrity: sha512-+dwUY4L35XFYEzE+OAL3sarJdUioVovq+8f7lcIJ7wnmnYQV5UD1Y/lcwaMSyaQ6Bj3JMj1XSTjZbNLHn/19yA==}
