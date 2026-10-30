@@ -13,6 +13,8 @@ minimumReleaseAgeExclude:
   - sharp@0.35.4 || 0.35.5
   # Renovate security update: vitest@4.1.11
   - vitest@4.1.11
+  # Renovate security update: better-auth@1.7.7
+  - better-auth@1.7.7
 overrides:
   "browserslist@<4.28.7": 4.29.5
   "nanoid@<3.3.18": 3.3.20
