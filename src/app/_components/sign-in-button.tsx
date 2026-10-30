@@ -9,17 +9,9 @@ type SignInButtonProps = {
 
 export function SignInButton({ callbackURL }: SignInButtonProps) {
   const handleSignIn = () => {
-    const target = callbackURL ?? "/dashboard";
-    if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
-      authClient.signIn.oauth2({
-        providerId: "google",
-        callbackURL: target,
-      });
-      return;
-    }
     authClient.signIn.social({
       provider: "google",
-      callbackURL: target,
+      callbackURL: callbackURL ?? "/dashboard",
     });
   };
 

@@ -43,11 +43,13 @@ export const auth = betterAuth({
                 scopes: ["openid", "email", "profile"],
                 pkce: true,
                 mapProfileToUser: (profile) => ({
-                  id: profile.sub,
                   email: profile.email,
                   name: profile.name,
-                  image: profile.picture,
-                  emailVerified: profile.email_verified ?? true,
+                  image:
+                    typeof profile.picture === "string"
+                      ? profile.picture
+                      : undefined,
+                  emailVerified: profile.email_verified !== false,
                 }),
               },
             ],

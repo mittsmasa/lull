@@ -38,12 +38,11 @@ const handlersPromise: Promise<EmulateHandlers> =
         const redirectUris = Array.from(
           new Set(
             [
-              "http://localhost:3000/api/auth/oauth2/callback/google",
+              "http://localhost:3000/api/auth/callback/google",
               process.env.BETTER_AUTH_URL &&
-                `${process.env.BETTER_AUTH_URL}/api/auth/oauth2/callback/google`,
-              branchUrl && `${branchUrl}/api/auth/oauth2/callback/google`,
-              deploymentUrl &&
-                `${deploymentUrl}/api/auth/oauth2/callback/google`,
+                `${process.env.BETTER_AUTH_URL}/api/auth/callback/google`,
+              branchUrl && `${branchUrl}/api/auth/callback/google`,
+              deploymentUrl && `${deploymentUrl}/api/auth/callback/google`,
             ].filter((v): v is string => Boolean(v)),
           ),
         );
