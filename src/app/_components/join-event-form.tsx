@@ -80,17 +80,9 @@ export function JoinEventForm({
   const handleJoinWithGoogle = () => {
     setSavedDisplayName(displayName);
     setPendingFlag("true");
-    const target = `/join/${token}`;
-    if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
-      authClient.signIn.oauth2({
-        providerId: "google",
-        callbackURL: target,
-      });
-      return;
-    }
     authClient.signIn.social({
       provider: "google",
-      callbackURL: target,
+      callbackURL: `/join/${token}`,
     });
   };
 

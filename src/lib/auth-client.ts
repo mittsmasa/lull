@@ -1,4 +1,3 @@
-import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 const baseURL =
@@ -8,5 +7,4 @@ const baseURL =
 
 export const authClient = createAuthClient({
   baseURL,
-  plugins: [genericOAuthClient()],
 });
