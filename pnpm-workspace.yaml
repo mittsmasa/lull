@@ -2,5 +2,3 @@ minimumReleaseAge: 4320
 allowBuilds:
   lefthook: true
   esbuild: true
-patchedDependencies:
-  "@storybook/nextjs-vite@10.6.2": patches/@storybook__nextjs-vite@10.6.2.patch
