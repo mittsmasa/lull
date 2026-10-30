@@ -271,9 +271,12 @@ function ProgramRow({
       value={program}
       dragListener={false}
       dragControls={dragControls}
+      // motion v14 の Reorder.Item は既定で tabIndex=0 になり、Space + 矢印で
+      // 並び替えできる。並べ替えモード以外では li をフォーカス対象から外す。
+      tabIndex={showGrip ? 0 : undefined}
       transition={{ duration: 0.18, ease: "easeOut" }}
       className={cn(
-        "transition-colors first:rounded-t-md last:rounded-b-md",
+        "outline-none transition-colors first:rounded-t-md last:rounded-b-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
         program.type !== "performance" && "bg-muted/30",
         selected && "bg-muted/50",
       )}
