@@ -177,11 +177,11 @@ importers:
   .:
     dependencies:
       '@emulators/adapter-next':
-        specifier: 0.12.2
-        version: 0.12.2
+        specifier: 0.12.3
+        version: 0.12.3
       '@emulators/google':
-        specifier: 0.12.2
-        version: 0.12.2
+        specifier: 0.12.3
+        version: 0.12.3
       '@hono/zod-validator':
         specifier: 0.9.1
         version: 0.9.1(hono@4.13.14)(zod@4.6.7)
@@ -584,14 +584,14 @@ packages:
   '@emnapi/wasi-threads@1.2.2':
     resolution: {integrity: sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA==}
 
-  '@emulators/adapter-next@0.12.2':
-    resolution: {integrity: sha512-wvC2G82a+Tw4k5WXjMnEFH2l4QijoNmaLFJtR6tMPz5IUgdf9pkTXo9w+pm6n0X5UNnp/Issmgev6WxsjRI1pg==}
+  '@emulators/adapter-next@0.12.3':
+    resolution: {integrity: sha512-1NaR7Q9H3+zx2Qs8AnUr8dZo2COwdGXyJQQzcb+7yL141u19YHxkc4DnSobP3epnOiZcWgR21fmkBL6xYJZvtQ==}
 
-  '@emulators/core@0.12.2':
-    resolution: {integrity: sha512-/nJ2AJGW3T8Hzy15yu2xrRVEkgTWMVSxYP2IgiUBc45bSAqUQFfJKCaaO3JkVqap+8hNUEfUNxvkHgL3uFC3Dg==}
+  '@emulators/core@0.12.3':
+    resolution: {integrity: sha512-xbKgJKyk8inuyVDv/um8/M5FowgA7xI1UJVZYbIcRL1JxRWyPBnbo5n+EEQcypVDoZTLrXdJZ/STGBthbek2YA==}
 
-  '@emulators/google@0.12.2':
-    resolution: {integrity: sha512-dLzXRXIsvNXOof6sFpk/uIw/TBgf7EVnwMiKzu5KLfVCekDeSmznjGnIFfPfbY/FWtAud4vu5BOiAEChGZIjbA==}
+  '@emulators/google@0.12.3':
+    resolution: {integrity: sha512-X+YUkR6tjJFYscdsL9+UeUTlKpzdxCUfW2jKU4+yhU5s/qjI4qTikFy20yUy88FUq/0hDRBPk9H3AdeUM7Hn9w==}
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
@@ -5116,17 +5116,17 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@emulators/adapter-next@0.12.2':
+  '@emulators/adapter-next@0.12.3':
     dependencies:
-      '@emulators/core': 0.12.2
+      '@emulators/core': 0.12.3
 
-  '@emulators/core@0.12.2':
+  '@emulators/core@0.12.3':
     dependencies:
       jose: 6.2.12
 
-  '@emulators/google@0.12.2':
+  '@emulators/google@0.12.3':
     dependencies:
-      '@emulators/core': 0.12.2
+      '@emulators/core': 0.12.3
       jose: 6.2.12
 
   '@esbuild-kit/core-utils@3.3.2':
