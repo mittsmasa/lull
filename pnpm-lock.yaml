@@ -312,8 +312,8 @@ importers:
         specifier: 10.6.5
         version: 10.6.5(@types/react@19.3.0)(react@19.3.1)
       storybook-addon-vrt:
-        specifier: 0.4.0
-        version: 0.4.0(vite@8.3.5(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))(vitest@5.0.5)
+        specifier: 0.4.2
+        version: 0.4.2(vite@8.3.5(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))(vitest@5.0.5)
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -3256,8 +3256,8 @@ packages:
     resolution: {integrity: sha512-DdH81/zPLVS11EUgWq3tEu/xn+EzljlMYooDNdzWEnFha3R3NBMpMV1UqYIpjYHV/SgpFKMIX1Oh7o06SjM/oA==}
     engines: {node: '>=18'}
 
-  cac@7.0.0:
-    resolution: {integrity: sha512-tixWYgm5ZoOD+3g6UTea91eow5z6AAHaho3g0V9CNSNb45gM8SmflpAc+GRd1InC4AqN/07Unrgp56Y94N9hJQ==}
+  cac@7.1.0:
+    resolution: {integrity: sha512-LMDU/U2yA4IPIY8KT0NsNPWEYZvAMkbgyspxJ6btJaYV+WMDOHAZCmB0lsTObiHaRS1V/ztKAl7+TSkTqXyeoA==}
     engines: {node: '>=20.19.0'}
 
   camelcase@5.3.1:
@@ -4247,8 +4247,8 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
-  pixelmatch@7.2.0:
-    resolution: {integrity: sha512-xhcb4yHu9sM/G7foGzoLtXYcC0zHEaOXXjRKhGup0fw78Nf2Tkiapv4EQyMzrbcmQPsllAI7DbFY2UT7PlI9Pg==}
+  pixelmatch@8.0.0:
+    resolution: {integrity: sha512-cIqOLfh5k52us715qf3B3+kTOxZv+WDv77HN7xokLScYQGYQHi4m/ynoDIPpvF2LvCyUJGyvzY64i0QCXtzu1g==}
     hasBin: true
 
   playwright-core@1.64.1:
@@ -4518,8 +4518,8 @@ packages:
   std-env@4.3.0:
     resolution: {integrity: sha512-OtU/EgQ1kIm5KwqQpBC6ZEMXrZRui11w8zgfTWp8cdO9B8OaPsbA8bTHO2P+HNo1VlUTGMVBwPhydu6poeXiag==}
 
-  storybook-addon-vrt@0.4.0:
-    resolution: {integrity: sha512-Fjk+ChDSY61BJaPOQe7rlEHMNbfVUqM3BRP8wgdjuoyoECXFxfMQ2Rro6eooV+CFocD2AZcVn3VY7BnGEbxF1A==}
+  storybook-addon-vrt@0.4.2:
+    resolution: {integrity: sha512-MABCiUb//M36bvz9HVppWnSOaJ3T7VUYrEELKjNQm1gMP9Y2uxUe78O+/nt1shBAw9vtKXW+ylpzlvtZ/wNqHw==}
     engines: {node: '>=22.12.0'}
     hasBin: true
     peerDependencies:
@@ -7406,7 +7406,7 @@ snapshots:
     dependencies:
       run-applescript: 7.1.0
 
-  cac@7.0.0: {}
+  cac@7.1.0: {}
 
   camelcase@5.3.1: {}
 
@@ -8210,7 +8210,7 @@ snapshots:
 
   picomatch@4.0.7: {}
 
-  pixelmatch@7.2.0:
+  pixelmatch@8.0.0:
     dependencies:
       pngjs: 7.0.0
 
@@ -8553,10 +8553,10 @@ snapshots:
 
   std-env@4.3.0: {}
 
-  storybook-addon-vrt@0.4.0(vite@8.3.5(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))(vitest@5.0.5):
+  storybook-addon-vrt@0.4.2(vite@8.3.5(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))(vitest@5.0.5):
     dependencies:
-      cac: 7.0.0
-      pixelmatch: 7.2.0
+      cac: 7.1.0
+      pixelmatch: 8.0.0
       pngjs: 7.0.0
     optionalDependencies:
       vite: 8.3.5(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
